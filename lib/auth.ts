@@ -176,8 +176,12 @@ export const authConfig: NextAuthConfig = {
           roles?: Array<{ id: string; name: string; displayName: string }>
         }
         token.id = user.id
-        token.permissions = userWithPerms.permissions || []
-        token.roles = userWithPerms.roles || []
+        token.permissions = Array.isArray(userWithPerms.permissions)
+          ? userWithPerms.permissions
+          : []
+        token.roles = Array.isArray(userWithPerms.roles)
+          ? userWithPerms.roles
+          : []
         token.picture = user.image
       } else if (
         (!token.permissions || (Array.isArray(token.permissions) && token.permissions.length === 0)) &&
@@ -188,8 +192,8 @@ export const authConfig: NextAuthConfig = {
 
         if (authPayload) {
           token.id = authPayload.id
-          token.permissions = authPayload.permissions
-          token.roles = authPayload.roles
+          token.permissions = authPayload.permissions ?? []
+          token.roles = authPayload.roles ?? []
           token.picture = authPayload.image
         }
       }
@@ -203,8 +207,8 @@ export const authConfig: NextAuthConfig = {
           permissions?: string[]
           roles?: Array<{ id: string; name: string; displayName: string }>
         }
-        sessionWithPerms.permissions = token.permissions || []
-        sessionWithPerms.roles = token.roles || []
+        sessionWithPerms.permissions = Array.isArray(token.permissions) ? token.permissions : []
+        sessionWithPerms.roles = Array.isArray(token.roles) ? token.roles : []
       }
       return session
     },
