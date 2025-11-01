@@ -48,7 +48,7 @@ export function SignIn({
         router.push("/admin/dashboard")
         router.refresh()
       }
-    } catch (err) {
+    } catch {
       setError("Đã xảy ra lỗi. Vui lòng thử lại.")
       setIsLoading(false)
     }
@@ -59,7 +59,7 @@ export function SignIn({
     setError(null)
     try {
       await signIn("google", { callbackUrl: "/admin/dashboard" })
-    } catch (err) {
+    } catch {
       setError("Đã xảy ra lỗi khi đăng nhập bằng Google. Vui lòng thử lại.")
       setIsLoading(false)
     }

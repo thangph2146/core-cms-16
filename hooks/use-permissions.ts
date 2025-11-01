@@ -9,7 +9,7 @@ import { hasAnyPermission } from "@/lib/permissions"
 
 export function usePermissions() {
   const { data: session, status } = useSession()
-  const permissions = ((session as any)?.permissions || []) as Permission[]
+  const permissions = (session?.permissions || []) as Permission[]
 
   return {
     permissions,

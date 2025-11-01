@@ -2,16 +2,10 @@
  * Menu data với permissions mapping
  */
 import {
-  BookOpen,
-  Bot,
-  Command,
   Frame,
   LifeBuoy,
-  Map,
-  PieChart,
   Send,
   Settings2,
-  SquareTerminal,
   Users,
   FileText,
   FolderTree,
@@ -23,7 +17,6 @@ import {
   GraduationCap,
   LayoutDashboard,
   Home,
-  LogInIcon,
 } from "lucide-react"
 import { MENU_PERMISSIONS, PERMISSIONS } from "./permissions"
 import type { Permission } from "./permissions"

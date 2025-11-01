@@ -10,8 +10,8 @@ export function useAuth() {
 
   return {
     user: session?.user,
-    permissions: (session as any)?.permissions || [],
-    roles: (session as any)?.roles || [],
+    permissions: session?.permissions || [],
+    roles: session?.roles || [],
     isAuthenticated: !!session,
     isLoading: status === "loading",
   }

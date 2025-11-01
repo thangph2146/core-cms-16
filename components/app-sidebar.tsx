@@ -24,11 +24,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session, status } = useSession()
   const isLoading = status === "loading"
 
-  // Get permissions from session
-  const permissions = ((session as any)?.permissions || []) as Permission[]
-
   // Get menu data based on permissions
   const menuData = React.useMemo(() => {
+    const permissions = (session?.permissions || []) as Permission[]
     if (!permissions.length) {
       return {
         navMain: [],
@@ -37,7 +35,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
     }
     return getMenuData(permissions)
-  }, [permissions])
+  }, [session?.permissions])
 
   const userData = session?.user
     ? {

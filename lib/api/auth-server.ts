@@ -20,5 +20,8 @@ export async function requireAuth() {
 
 export async function getPermissions(): Promise<Permission[]> {
   const session = await getSession()
-  return ((session as any)?.permissions || []) as Permission[]
+  const sessionWithPerms = session as typeof session & {
+    permissions?: Permission[]
+  }
+  return (sessionWithPerms?.permissions || []) as Permission[]
 }

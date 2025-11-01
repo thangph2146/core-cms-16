@@ -135,7 +135,7 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }: any) {
+    async signIn({ user, account }) {
       if (!user?.email) {
         return false
       }
@@ -169,13 +169,20 @@ export const authConfig: NextAuthConfig = {
 
       return true
     },
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }) {
       if (user) {
+        const userWithPerms = user as typeof user & {
+          permissions?: string[]
+          roles?: Array<{ id: string; name: string; displayName: string }>
+        }
         token.id = user.id
-        token.permissions = (user as any).permissions || []
-        token.roles = (user as any).roles || []
+        token.permissions = userWithPerms.permissions || []
+        token.roles = userWithPerms.roles || []
         token.picture = user.image
-      } else if ((!token.permissions || !(token.permissions as any[]).length) && token.email) {
+      } else if (
+        (!token.permissions || (Array.isArray(token.permissions) && token.permissions.length === 0)) &&
+        token.email
+      ) {
         const dbUser = await getUserWithRoles(token.email as string)
         const authPayload = mapUserAuthPayload(dbUser)
 
@@ -188,12 +195,16 @@ export const authConfig: NextAuthConfig = {
       }
       return token
     },
-    async session({ session, token }: any) {
+    async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
         session.user.image = (token.picture as string | null) ?? session.user.image
-        ;(session as any).permissions = token.permissions || []
-        ;(session as any).roles = token.roles || []
+        const sessionWithPerms = session as typeof session & {
+          permissions?: string[]
+          roles?: Array<{ id: string; name: string; displayName: string }>
+        }
+        sessionWithPerms.permissions = token.permissions || []
+        sessionWithPerms.roles = token.roles || []
       }
       return session
     },
