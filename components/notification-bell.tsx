@@ -5,7 +5,7 @@
 
 import * as React from "react"
 import { Bell, CheckCheck, Loader2 } from "lucide-react"
-import { useNotifications, useMarkAllAsRead } from "@/hooks/use-notifications"
+import { useNotifications, useMarkAllAsRead, useNotificationsSocketBridge } from "@/hooks/use-notifications"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,6 +19,9 @@ export function NotificationBell() {
   const { data, isLoading } = useNotifications({ limit: 10, refetchInterval: 30000 })
   const markAllAsRead = useMarkAllAsRead()
   const [open, setOpen] = React.useState(false)
+  
+  // Khởi tạo socket connection cho real-time notifications
+  useNotificationsSocketBridge()
 
   const unreadCount = data?.unreadCount || 0
   const notifications = data?.notifications || []

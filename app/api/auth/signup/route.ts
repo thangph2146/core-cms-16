@@ -3,6 +3,7 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Sign up error:", error)
+    logger.error("Sign up error", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: "Lỗi đăng ký" },
       { status: 500 }

@@ -33,3 +33,22 @@ ALLOWED_ORIGINS="http://localhost:3000,https://yourdomain.com"
 
 # IP Whitelist: Danh sách IP được phép truy cập admin (phân cách bởi dấu phẩy)
 # ALLOWED_IPS="127.0.0.1,192.168.1.1"
+
+# ============================================================================
+# Logger & Debugging Configuration
+# ============================================================================
+# Debug Mode: Bật/tắt logging chi tiết cho toàn bộ ứng dụng
+# - Trong development mode (NODE_ENV=development), logging tự động bật
+# - Đặt DEBUG="true" để bật logging trong production
+# - Logger sẽ hiển thị: timestamp, vị trí file, chi tiết log, và stack trace cho errors
+# DEBUG="false"
+
+# Socket Debug Mode: Bật/tắt debug logging cho Socket.IO
+# - Đặt SOCKET_DEBUG="true" để xem chi tiết các events, connections, và messages
+# - Logs sẽ hiển thị: connection/disconnection, room joins/leaves, message sending, notifications
+# SOCKET_DEBUG="false"
+
+# ============================================================================
+# Environment
+# ============================================================================
+NODE_ENV="development"

@@ -2,8 +2,27 @@
  * API Route cho Notifications
  */
 import { NextRequest, NextResponse } from "next/server"
+import type { Notification } from "@prisma/client"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/logger"
+import {
+  getSocketServer,
+  mapNotificationToPayload,
+  storeNotificationInCache,
+} from "@/lib/socket/state"
+
+function broadcastNotification(notification: Notification) {
+  const payload = mapNotificationToPayload(notification)
+  storeNotificationInCache(notification.userId, payload)
+
+  const io = getSocketServer()
+  if (!io) {
+    return
+  }
+
+  io.to(`user:${notification.userId}`).emit("notification:new", payload)
+}
 
 // GET - Lấy danh sách notifications của user
 export async function GET(request: NextRequest) {
@@ -71,7 +90,7 @@ export async function GET(request: NextRequest) {
       hasMore: offset + notifications.length < total,
     })
   } catch (error) {
-    console.error("Error fetching notifications:", error)
+    logger.error("Error fetching notifications", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: "Failed to fetch notifications" },
       { status: 500 }
@@ -112,13 +131,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    broadcastNotification(notification)
+
     return NextResponse.json(notification, { status: 201 })
   } catch (error) {
-    console.error("Error creating notification:", error)
+    logger.error("Error creating notification", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: "Failed to create notification" },
       { status: 500 }
     )
   }
 }
-

@@ -2,6 +2,7 @@
  * Axios instance configuration với proxy support
  */
 import axios from "axios"
+import { logger } from "@/lib/logger"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
 
@@ -59,10 +60,10 @@ apiClient.interceptors.response.use(
 
     // Handle 403 - Forbidden
     if (error.response?.status === 403) {
-      // Redirect to unauthorized page
-      if (typeof window !== "undefined") {
-        console.error("Access denied")
-      }
+      logger.warn("Access denied", {
+        url: originalRequest.url,
+        status: error.response.status,
+      })
     }
 
     return Promise.reject(error)

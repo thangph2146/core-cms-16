@@ -3,9 +3,11 @@
  */
 "use client"
 
+import { useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
+import { useSocket } from "@/hooks/use-socket"
 
 export interface Notification {
   id: string
@@ -113,4 +115,47 @@ export function useMarkAllAsRead() {
       })
     },
   })
+}
+
+export function useNotificationsSocketBridge() {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  // Lấy role từ session.roles (không phải session.user.roles)
+  const primaryRole = session?.roles?.[0]?.name ?? null
+
+  const { socket, onNotification, onNotificationUpdated, onNotificationsSync } = useSocket({
+    userId: session?.user?.id,
+    role: primaryRole,
+  })
+
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+
+    const invalidate = () => {
+      queryClient.invalidateQueries({
+        queryKey: ["notifications", userId],
+      })
+    }
+
+    const stopNew = onNotification(() => {
+      invalidate()
+    })
+
+    const stopUpdated = onNotificationUpdated(() => {
+      invalidate()
+    })
+
+    const stopSync = onNotificationsSync(() => {
+      invalidate()
+    })
+
+    return () => {
+      stopNew?.()
+      stopUpdated?.()
+      stopSync?.()
+    }
+  }, [session?.user?.id, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
+
+  return { socket }
 }

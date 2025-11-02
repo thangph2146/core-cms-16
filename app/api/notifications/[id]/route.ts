@@ -4,6 +4,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/logger"
+import {
+  getNotificationCache,
+  getSocketServer,
+  mapNotificationToPayload,
+  removeNotificationFromCache,
+  updateNotificationInCache,
+} from "@/lib/socket/state"
 
 // PATCH - Mark notification as read/unread
 export async function PATCH(
@@ -44,9 +52,19 @@ export async function PATCH(
       },
     })
 
+    updateNotificationInCache(session.user.id, updated.id, (item) => {
+      item.read = updated.isRead
+    })
+
+    const io = getSocketServer()
+    if (io) {
+      const payload = mapNotificationToPayload(updated)
+      io.to(`user:${session.user.id}`).emit("notification:updated", payload)
+    }
+
     return NextResponse.json(updated)
   } catch (error) {
-    console.error("Error updating notification:", error)
+    logger.error("Error updating notification", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: "Failed to update notification" },
       { status: 500 }
@@ -86,13 +104,21 @@ export async function DELETE(
       where: { id },
     })
 
+    const removed = removeNotificationFromCache(session.user.id, id)
+
+    const io = getSocketServer()
+    if (io && removed) {
+      const cache = getNotificationCache()
+      const current = cache.get(session.user.id) ?? []
+      io.to(`user:${session.user.id}`).emit("notifications:sync", current)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting notification:", error)
+    logger.error("Error deleting notification", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: "Failed to delete notification" },
       { status: 500 }
     )
   }
 }
-
