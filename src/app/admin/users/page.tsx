@@ -1,8 +1,9 @@
 import { AdminHeader } from "@/components/admin-header"
-import { UsersTable } from "@/features/users/components/users-table"
 import { PERMISSIONS } from "@/lib/permissions"
 import { canPerformAction, canPerformAnyAction } from "@/lib/permissions-helpers"
 import { getPermissions, getSession } from "@/lib/api/auth-server"
+
+import { UsersTable } from "@/features/users/components/users-table"
 
 interface SessionWithMeta {
   roles?: Array<{ name: string }>
@@ -17,7 +18,7 @@ function ForbiddenNotice() {
           { label: "Users", isActive: true },
         ]}
       />
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-4 p-4 max-w[100vw - 20px]">
         <div className="flex min-h-[400px] flex-1 items-center justify-center">
           <div className="text-center">
             <h2 className="mb-2 text-2xl font-bold">Không có quyền truy cập</h2>

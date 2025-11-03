@@ -19,10 +19,8 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="flex flex-col overflow-hidden">
-        <ScrollArea className="h-screen">
+      <SidebarInset className="flex flex-col">
           {children}
-        </ScrollArea>
       </SidebarInset>
     </SidebarProvider>
   )

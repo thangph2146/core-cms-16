@@ -1,6 +1,8 @@
-import { listUsersCached } from "@/features/users/server/queries"
 import type { DataTableResult } from "@/components/data-table"
-import { UsersTableClient, type UserRow } from "./users-table.client"
+
+import { listUsersCached } from "@/features/users/server/queries"
+import type { UserRow } from "../types"
+import { UsersTableClient } from "./users-table.client"
 
 export interface UsersTableProps {
   canDelete?: boolean
@@ -8,6 +10,11 @@ export interface UsersTableProps {
   canManage?: boolean
 }
 
+/**
+ * Serializes user data from server query result to DataTable format
+ * @param data - Server query result
+ * @returns Serialized data for DataTable component
+ */
 function serializeInitialData(
   data: Awaited<ReturnType<typeof listUsersCached>>,
 ): DataTableResult<UserRow> {
@@ -32,6 +39,10 @@ function serializeInitialData(
   }
 }
 
+/**
+ * Server Component: Users Table
+ * Fetches initial user data and passes it to the client component
+ */
 export async function UsersTable({ canDelete, canRestore, canManage }: UsersTableProps) {
   const initial = await listUsersCached(1, 10, "", "", "active")
   const initialData = serializeInitialData(initial)

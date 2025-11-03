@@ -1,47 +1,24 @@
 "use client"
 
 import { useCallback, useMemo, useState } from "react"
-import type { DataTableResult, DataTableColumn, DataTableQueryState } from "@/components/data-table"
-import { ResourceTableClient } from "@/features/resources/components/resource-table.client"
-import type { ResourceViewMode } from "@/features/resources/types"
-import { Button } from "@/components/ui/button"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle } from "lucide-react"
+
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/data-table"
 import { FeedbackDialog, type FeedbackVariant } from "@/components/feedback-dialog"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle } from "lucide-react"
+import { ResourceTableClient } from "@/features/resources/components/resource-table.client"
+import type { ResourceViewMode } from "@/features/resources/types"
+import { extractErrorMessage } from "@/lib/api-utils"
 import { cn } from "@/lib/utils"
-import { ConfirmDialog } from "@/components/confirm-dialog"
 
-export interface UserRole {
-  id: string
-  name: string
-  displayName: string
-}
-
-export interface UserRow {
-  id: string
-  email: string
-  name: string | null
-  isActive: boolean
-  createdAt: string
-  deletedAt: string | null
-  roles: UserRole[]
-}
-
-interface UsersResponse {
-  data: UserRow[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
-}
-
+import type { UserRow, UsersResponse, UsersTableClientProps } from "../types"
 
 interface FeedbackState {
   open: boolean
@@ -49,13 +26,6 @@ interface FeedbackState {
   title: string
   description?: string
   details?: string
-}
-
-export interface UsersTableClientProps {
-  canDelete?: boolean
-  canRestore?: boolean
-  canManage?: boolean
-  initialData?: DataTableResult<UserRow>
 }
 
 interface DeleteConfirmState {
@@ -89,30 +59,6 @@ export function UsersTableClient({
     }
   }, [])
 
-  const parseJsonSafe = useCallback(async <T,>(response: Response): Promise<T | null> => {
-    try {
-      const clone = response.clone()
-      const textBody = await clone.text()
-      if (!textBody) return null
-      return JSON.parse(textBody) as T
-    } catch {
-      return null
-    }
-  }, [])
-
-  const extractErrorMessage = useCallback(async (response: Response) => {
-    const data = await parseJsonSafe<{ error?: string; message?: string }>(response)
-    if (data) {
-      if (typeof data.error === "string") return data.error
-      if (typeof data.message === "string") return data.message
-      return JSON.stringify(data)
-    }
-    try {
-      return await response.clone().text()
-    } catch {
-      return "Không xác định"
-    }
-  }, [parseJsonSafe])
 
   const dateFormatter = useMemo(
     () =>
@@ -130,17 +76,23 @@ export function UsersTableClient({
         header: "Email",
         filter: { placeholder: "Lọc email..." },
         searchable: true,
+        className: "min-w-[200px] max-w-[300px]",
+        headerClassName: "min-w-[200px] max-w-[300px]",
       },
       {
         accessorKey: "name",
         header: "Tên",
         filter: { placeholder: "Lọc tên..." },
         searchable: true,
+        className: "min-w-[150px] max-w-[250px]",
+        headerClassName: "min-w-[150px] max-w-[250px]",
         cell: (row) => row.name ?? "-",
       },
       {
         accessorKey: "roles",
         header: "Vai trò",
+        className: "min-w-[120px] max-w-[200px]",
+        headerClassName: "min-w-[120px] max-w-[200px]",
         cell: (row) =>
           row.roles.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -168,6 +120,8 @@ export function UsersTableClient({
             { label: "Ngưng hoạt động", value: "false" },
           ],
         },
+        className: "w-[120px]",
+        headerClassName: "w-[120px]",
         cell: (row) =>
           row.deletedAt ? (
             <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
@@ -187,6 +141,8 @@ export function UsersTableClient({
       {
         accessorKey: "createdAt",
         header: "Ngày tạo",
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
         cell: (row) => {
           try {
             return dateFormatter.format(new Date(row.createdAt))
@@ -205,6 +161,8 @@ export function UsersTableClient({
       {
         accessorKey: "deletedAt",
         header: "Ngày xóa",
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
         cell: (row) => {
           if (!row.deletedAt) return "-"
           try {
