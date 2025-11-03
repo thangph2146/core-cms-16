@@ -5,6 +5,7 @@ import {
     use,
     useCallback,
     useEffect,
+    useId,
     useMemo,
     useRef,
     useState,
@@ -82,7 +83,37 @@ function ColumnFilterControl<T extends object = object>({ column, value, disable
     if (column.filter?.type === "command") {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         const [open, setOpen] = useState(false)
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const [mounted, setMounted] = useState(false)
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const filterId = useId()
+        
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        useEffect(() => {
+            setMounted(true)
+        }, [])
+
         const selectedOption = column.filter.options.find((opt) => opt.value === value)
+
+        // Only render Popover on client to avoid hydration mismatch
+        if (!mounted) {
+            return (
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                        "h-8 w-full justify-between text-xs font-normal",
+                        !value && "text-muted-foreground",
+                    )}
+                    disabled={true}
+                >
+                    <span className="truncate">
+                        {selectedOption ? selectedOption.label : column.filter.placeholder ?? "Chọn..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+            )
+        }
 
         return (
             <Popover open={open} onOpenChange={setOpen}>
@@ -91,6 +122,7 @@ function ColumnFilterControl<T extends object = object>({ column, value, disable
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
+                        aria-controls={filterId}
                         className={cn(
                             "h-8 w-full justify-between text-xs font-normal",
                             !value && "text-muted-foreground",
@@ -103,7 +135,7 @@ function ColumnFilterControl<T extends object = object>({ column, value, disable
                         <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[200px] p-0" align="start">
+                <PopoverContent id={filterId} className="w-[200px] p-0" align="start">
                     <Command>
                         <CommandInput
                             placeholder={column.filter.searchPlaceholder ?? "Tìm kiếm..."}

@@ -1,5 +1,5 @@
-import { SignUpForm } from "@/components/sign-up-form"
-import { PublicHeader } from "@/components/public-header"
+import { SignUpForm } from "@/components/forms"
+import { PublicHeader } from "@/components/headers"
 
 export default function SignUpPage() {
   return (

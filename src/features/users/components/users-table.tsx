@@ -1,4 +1,4 @@
-import type { DataTableResult } from "@/components/data-table"
+import type { DataTableResult } from "@/components/tables"
 
 import { listUsersCached } from "@/features/users/server/queries"
 import type { UserRow } from "../types"

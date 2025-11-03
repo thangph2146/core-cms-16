@@ -8,7 +8,7 @@ import {
   type DataTableQueryState,
   type DataTableResult,
   type DataTableSelectionChange,
-} from "@/components/data-table"
+} from "@/components/tables"
 import { Button } from "@/components/ui/button"
 import type {
   ResourceTableLoader,

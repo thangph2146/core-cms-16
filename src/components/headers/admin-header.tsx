@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { NotificationBell } from "@/components/notification-bell"
-import { ModeToggle } from "@/components/mode-toggle"
+import { NotificationBell } from "@/components/notifications"
+import { ModeToggle } from "@/components/shared"
 
 export interface AdminBreadcrumbItem {
   label: string

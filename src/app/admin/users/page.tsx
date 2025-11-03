@@ -1,4 +1,4 @@
-import { AdminHeader } from "@/components/admin-header"
+import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { canPerformAction, canPerformAnyAction } from "@/lib/permissions-helpers"
 import { getPermissions, getSession } from "@/lib/api/auth-server"
@@ -67,11 +67,11 @@ export default async function UsersPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-          <UsersTable
-            canDelete={canDelete}
-            canRestore={canRestore}
-            canManage={canManage}
-          />
+        <UsersTable
+          canDelete={canDelete}
+          canRestore={canRestore}
+          canManage={canManage}
+        />
       </div>
     </>
   )

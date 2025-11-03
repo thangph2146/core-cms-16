@@ -1,4 +1,4 @@
-import type { DataTableResult } from "@/components/data-table"
+import type { DataTableResult } from "@/components/tables"
 
 export interface UserRole {
   id: string

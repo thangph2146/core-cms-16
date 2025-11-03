@@ -1,4 +1,6 @@
-import { AppSidebar } from "@/components/app-sidebar"
+import { Suspense } from "react"
+import { AppSidebar, NavMain } from "@/components/navigation"
+import { NavMainSkeleton } from "@/components/skeletons"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
 /**
@@ -17,7 +19,13 @@ export default function AdminLayout({
 }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar
+        navMainSlot={
+          <Suspense fallback={<NavMainSkeleton />}>
+            <NavMain />
+          </Suspense>
+        }
+      />
       <SidebarInset className="flex flex-col">
           {children}
       </SidebarInset>

@@ -27,7 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
+  useSidebarOptional,
 } from "@/components/ui/sidebar"
 
 type NavUserProps = {
@@ -36,7 +36,9 @@ type NavUserProps = {
 
 export function NavUser({ variant = "sidebar" }: NavUserProps) {
   const { data: session, status } = useSession()
-  const sidebar = useSidebar()
+  
+  // Only use sidebar context when variant is "sidebar"
+  const sidebar = useSidebarOptional()
   const isMobile = variant === "sidebar" ? sidebar?.isMobile ?? false : false
   
   // Lấy thông tin user từ session

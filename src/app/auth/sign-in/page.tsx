@@ -1,5 +1,5 @@
-import { SignIn } from "@/components/sign-in-form"
-import { PublicHeader } from "@/components/public-header"
+import { SignIn } from "@/components/forms"
+import { PublicHeader } from "@/components/headers"
 
 export default function SignInPage() {
   return (

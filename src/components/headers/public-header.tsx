@@ -6,8 +6,8 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { MenuToggleIcon } from "@/components/ui/menu-toggle-icon"
-import { ModeToggle } from "@/components/mode-toggle"
-import { NavUser } from "@/components/nav-user"
+import { ModeToggle } from "@/components/shared"
+import { NavUser } from "@/components/navigation"
 import { createPortal } from "react-dom"
 import {
   NavigationMenu,
@@ -42,9 +42,14 @@ type LinkItem = {
  */
 export function PublicHeader() {
   const [open, setOpen] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
   const scrolled = useScroll(10)
   const { data: session } = useSession()
   const isAuthenticated = !!session
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (open) {
@@ -69,54 +74,72 @@ export function PublicHeader() {
           <Link href="/" className="hover:bg-accent rounded-md p-2">
             <span className="text-lg font-bold">CMS System</span>
           </Link>
-          <NavigationMenu className="hidden md:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent">
-                  Tính năng
-                </NavigationMenuTrigger>
-                <NavigationMenuContent className="bg-background p-1 pr-1.5">
-                  <ul className="bg-popover grid w-lg grid-cols-2 gap-2 rounded-md border p-2 shadow">
-                    {featureLinks.map((item, i) => (
-                      <li key={i}>
-                        <ListItem {...item} />
-                      </li>
-                    ))}
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger className="bg-transparent">
-                  Hỗ trợ
-                </NavigationMenuTrigger>
-                <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
-                  <ul className="bg-popover grid w-lg grid-cols-2 gap-2 rounded-md border p-2 shadow">
-                    {supportLinks.map((item, i) => (
-                      <li key={i}>
-                        <ListItem {...item} />
-                      </li>
-                    ))}
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        </div>
-        <div className="hidden items-center gap-2 md:flex">
-          <ModeToggle />
-          {isAuthenticated ? (
-            <NavUser variant="header" />
+          {mounted ? (
+            <NavigationMenu className="hidden md:flex">
+              <NavigationMenuList>
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="bg-transparent">
+                    Tính năng
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent className="bg-background p-1 pr-1.5">
+                    <ul className="bg-popover grid w-lg grid-cols-2 gap-2 rounded-md border p-2 shadow">
+                      {featureLinks.map((item, i) => (
+                        <li key={i}>
+                          <ListItem {...item} />
+                        </li>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+                <NavigationMenuItem>
+                  <NavigationMenuTrigger className="bg-transparent">
+                    Hỗ trợ
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
+                    <ul className="bg-popover grid w-lg grid-cols-2 gap-2 rounded-md border p-2 shadow">
+                      {supportLinks.map((item, i) => (
+                        <li key={i}>
+                          <ListItem {...item} />
+                        </li>
+                      ))}
+                    </ul>
+                  </NavigationMenuContent>
+                </NavigationMenuItem>
+              </NavigationMenuList>
+            </NavigationMenu>
           ) : (
-            <>
-              <Button variant="outline" asChild>
-                <Link href="/auth/sign-in">Đăng nhập</Link>
+            <div className="hidden md:flex items-center gap-4">
+              <Button variant="ghost" className="bg-transparent" asChild>
+                <Link href="/admin/dashboard">Tính năng</Link>
               </Button>
-              <Button asChild>
-                <Link href="/auth/sign-up">Đăng ký</Link>
+              <Button variant="ghost" className="bg-transparent" asChild>
+                <Link href="/admin/support">Hỗ trợ</Link>
               </Button>
-            </>
+            </div>
           )}
         </div>
+        {mounted ? (
+          <div className="hidden items-center gap-2 md:flex">
+            <ModeToggle />
+            {isAuthenticated ? (
+              <NavUser variant="header" />
+            ) : (
+              <>
+                <Button variant="outline" asChild>
+                  <Link href="/auth/sign-in">Đăng nhập</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/sign-up">Đăng ký</Link>
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="hidden items-center gap-2 md:flex">
+            <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
+            <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
+          </div>
+        )}
         <Button
           size="icon"
           variant="outline"
@@ -129,39 +152,76 @@ export function PublicHeader() {
           <MenuToggleIcon open={open} className="size-5" duration={300} />
         </Button>
       </nav>
-      <MobileMenu open={open} className="flex flex-col justify-between gap-2 overflow-y-auto">
-        <NavigationMenu className="max-w-full">
+      {mounted && (
+        <MobileMenu open={open} className="flex flex-col justify-between gap-2 overflow-y-auto">
           <div className="flex w-full flex-col gap-y-2">
             <span className="text-sm font-medium">Tính năng</span>
             {featureLinks.map((link) => (
-              <ListItem key={link.title} {...link} />
+              <Link
+                key={link.title}
+                href={link.href}
+                className="w-full flex flex-row gap-x-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-sm p-2"
+              >
+                <div className="bg-background/40 flex aspect-square size-12 items-center justify-center rounded-md border shadow-sm">
+                  <link.icon className="text-foreground size-5" />
+                </div>
+                <div className="flex flex-col items-start justify-center">
+                  <span className="font-medium">{link.title}</span>
+                  {link.description && (
+                    <span className="text-muted-foreground text-xs">{link.description}</span>
+                  )}
+                </div>
+              </Link>
             ))}
             <span className="mt-4 text-sm font-medium">Hỗ trợ</span>
             {supportLinks.map((link) => (
-              <ListItem key={link.title} {...link} />
+              <Link
+                key={link.title}
+                href={link.href}
+                className="w-full flex flex-row gap-x-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-sm p-2"
+              >
+                <div className="bg-background/40 flex aspect-square size-12 items-center justify-center rounded-md border shadow-sm">
+                  <link.icon className="text-foreground size-5" />
+                </div>
+                <div className="flex flex-col items-start justify-center">
+                  <span className="font-medium">{link.title}</span>
+                  {link.description && (
+                    <span className="text-muted-foreground text-xs">{link.description}</span>
+                  )}
+                </div>
+              </Link>
             ))}
           </div>
-        </NavigationMenu>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-center pb-2">
-            <ModeToggle />
-          </div>
-          {isAuthenticated ? (
-            <div className="flex justify-center">
-              <NavUser variant="header" />
+          {mounted ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center pb-2">
+                <ModeToggle />
+              </div>
+              {isAuthenticated ? (
+                <div className="flex justify-center">
+                  <NavUser variant="header" />
+                </div>
+              ) : (
+                <>
+                  <Button variant="outline" className="w-full bg-transparent" asChild>
+                    <Link href="/auth/sign-in">Đăng nhập</Link>
+                  </Button>
+                  <Button className="w-full" asChild>
+                    <Link href="/auth/sign-up">Đăng ký</Link>
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
-            <>
-              <Button variant="outline" className="w-full bg-transparent" asChild>
-                <Link href="/auth/sign-in">Đăng nhập</Link>
-              </Button>
-              <Button className="w-full" asChild>
-                <Link href="/auth/sign-up">Đăng ký</Link>
-              </Button>
-            </>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center pb-2">
+                <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
+              </div>
+              <div className="h-9 w-full rounded-md bg-muted animate-pulse" />
+            </div>
           )}
-        </div>
-      </MobileMenu>
+        </MobileMenu>
+      )}
     </header>
   )
 }

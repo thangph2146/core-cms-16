@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/data-table"
-import { FeedbackDialog, type FeedbackVariant } from "@/components/feedback-dialog"
+import { ConfirmDialog } from "@/components/dialogs"
+import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
+import { FeedbackDialog, type FeedbackVariant } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,

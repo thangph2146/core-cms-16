@@ -43,6 +43,7 @@ export function DatePicker({
   showSeconds = false,
 }: DatePickerProps) {
   const today = React.useMemo(() => new Date(), [])
+  const datePickerId = React.useId()
   const [internalDate, setInternalDate] = useState<Date | undefined>(date)
   const [internalTime, setInternalTime] = useState<string | null>(selectedTime ?? null)
   const [open, setOpen] = useState(false)
@@ -308,12 +309,14 @@ export function DatePicker({
             className,
           )}
           disabled={disabled}
+          aria-controls={datePickerId}
         >
           <CalendarIcon className="mr-2 h-3 w-3" />
           {displayDate}
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
+      <PopoverContent
+        id={datePickerId} 
         className={cn(
           "w-auto p-0",
           enableTime && "min-w-[280px]"

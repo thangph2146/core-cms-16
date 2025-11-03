@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import type { DataTableColumn, DataTableResult, DataTableQueryState } from "@/components/data-table"
+import type { DataTableColumn, DataTableResult, DataTableQueryState } from "@/components/tables"
 
 export interface ResourceSelectionContext<T extends object> {
   view: ResourceViewMode<T>

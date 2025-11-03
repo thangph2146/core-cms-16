@@ -4,10 +4,8 @@ import * as React from "react"
 import { Command } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { getMenuData } from "@/lib/menu-data"
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavProjects, NavSecondary, NavUser } from "./"
+import { AppSidebarSkeleton } from "@/components/skeletons"
 import {
   Sidebar,
   SidebarContent,
@@ -18,8 +16,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import type { Permission } from "@/lib/permissions"
+import type { ReactNode } from "react"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  navMainSlot?: ReactNode
+}
+
+export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
   // Get session from NextAuth
   const { data: session, status } = useSession()
   const isLoading = status === "loading"
@@ -58,10 +61,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         {isLoading ? (
-          <div className="p-4 text-sm text-muted-foreground">Đang tải...</div>
+          <AppSidebarSkeleton />
         ) : (
           <>
-            <NavMain items={menuData.navMain} />
+            {navMainSlot}
             <NavProjects projects={menuData.projects} />
             <NavSecondary items={menuData.navSecondary} className="mt-auto" />
           </>

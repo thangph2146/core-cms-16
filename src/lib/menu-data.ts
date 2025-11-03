@@ -1,30 +1,30 @@
 /**
  * Menu data với permissions mapping
  */
-import {
-  Frame,
-  LifeBuoy,
-  Send,
-  Settings2,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Bell,
-  Phone,
-  GraduationCap,
-  LayoutDashboard,
-  Home,
-} from "lucide-react"
 import { MENU_PERMISSIONS, PERMISSIONS } from "./permissions"
 import type { Permission } from "./permissions"
+
+export type IconName =
+  | "LayoutDashboard"
+  | "Users"
+  | "FileText"
+  | "FolderTree"
+  | "Tag"
+  | "MessageSquare"
+  | "Shield"
+  | "Send"
+  | "Bell"
+  | "Phone"
+  | "GraduationCap"
+  | "Settings2"
+  | "LifeBuoy"
+  | "Home"
+  | "Frame"
 
 export interface MenuItem {
   title: string
   url: string
-  icon: typeof LayoutDashboard
+  icon: IconName
   isActive?: boolean
   items?: MenuSubItem[]
   permissions: ReadonlyArray<Permission>
@@ -39,7 +39,7 @@ export interface MenuSubItem {
 export interface MenuProject {
   name: string
   url: string
-  icon: typeof Frame
+  icon: IconName
 }
 
 export function getMenuData(userPermissions: Permission[]): {
@@ -56,7 +56,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Dashboard",
       url: "/admin/dashboard",
-      icon: LayoutDashboard,
+      icon: "LayoutDashboard",
       isActive: true,
       permissions: MENU_PERMISSIONS.dashboard,
       items: [
@@ -74,7 +74,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Người dùng",
       url: "/admin/users",
-      icon: Users,
+      icon: "Users",
       permissions: MENU_PERMISSIONS.users,
       items: [
         {
@@ -97,7 +97,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Bài viết",
       url: "/admin/posts",
-      icon: FileText,
+      icon: "FileText",
       permissions: MENU_PERMISSIONS.posts,
       items: [
         {
@@ -125,7 +125,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Danh mục",
       url: "/admin/categories",
-      icon: FolderTree,
+      icon: "FolderTree",
       permissions: MENU_PERMISSIONS.categories,
       items: [
         {
@@ -143,7 +143,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Thẻ",
       url: "/admin/tags",
-      icon: Tag,
+      icon: "Tag",
       permissions: MENU_PERMISSIONS.tags,
       items: [
         {
@@ -161,7 +161,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Bình luận",
       url: "/admin/comments",
-      icon: MessageSquare,
+      icon: "MessageSquare",
       permissions: MENU_PERMISSIONS.comments,
       items: [
         {
@@ -179,7 +179,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Vai trò",
       url: "/admin/roles",
-      icon: Shield,
+      icon: "Shield",
       permissions: MENU_PERMISSIONS.roles,
       items: [
         {
@@ -197,7 +197,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Tin nhắn",
       url: "/admin/messages",
-      icon: Send,
+      icon: "Send",
       permissions: MENU_PERMISSIONS.messages,
       items: [
         {
@@ -215,13 +215,13 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Thông báo",
       url: "/admin/notifications",
-      icon: Bell,
+      icon: "Bell",
       permissions: MENU_PERMISSIONS.notifications,
     },
     {
       title: "Liên hệ",
       url: "/admin/contact-requests",
-      icon: Phone,
+      icon: "Phone",
       permissions: MENU_PERMISSIONS.contact_requests,
       items: [
         {
@@ -239,7 +239,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Học sinh",
       url: "/admin/students",
-      icon: GraduationCap,
+      icon: "GraduationCap",
       permissions: MENU_PERMISSIONS.students,
       items: [
         {
@@ -257,7 +257,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Cài đặt",
       url: "/admin/settings",
-      icon: Settings2,
+      icon: "Settings2",
       permissions: MENU_PERMISSIONS.settings,
       items: [
         {
@@ -283,13 +283,13 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Hỗ trợ",
       url: "/admin/support",
-      icon: LifeBuoy,
+      icon: "LifeBuoy",
       permissions: [],
     },
     {
       title: "Phản hồi",
       url: "/admin/feedback",
-      icon: Send,
+      icon: "Send",
       permissions: [],
     },
   ]
@@ -298,7 +298,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       name: "Trang chính",
       url: "/",
-      icon: Home,
+      icon: "Home",
     }
   ]
 
