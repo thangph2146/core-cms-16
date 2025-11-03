@@ -53,6 +53,8 @@ let clientSocket: Socket | null = null
 let isConnecting = false
 let bootstrapPromise: Promise<boolean> | null = null
 let hasLoggedUnavailable = false
+let lastConnectionErrorKey: string | null = null
+let lastConnectionErrorAt = 0
 
 type EventHandler = (...args: unknown[]) => void
 const pendingHandlers = new Map<string, Set<EventHandler>>()
@@ -91,6 +93,31 @@ function flushPendingHandlers(socket: Socket) {
 
 function getActiveSocket(current: MutableRefObject<Socket | null>) {
   return current.current ?? clientSocket
+}
+
+function logConnectionIssue(error: Error) {
+  const normalizedMessage = error.message?.toLowerCase?.() ?? ""
+  const key = `${error.name}:${normalizedMessage}`
+  const now = Date.now()
+
+  if (lastConnectionErrorKey === key && now - lastConnectionErrorAt < 5000) {
+    return
+  }
+
+  lastConnectionErrorKey = key
+  lastConnectionErrorAt = now
+
+  const context = {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+  }
+
+  if (normalizedMessage.includes("timeout") || normalizedMessage.includes("xhr poll")) {
+    logger.warn("Socket connection chậm, sẽ thử lại", context)
+  } else {
+    logger.error("Socket connection thất bại", error)
+  }
 }
 
 async function ensureServerBootstrap(): Promise<boolean> {
@@ -207,7 +234,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
 
       socket.on("connect_error", (err) => {
         const error = err instanceof Error ? err : new Error(String(err))
-        logger.error("Lỗi kết nối", error)
+        logConnectionIssue(error)
       })
 
       socket.on("disconnect", (reason) => {
