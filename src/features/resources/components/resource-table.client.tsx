@@ -26,7 +26,6 @@ export interface ResourceTableClientProps<T extends object> {
   initialDataByView?: Record<string, DataTableResult<T>>
   limitOptions?: number[]
   fallbackRowCount?: number
-  searchPlaceholder?: string
 }
 
 export function ResourceTableClient<T extends object>({
@@ -38,7 +37,6 @@ export function ResourceTableClient<T extends object>({
   initialDataByView,
   limitOptions,
   fallbackRowCount = 5,
-  searchPlaceholder = "Tìm kiếm...",
 }: ResourceTableClientProps<T>) {
   if (viewModes.length === 0) {
     throw new Error("ResourceTableClient requires at least one view mode")
@@ -52,7 +50,6 @@ export function ResourceTableClient<T extends object>({
     viewModes.find((view) => view.id === currentViewId) ?? viewModes[0]
 
   const columns = activeView.columns ?? baseColumns
-  const viewSearchPlaceholder = activeView.searchPlaceholder ?? searchPlaceholder
   const emptyMessage = activeView.emptyMessage
 
   const handleRefresh = useCallback(() => {
@@ -132,8 +129,6 @@ export function ResourceTableClient<T extends object>({
       <DataTable<T>
         columns={columns}
         loader={dataLoader}
-        enableSearch
-        searchPlaceholder={viewSearchPlaceholder}
         limitOptions={limitOptions}
         emptyMessage={emptyMessage}
         selection={selectionConfig}

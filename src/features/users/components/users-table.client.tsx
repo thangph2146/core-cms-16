@@ -612,7 +612,6 @@ export function UsersTableClient({
         defaultViewId="active"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
-        searchPlaceholder="Tìm theo email, tên người dùng..."
       />
 
       {/* Delete Confirmation Dialog */}

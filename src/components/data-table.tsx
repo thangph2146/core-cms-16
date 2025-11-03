@@ -11,7 +11,7 @@ import {
     useTransition,
     type ReactNode,
 } from "react"
-import { ChevronLeft, ChevronRight, Check, ChevronsUpDown, Eye, EyeOff } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, ChevronsUpDown, Eye, EyeOff, Search } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -288,9 +288,6 @@ export interface DataTableProps<T extends object> {
     loader: DataTableLoader<T>
     actions?: (row: T) => ReactNode
     className?: string
-    enableSearch?: boolean
-    searchPlaceholder?: string
-    initialSearch?: string
     initialFilters?: Record<string, string>
     initialPage?: number
     initialLimit?: number
@@ -329,11 +326,6 @@ export function DataTable<T extends object>({
     loader,
     actions,
     className,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    enableSearch: _enableSearch = true,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    searchPlaceholder: _searchPlaceholder = "Tìm kiếm...",
-    initialSearch = "",
     initialFilters,
     initialPage = 1,
     initialLimit,
@@ -380,10 +372,10 @@ export function DataTable<T extends object>({
         () => ({
             page: initialPage,
             limit: initialLimit ?? availableLimits[0],
-            search: initialSearch,
+            search: "",
             filters: defaultFilters,
         }),
-        [initialPage, initialLimit, availableLimits, initialSearch, defaultFilters],
+        [initialPage, initialLimit, availableLimits, defaultFilters],
     )
 
     const [query, setQuery] = useState<DataTableQueryState>(defaultQuery)
@@ -456,6 +448,18 @@ export function DataTable<T extends object>({
     const hasPendingFilters = Object.values(pendingTextFilters).some((value) => value && value.trim().length > 0)
     const showClearFilters = hasAppliedFilters || hasPendingFilters
 
+    const [searchInput, setSearchInput] = useState("")
+    
+    const updateSearchQuery = useCallback((value: string) => {
+        setQuery((prev) => ({
+            ...prev,
+            page: 1,
+            search: value,
+        }))
+    }, [])
+    
+    const debouncedSearch = useDebouncedCallback(updateSearchQuery, 300)
+
     const handleFilterChange = (columnKey: string, value: string, immediate = false) => {
         setPendingTextFilters((prev) => {
             const next = { ...prev }
@@ -498,7 +502,9 @@ export function DataTable<T extends object>({
 
     const handleResetFilters = () => {
         debouncedApplyFilters.cancel()
+        debouncedSearch.cancel()
         setPendingTextFilters({})
+        setSearchInput("")
         applyFilters({})
         setQuery((prev) => ({
             ...prev,
@@ -622,7 +628,26 @@ export function DataTable<T extends object>({
             }
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="w-full flex items-center justify-between gap-2">
+                <div className="w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative min-w-[240px] max-w-sm flex-1">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Tìm kiếm..."
+                            value={searchInput}
+                            onChange={(event) => {
+                                const value = event.target.value
+                                setSearchInput(value)
+                                debouncedSearch(value)
+                            }}
+                            onBlur={() => {
+                                debouncedSearch.cancel()
+                                updateSearchQuery(searchInput)
+                            }}
+                            className="h-9 pl-8"
+                            disabled={isPending}
+                        />
+                    </div>
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Hiển thị</span>
                         <select
