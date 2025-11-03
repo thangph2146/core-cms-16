@@ -4,7 +4,7 @@
 
 - Pagination server-side với `page`, `limit`, `total`, `totalPages`
 - Search toàn bảng
-- Filter theo từng cột (text hoặc select)
+- Filter theo từng cột (text, select, date picker, hoặc command/combobox)
 - Tùy biến cell renderer cho từng cột
 - Gắn actions theo từng dòng (edit/delete...)
 - Lựa chọn nhiều dòng, chọn tất cả và hiển thị bulk actions theo permission
@@ -63,6 +63,16 @@ const columns: DataTableColumn<UserRow>[] = [
       ],
     },
     cell: (row) => (row.isActive ? "Active" : "Inactive"),
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Ngày tạo",
+    filter: {
+      type: "date",
+      placeholder: "Chọn ngày",
+      dateFormat: "dd/MM/yyyy",
+    },
+    cell: (row) => new Date(row.createdAt).toLocaleString("vi-VN"),
   },
 ]
 ```
@@ -231,11 +241,14 @@ const columns: DataTableColumn<MyData>[] = [
     accessorKey: "status",
     header: "Trạng thái",
     filter: {
-      type: "select",
+      type: "command",
       placeholder: "Tất cả trạng thái",
+      searchPlaceholder: "Tìm kiếm trạng thái...",
+      emptyMessage: "Không tìm thấy trạng thái",
       options: [
         { label: "Active", value: "active" },
         { label: "Inactive", value: "inactive" },
+        { label: "Pending", value: "pending" },
       ],
     },
     cell: (row) => (
@@ -247,6 +260,11 @@ const columns: DataTableColumn<MyData>[] = [
   {
     accessorKey: "createdAt",
     header: "Ngày tạo",
+    filter: {
+      type: "date",
+      placeholder: "Chọn ngày tạo",
+      dateFormat: "dd/MM/yyyy",
+    },
     cell: (row) => new Date(row.createdAt).toLocaleString("vi-VN"),
   },
 ]
@@ -395,6 +413,146 @@ export async function GET(req: NextRequest) {
 }
 ```
 
+## Các loại Filter
+
+DataTable hỗ trợ 4 loại filter:
+
+### 1. Text Filter (mặc định)
+```typescript
+filter: {
+  type: "text", // hoặc bỏ qua type
+  placeholder: "Lọc email...",
+}
+```
+
+### 2. Select Filter (Dropdown đơn giản)
+```typescript
+filter: {
+  type: "select",
+  placeholder: "Tất cả trạng thái",
+  options: [
+    { label: "Hoạt động", value: "true" },
+    { label: "Ngưng hoạt động", value: "false" },
+  ],
+}
+```
+
+### 3. Date Filter (Date Picker)
+```typescript
+// Date picker chỉ ngày
+filter: {
+  type: "date",
+  placeholder: "Chọn ngày",
+  dateFormat: "dd/MM/yyyy", // Tùy chọn, mặc định: "dd/MM/yyyy"
+}
+
+// Date picker với giờ/phút
+filter: {
+  type: "date",
+  placeholder: "Chọn ngày giờ",
+  dateFormat: "dd/MM/yyyy HH:mm", // Tùy chọn
+  enableTime: true,
+}
+
+// Date picker với giờ/phút/giây
+filter: {
+  type: "date",
+  placeholder: "Chọn ngày giờ",
+  dateFormat: "dd/MM/yyyy HH:mm:ss", // Tùy chọn
+  enableTime: true,
+  showSeconds: true,
+}
+```
+
+**Lưu ý:** 
+- Date filter (không có `enableTime`) trả về giá trị theo format `yyyy-MM-dd` trong `query.filters`.
+- Date filter với `enableTime: true` (không có `showSeconds`) trả về format `yyyy-MM-ddTHH:mm`.
+- Date filter với `enableTime: true` và `showSeconds: true` trả về format `yyyy-MM-ddTHH:mm:ss`.
+
+### 4. Command Filter (Combobox với search)
+```typescript
+filter: {
+  type: "command",
+  placeholder: "Chọn...",
+  searchPlaceholder: "Tìm kiếm...", // Tùy chọn
+  emptyMessage: "Không tìm thấy.", // Tùy chọn
+  options: [
+    { label: "Option 1", value: "opt1" },
+    { label: "Option 2", value: "opt2" },
+  ],
+}
+```
+
+Command filter phù hợp cho danh sách options dài cần tìm kiếm.
+
+## Ẩn/Hiện Bộ Lọc
+
+### Ẩn bộ lọc cho một cột cụ thể
+
+Để ẩn bộ lọc cho một cột, đơn giản là không định nghĩa thuộc tính `filter` trong cấu hình cột:
+
+```typescript
+const columns: DataTableColumn<UserRow>[] = [
+  {
+    accessorKey: "email",
+    header: "Email",
+    // Không có filter → cột này sẽ không có bộ lọc
+  },
+  {
+    accessorKey: "name",
+    header: "Tên",
+    filter: { placeholder: "Lọc tên..." }, // Có filter → hiển thị bộ lọc
+  },
+]
+```
+
+### Ẩn toàn bộ hàng bộ lọc
+
+Nếu không có cột nào có `filter`, hàng bộ lọc sẽ tự động bị ẩn:
+
+```typescript
+const columns: DataTableColumn<UserRow>[] = [
+  {
+    accessorKey: "email",
+    header: "Email",
+    // Không có filter
+  },
+  {
+    accessorKey: "name",
+    header: "Tên",
+    // Không có filter
+  },
+]
+// → Không có hàng bộ lọc nào được hiển thị
+```
+
+### Nút "Ẩn/Hiện bộ lọc"
+
+Nút **"Ẩn/Hiện bộ lọc"** sẽ tự động xuất hiện ở phía trên bảng (kế bên nút "Xóa bộ lọc") khi có ít nhất một cột được định nghĩa với thuộc tính `filter`.
+
+**Chức năng:**
+- **Khi bộ lọc đang hiển thị:** Nút sẽ hiển thị "Ẩn bộ lọc" với icon `EyeOff`. Nhấp vào sẽ ẩn toàn bộ hàng filter.
+- **Khi bộ lọc đang ẩn:** Nút sẽ hiển thị "Hiện bộ lọc" với icon `Eye`. Nhấp vào sẽ hiển thị lại hàng filter.
+
+**Lưu ý:** 
+- Nút này chỉ xuất hiện khi có ít nhất một cột có `filter` được định nghĩa.
+- Trạng thái ẩn/hiện được lưu trong component state (không persist qua refresh).
+- Khi ẩn bộ lọc, các filter đã áp dụng vẫn hoạt động bình thường, chỉ là UI filter row bị ẩn.
+
+### Nút "Xóa bộ lọc"
+
+Nút **"Xóa bộ lọc"** sẽ tự động xuất hiện ở phía trên bảng khi:
+- Có giá trị trong ô tìm kiếm (search), hoặc
+- Có ít nhất một filter đang được áp dụng, hoặc
+- Có giá trị đang được nhập trong các ô filter (pending filters)
+
+Nhấp vào nút này sẽ:
+- Xóa toàn bộ giá trị search
+- Xóa tất cả các filter đã áp dụng
+- Reset về trang đầu tiên
+
+**Lưu ý:** Nếu bạn muốn ẩn bộ lọc cho một cột nhưng vẫn giữ cột đó trong bảng, chỉ cần không thêm `filter` vào cấu hình cột. Bộ lọc chỉ hiển thị khi cột có thuộc tính `filter` được định nghĩa.
+
 ## Best practices
 
 1. **Memo hóa columns & loader** bằng `useMemo`/`useCallback` để tránh re-render không cần thiết.
@@ -402,5 +560,11 @@ export async function GET(req: NextRequest) {
 3. **Xử lý lỗi trong loader** – ném lỗi để DataTable fallback sang trạng thái rỗng (và log ở console).
 4. **Sử dụng `refreshKey`** khi cần reload bảng sau thao tác CRUD bên ngoài.
 5. **Giới hạn filters cần thiết** để giao diện gọn gàng; tránh hiển thị quá nhiều bộ lọc.
+6. **Chọn loại filter phù hợp:**
+   - `text`: Cho các trường text cần tìm kiếm theo từ khóa
+   - `select`: Cho danh sách options ngắn (< 10 items)
+   - `command`: Cho danh sách options dài (> 10 items) cần search
+   - `date`: Cho các trường ngày tháng
+7. **Ẩn filter khi không cần thiết:** Chỉ thêm `filter` cho các cột thực sự cần lọc. Việc này giúp giao diện gọn gàng và tải nhanh hơn.
 
 Tham khảo triển khai thực tế tại `src/features/users/components/users-table.tsx`.

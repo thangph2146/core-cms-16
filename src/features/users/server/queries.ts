@@ -97,6 +97,16 @@ function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput {
         case "name":
           where.name = { contains: value, mode: "insensitive" }
           break
+        case "roles":
+          // Filter by role name
+          where.userRoles = {
+            some: {
+              role: {
+                name: value,
+              },
+            },
+          }
+          break
         case "isActive":
           if (value === "true" || value === "1") where.isActive = true
           else if (value === "false" || value === "0") where.isActive = false
@@ -106,6 +116,44 @@ function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput {
             where.deletedAt = { not: null }
           } else if (value === "active") {
             where.deletedAt = null
+          }
+          break
+        case "createdAt":
+          // Date filter value is in format yyyy-MM-dd
+          try {
+            const filterDate = new Date(value)
+            if (!isNaN(filterDate.getTime())) {
+              // Filter for records created on the selected date
+              const startOfDay = new Date(filterDate)
+              startOfDay.setHours(0, 0, 0, 0)
+              const endOfDay = new Date(filterDate)
+              endOfDay.setHours(23, 59, 59, 999)
+              where.createdAt = {
+                gte: startOfDay,
+                lte: endOfDay,
+              }
+            }
+          } catch {
+            // Invalid date format, skip filter
+          }
+          break
+        case "deletedAt":
+          // Date filter value is in format yyyy-MM-dd
+          try {
+            const filterDate = new Date(value)
+            if (!isNaN(filterDate.getTime())) {
+              // Filter for records deleted on the selected date
+              const startOfDay = new Date(filterDate)
+              startOfDay.setHours(0, 0, 0, 0)
+              const endOfDay = new Date(filterDate)
+              endOfDay.setHours(23, 59, 59, 999)
+              where.deletedAt = {
+                gte: startOfDay,
+                lte: endOfDay,
+              }
+            }
+          } catch {
+            // Invalid date format, skip filter
           }
           break
         default:

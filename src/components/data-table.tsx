@@ -11,10 +11,21 @@ import {
     useTransition,
     type ReactNode,
 } from "react"
-import { ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, ChevronsUpDown, Eye, EyeOff } from "lucide-react"
+import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { DatePicker } from "@/components/ui/date-picker"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
 import {
     Table,
     TableBody,
@@ -24,7 +35,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
 
 type UnknownRecord = Record<string, unknown>
@@ -43,6 +53,20 @@ type ColumnFilterConfig =
         type: "select"
         options: ColumnFilterSelectOption[]
         placeholder?: string
+    }
+    | {
+        type: "date"
+        placeholder?: string
+        dateFormat?: string
+        enableTime?: boolean
+        showSeconds?: boolean
+    }
+    | {
+        type: "command"
+        options: ColumnFilterSelectOption[]
+        placeholder?: string
+        searchPlaceholder?: string
+        emptyMessage?: string
     }
 
 
@@ -78,6 +102,131 @@ function ColumnFilterControl({ column, value, disabled, onChange }: ColumnFilter
         )
     }
 
+    if (column.filter.type === "date") {
+        let dateValue: Date | undefined
+        try {
+            if (value && value.trim()) {
+                const parsed = new Date(value)
+                if (!isNaN(parsed.getTime())) {
+                    dateValue = parsed
+                }
+            }
+        } catch {
+            dateValue = undefined
+        }
+        const dateFormat = column.filter.dateFormat
+        const enableTime = column.filter.enableTime ?? false
+        const showSeconds = column.filter.showSeconds ?? false
+
+        // Determine default format based on enableTime and showSeconds
+        const defaultDateFormat = enableTime
+            ? showSeconds
+                ? "dd/MM/yyyy HH:mm:ss"
+                : "dd/MM/yyyy HH:mm"
+            : "dd/MM/yyyy"
+
+        // Determine output format for filter value
+        const getOutputFormat = () => {
+            if (enableTime) {
+                return showSeconds ? "yyyy-MM-dd'T'HH:mm:ss" : "yyyy-MM-dd'T'HH:mm"
+            }
+            return "yyyy-MM-dd"
+        }
+
+        return (
+            <DatePicker
+                date={dateValue}
+                onDateChange={(date) => {
+                    if (date) {
+                        onChange(format(date, getOutputFormat()), true)
+                    } else {
+                        onChange("", true)
+                    }
+                }}
+                placeholder={column.filter.placeholder ?? (enableTime ? "Chọn ngày giờ" : "Chọn ngày")}
+                dateFormat={dateFormat ?? defaultDateFormat}
+                disabled={disabled}
+                enableTime={enableTime}
+                showSeconds={showSeconds}
+            />
+        )
+    }
+
+    if (column.filter.type === "command") {
+        const [open, setOpen] = useState(false)
+        const selectedOption = column.filter.options.find((opt) => opt.value === value)
+
+        return (
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn(
+                            "h-8 w-full justify-between text-xs font-normal",
+                            !value && "text-muted-foreground",
+                        )}
+                        disabled={disabled}
+                    >
+                        <span className="truncate">
+                            {selectedOption ? selectedOption.label : column.filter.placeholder ?? "Chọn..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                        <CommandInput
+                            placeholder={column.filter.searchPlaceholder ?? "Tìm kiếm..."}
+                            className="h-9"
+                        />
+                        <CommandList>
+                            <CommandEmpty>
+                                {column.filter.emptyMessage ?? "Không tìm thấy."}
+                            </CommandEmpty>
+                            <CommandGroup>
+                                <CommandItem
+                                    value=""
+                                    onSelect={() => {
+                                        onChange("", true)
+                                        setOpen(false)
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-3 w-3",
+                                            value === "" ? "opacity-100" : "opacity-0",
+                                        )}
+                                    />
+                                    {column.filter.placeholder ?? "Tất cả"}
+                                </CommandItem>
+                                {column.filter.options.map((option) => (
+                                    <CommandItem
+                                        key={option.value}
+                                        value={option.value}
+                                        onSelect={() => {
+                                            onChange(option.value === value ? "" : option.value, true)
+                                            setOpen(false)
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-3 w-3",
+                                                value === option.value ? "opacity-100" : "opacity-0",
+                                            )}
+                                        />
+                                        {option.label}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        )
+    }
+
     return (
         <Input
             value={value}
@@ -94,7 +243,6 @@ export interface DataTableColumn<T extends object> {
     header: string
     cell?: (row: T) => ReactNode
     filter?: ColumnFilterConfig
-    searchable?: boolean
     className?: string
     headerClassName?: string
 }
@@ -235,6 +383,7 @@ export function DataTable<T extends object>({
     const [pendingTextFilters, setPendingTextFilters] = useState<Record<string, string>>(
         () => ({ ...defaultFilters }),
     )
+    const [showFilters, setShowFilters] = useState<boolean>(true)
     const initialQueryRef = useRef(defaultQuery)
     const hasConsumedInitialRef = useRef(!initialData)
 
@@ -474,21 +623,7 @@ export function DataTable<T extends object>({
             }
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
-                {enableSearch ? (
-                    <div className="relative min-w-[240px] max-w-sm flex-1">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            value={query.search}
-                            onChange={(event) => handleSearchChange(event.target.value)}
-                            placeholder={searchPlaceholder}
-                            className="pl-8"
-                            disabled={isPending}
-                        />
-                    </div>
-                ) : (
-                    <span />
-                )}
-                <div className="flex items-center gap-2">
+                <div className="w-full flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Hiển thị</span>
                         <select
@@ -505,17 +640,41 @@ export function DataTable<T extends object>({
                             ))}
                         </select>
                     </div>
-                    {showClearFilters && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleResetFilters}
-                            disabled={isPending}
-                        >
-                            Xóa lọc
-                        </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {columns.some((col) => col.filter) && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowFilters((prev) => !prev)}
+                                disabled={isPending}
+                                aria-label={showFilters ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
+                            >
+                                {showFilters ? (
+                                    <>
+                                        <EyeOff className="mr-2 h-4 w-4" />
+                                        Ẩn bộ lọc
+                                    </>
+                                ) : (
+                                    <>
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        Hiện bộ lọc
+                                    </>
+                                )}
+                            </Button>
+                        )}
+                        {showClearFilters && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleResetFilters}
+                                disabled={isPending}
+                            >
+                                Xóa bộ lọc
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -555,7 +714,7 @@ export function DataTable<T extends object>({
                                 <TableHead className="w-[120px] text-right">Hành động</TableHead>
                             ) : null}
                         </TableRow>
-                        {columns.some((col) => col.filter) && (
+                        {columns.some((col) => col.filter) && showFilters && (
                             <TableRow className="border-t border-border bg-muted/40">
                                 {selectionEnabled ? <TableHead className="w-10 bg-muted/40" /> : null}
                                 {columns.map((column) => (

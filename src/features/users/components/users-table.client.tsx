@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -36,6 +36,12 @@ interface DeleteConfirmState {
   onConfirm: () => Promise<void>
 }
 
+interface RoleOption {
+  id: string
+  name: string
+  displayName: string
+}
+
 export function UsersTableClient({
   canDelete = false,
   canRestore = false,
@@ -45,6 +51,8 @@ export function UsersTableClient({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const [rolesOptions, setRolesOptions] = useState<Array<{ label: string; value: string }>>([])
+  const [rolesLoading, setRolesLoading] = useState(true)
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -59,6 +67,31 @@ export function UsersTableClient({
     }
   }, [])
 
+
+  // Fetch roles for filter options
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        setRolesLoading(true)
+        const response = await fetch("/api/roles")
+        if (!response.ok) {
+          console.error("Failed to fetch roles")
+          return
+        }
+        const data = await response.json()
+        const options = data.data.map((role: RoleOption) => ({
+          label: role.displayName,
+          value: role.name,
+        }))
+        setRolesOptions(options)
+      } catch (error) {
+        console.error("Error fetching roles:", error)
+      } finally {
+        setRolesLoading(false)
+      }
+    }
+    fetchRoles()
+  }, [])
 
   const dateFormatter = useMemo(
     () =>
@@ -91,6 +124,13 @@ export function UsersTableClient({
       {
         accessorKey: "roles",
         header: "Vai trò",
+        filter: {
+          type: "command",
+          placeholder: "Chọn vai trò...",
+          searchPlaceholder: "Tìm kiếm vai trò...",
+          emptyMessage: "Không tìm thấy vai trò.",
+          options: rolesOptions,
+        },
         className: "min-w-[120px] max-w-[200px]",
         headerClassName: "min-w-[120px] max-w-[200px]",
         cell: (row) =>
@@ -113,8 +153,10 @@ export function UsersTableClient({
         accessorKey: "isActive",
         header: "Trạng thái",
         filter: {
-          type: "select",
-          placeholder: "Tất cả trạng thái",
+          type: "command",
+          placeholder: "Chọn trạng thái...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
           options: [
             { label: "Hoạt động", value: "true" },
             { label: "Ngưng hoạt động", value: "false" },
@@ -141,6 +183,11 @@ export function UsersTableClient({
       {
         accessorKey: "createdAt",
         header: "Ngày tạo",
+        filter: {
+          type: "date",
+          placeholder: "Chọn ngày tạo",
+          dateFormat: "dd/MM/yyyy",
+        },
         className: "min-w-[140px] max-w-[180px]",
         headerClassName: "min-w-[140px] max-w-[180px]",
         cell: (row) => {
@@ -152,7 +199,7 @@ export function UsersTableClient({
         },
       },
     ],
-    [dateFormatter],
+    [dateFormatter, rolesOptions],
   )
 
   const deletedColumns = useMemo<DataTableColumn<UserRow>[]>(
@@ -161,6 +208,11 @@ export function UsersTableClient({
       {
         accessorKey: "deletedAt",
         header: "Ngày xóa",
+        filter: {
+          type: "date",
+          placeholder: "Chọn ngày xóa",
+          dateFormat: "dd/MM/yyyy",
+        },
         className: "min-w-[140px] max-w-[180px]",
         headerClassName: "min-w-[140px] max-w-[180px]",
         cell: (row) => {
