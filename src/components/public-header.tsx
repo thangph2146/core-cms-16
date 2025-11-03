@@ -43,7 +43,7 @@ type LinkItem = {
 export function PublicHeader() {
   const [open, setOpen] = React.useState(false)
   const scrolled = useScroll(10)
-  const { data: session, status } = useSession()
+  const { data: session } = useSession()
   const isAuthenticated = !!session
 
   React.useEffect(() => {

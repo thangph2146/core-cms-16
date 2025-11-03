@@ -52,7 +52,6 @@ export function UsersTableClient({
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [rolesOptions, setRolesOptions] = useState<Array<{ label: string; value: string }>>([])
-  const [rolesLoading, setRolesLoading] = useState(true)
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -72,7 +71,6 @@ export function UsersTableClient({
   useEffect(() => {
     async function fetchRoles() {
       try {
-        setRolesLoading(true)
         const response = await fetch("/api/roles")
         if (!response.ok) {
           console.error("Failed to fetch roles")
@@ -84,10 +82,8 @@ export function UsersTableClient({
           value: role.name,
         }))
         setRolesOptions(options)
-      } catch (error) {
-        console.error("Error fetching roles:", error)
-      } finally {
-        setRolesLoading(false)
+      } catch {
+        console.error("Error fetching roles")
       }
     }
     fetchRoles()
@@ -291,7 +287,7 @@ export function UsersTableClient({
         },
       })
     },
-    [canDelete, extractErrorMessage, showFeedback],
+        [canDelete, showFeedback],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -317,7 +313,7 @@ export function UsersTableClient({
         },
       })
     },
-    [canManage, extractErrorMessage, showFeedback],
+    [canManage, showFeedback],
   )
 
   const handleRestoreSingle = useCallback(
@@ -421,7 +417,7 @@ export function UsersTableClient({
           })
       }
     },
-    [extractErrorMessage, showFeedback],
+    [showFeedback],
   )
 
   const viewModes = useMemo<ResourceViewMode<UserRow>[]>(() => {
@@ -575,7 +571,7 @@ export function UsersTableClient({
     if (!deleteConfirm) return
     try {
       await deleteConfirm.onConfirm()
-    } catch (error) {
+    } catch {
       // Error already handled in onConfirm
     } finally {
       setDeleteConfirm(null)

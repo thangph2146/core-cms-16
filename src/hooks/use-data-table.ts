@@ -13,7 +13,7 @@ export interface UseDataTableOptions {
     search?: string
     columnFilters?: Record<string, string>
   }) => Promise<{
-    data: any[]
+    data: unknown[]
     pagination: {
       page: number
       limit: number
@@ -23,7 +23,7 @@ export interface UseDataTableOptions {
   }>
 }
 
-export function useDataTable<T = any>(options: UseDataTableOptions) {
+export function useDataTable<T = unknown>(options: UseDataTableOptions) {
   const {
     page: initialPage = 1,
     limit: initialLimit,
@@ -56,7 +56,7 @@ export function useDataTable<T = any>(options: UseDataTableOptions) {
           search: searchValue ?? search,
           columnFilters: filters ?? columnFilters,
         })
-        setData(result.data)
+        setData(result.data as T[])
         setPagination(result.pagination)
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -101,7 +101,7 @@ export function useDataTable<T = any>(options: UseDataTableOptions) {
       // Trigger fetch with new filters
       fetchData(1, limit, search, newFilters)
     },
-    [fetchData, limit, search]
+    [fetchData, limit, search, columnFilters]
   )
 
   const refresh = useCallback(() => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react"
 
-type DebouncedFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>) => void) & {
+type DebouncedFn<T extends (...args: never[]) => void> = ((...args: Parameters<T>) => void) & {
   cancel: () => void
 }
 
@@ -10,7 +10,7 @@ type DebouncedFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>)
  * Lightweight debounced callback hook.
  * Returns a stable debounced function with a `cancel` method.
  */
-export function useDebouncedCallback<T extends (...args: any[]) => void>(
+export function useDebouncedCallback<T extends (...args: never[]) => void>(
   callback: T,
   delay: number,
 ): DebouncedFn<T> {
@@ -19,22 +19,25 @@ export function useDebouncedCallback<T extends (...args: any[]) => void>(
     callbackRef.current = callback
   }, [callback])
 
-  const debounced = useMemo(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const debounced = useMemo(() => {
     const fn = ((...args: Parameters<T>) => {
-      if (timer) {
-        clearTimeout(timer)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
       }
-      timer = setTimeout(() => {
-        callbackRef.current(...args)
+      timerRef.current = setTimeout(() => {
+        // Type assertion needed because T extends (...args: never[]) => void
+        // but we want to accept any function type at runtime
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(callbackRef.current as any)(...(args as any[]))
       }, delay)
     }) as DebouncedFn<T>
 
     fn.cancel = () => {
-      if (timer) {
-        clearTimeout(timer)
-        timer = null
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
       }
     }
 

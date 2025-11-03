@@ -36,8 +36,8 @@ type NavUserProps = {
 
 export function NavUser({ variant = "sidebar" }: NavUserProps) {
   const { data: session, status } = useSession()
-  const sidebar = variant === "sidebar" ? useSidebar() : null
-  const isMobile = sidebar?.isMobile ?? false
+  const sidebar = useSidebar()
+  const isMobile = variant === "sidebar" ? sidebar?.isMobile ?? false : false
   
   // Lấy thông tin user từ session
   const user = session?.user

@@ -58,7 +58,7 @@ function Calendar({
   );
 
   const defaultComponents = {
-    Chevron: (props: any) => {
+    Chevron: (props: { className?: string; size?: number; disabled?: boolean; orientation?: "left" | "right" | "up" | "down" }) => {
       if (props.orientation === "left") {
         return <ChevronLeft size={28} strokeWidth={2.5} {...props} aria-hidden="true" />;
       }

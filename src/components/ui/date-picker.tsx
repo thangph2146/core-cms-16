@@ -152,7 +152,7 @@ export function DatePicker({
         setDisplayMonth(currentDate)
       }
     }
-  }, [currentDate])
+  }, [currentDate, displayMonth])
 
   // Generate years list (từ năm hiện tại - 10 đến năm hiện tại + 10)
   const currentYearValue = new Date().getFullYear()
