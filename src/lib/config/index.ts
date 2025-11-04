@@ -14,3 +14,4 @@ export {
   type IconName,
 } from "./menu-data"
 
+export { appConfig } from "./app-config"

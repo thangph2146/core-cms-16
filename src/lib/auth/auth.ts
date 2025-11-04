@@ -26,6 +26,25 @@ async function getUserWithRoles(email: string) {
   })
 }
 
+async function getOrCreateDefaultRole() {
+  let defaultRole = await prisma.role.findUnique({
+    where: { name: DEFAULT_ROLES.USER.name },
+  })
+
+  if (!defaultRole) {
+    defaultRole = await prisma.role.create({
+      data: {
+        name: DEFAULT_ROLES.USER.name,
+        displayName: DEFAULT_ROLES.USER.displayName,
+        permissions: [...DEFAULT_ROLES.USER.permissions],
+        isActive: true,
+      },
+    })
+  }
+
+  return defaultRole
+}
+
 async function createUserFromOAuth({
   email,
   name,
@@ -35,9 +54,8 @@ async function createUserFromOAuth({
   name?: string | null
   image?: string | null
 }): Promise<DbUser> {
-  const defaultRole = await prisma.role.findUnique({
-    where: { name: DEFAULT_ROLES.USER.name },
-  })
+  // Tìm hoặc tạo default role nếu chưa tồn tại
+  const defaultRole = await getOrCreateDefaultRole()
 
   const password = await bcrypt.hash(randomBytes(16).toString("hex"), 10)
 
@@ -51,20 +69,24 @@ async function createUserFromOAuth({
     },
   })
 
-  if (defaultRole) {
-    await prisma.userRole.create({
-      data: {
-        userId: newUser.id,
-        roleId: defaultRole.id,
-      },
-    })
-  }
+  // Gán role cho user (luôn có role vì đã tạo ở trên)
+  await prisma.userRole.create({
+    data: {
+      userId: newUser.id,
+      roleId: defaultRole.id,
+    },
+  })
 
   return getUserWithRoles(email)
 }
 
 function mapUserAuthPayload(user: DbUser | null) {
   if (!user) {
+    return null
+  }
+
+  // Đảm bảo user luôn có ít nhất một role
+  if (!user.userRoles || user.userRoles.length === 0) {
     return null
   }
 
@@ -140,34 +162,76 @@ export const authConfig: NextAuthConfig = {
         return false
       }
 
-      const normalizedEmail = user.email.toLowerCase()
-      let dbUser = await getUserWithRoles(normalizedEmail)
+      try {
+        const normalizedEmail = user.email.toLowerCase()
+        let dbUser = await getUserWithRoles(normalizedEmail)
 
-      if (!dbUser && normalizedEmail !== user.email) {
-        dbUser = await getUserWithRoles(user.email)
-      }
+        if (!dbUser && normalizedEmail !== user.email) {
+          dbUser = await getUserWithRoles(user.email)
+        }
 
-      if (!dbUser && account?.provider === "google") {
-        dbUser = await createUserFromOAuth({
-          email: normalizedEmail,
-          name: user.name,
-          image: user.image,
-        })
-      }
+        if (!dbUser && account?.provider === "google") {
+          dbUser = await createUserFromOAuth({
+            email: normalizedEmail,
+            name: user.name,
+            image: user.image,
+          })
+        }
 
-      if (!dbUser || !dbUser.isActive) {
+        const lookupEmail = dbUser?.email ?? normalizedEmail
+
+        if (
+          dbUser &&
+          account?.provider === "google" &&
+          (dbUser.deletedAt !== null || !dbUser.isActive)
+        ) {
+          await prisma.user.update({
+            where: { id: dbUser.id },
+            data: {
+              deletedAt: null,
+              isActive: true,
+            },
+          })
+          dbUser = await getUserWithRoles(lookupEmail)
+        }
+
+        if (
+          dbUser &&
+          account?.provider === "google" &&
+          (!dbUser.userRoles || dbUser.userRoles.length === 0)
+        ) {
+          const defaultRole = await getOrCreateDefaultRole()
+          await prisma.userRole.create({
+            data: {
+              userId: dbUser.id,
+              roleId: defaultRole.id,
+            },
+          })
+          dbUser = await getUserWithRoles(lookupEmail)
+        }
+
+        if (!dbUser || !dbUser.isActive) {
+          return false
+        }
+
+        // Đảm bảo user có ít nhất một role
+        if (!dbUser.userRoles || dbUser.userRoles.length === 0) {
+          return false
+        }
+
+        const authPayload = mapUserAuthPayload(dbUser)
+
+        if (!authPayload) {
+          return false
+        }
+
+        Object.assign(user, authPayload)
+
+        return true
+      } catch (error) {
+        console.error("[auth] Error in signIn callback:", error)
         return false
       }
-
-      const authPayload = mapUserAuthPayload(dbUser)
-
-      if (!authPayload) {
-        return false
-      }
-
-      Object.assign(user, authPayload)
-
-      return true
     },
     async jwt({ token, user, trigger }) {
       // Khi user đăng nhập lần đầu

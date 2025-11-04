@@ -20,6 +20,7 @@
 "use client"
 
 import type { ReactNode } from "react"
+import type { Session } from "next-auth"
 import { ThemeProvider } from "./theme-provider"
 import { SessionProvider } from "./session-provider"
 import { QueryProvider } from "./query-provider"
@@ -28,17 +29,18 @@ import { Suspense } from "react"
 
 export interface ProvidersProps {
   children: ReactNode
+  initialSession?: Session | null
 }
 
 /**
  * Main Providers component
  * Wrap toàn bộ app với các providers cần thiết
  */
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, initialSession }: ProvidersProps) {
   return (
     <ThemeProvider>
       <Suspense fallback={<LoadingFallback />}>
-        <SessionProvider>
+        <SessionProvider session={initialSession}>
           <QueryProvider>{children}</QueryProvider>
         </SessionProvider>
       </Suspense>

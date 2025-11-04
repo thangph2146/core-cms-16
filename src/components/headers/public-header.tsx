@@ -119,7 +119,7 @@ export function PublicHeader() {
           )}
         </div>
         {mounted ? (
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="flex items-center gap-2">
             <ModeToggle />
             {isAuthenticated ? (
               <NavUser variant="header" />
@@ -133,14 +133,7 @@ export function PublicHeader() {
                 </Button>
               </>
             )}
-          </div>
-        ) : (
-          <div className="hidden items-center gap-2 md:flex">
-            <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
-            <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
-          </div>
-        )}
-        <Button
+            <Button
           size="icon"
           variant="outline"
           onClick={() => setOpen(!open)}
@@ -151,6 +144,14 @@ export function PublicHeader() {
         >
           <MenuToggleIcon open={open} className="size-5" duration={300} />
         </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
+            <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
+          </div>
+        )}
+        
       </nav>
       {mounted && (
         <MobileMenu open={open} className="flex flex-col justify-between gap-2 overflow-y-auto">
@@ -192,34 +193,7 @@ export function PublicHeader() {
               </Link>
             ))}
           </div>
-          {mounted ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-center pb-2">
-                <ModeToggle />
-              </div>
-              {isAuthenticated ? (
-                <div className="flex justify-center">
-                  <NavUser variant="header" />
-                </div>
-              ) : (
-                <>
-                  <Button variant="outline" className="w-full bg-transparent" asChild>
-                    <Link href="/auth/sign-in">Đăng nhập</Link>
-                  </Button>
-                  <Button className="w-full" asChild>
-                    <Link href="/auth/sign-up">Đăng ký</Link>
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-center pb-2">
-                <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
-              </div>
-              <div className="h-9 w-full rounded-md bg-muted animate-pulse" />
-            </div>
-          )}
+         
         </MobileMenu>
       )}
     </header>

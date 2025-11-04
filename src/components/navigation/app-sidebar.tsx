@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Command } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { getMenuData } from "@/lib/config"
+import { appConfig, getMenuData } from "@/lib/config"
 import { NavProjects, NavSecondary, NavUser } from "./"
 import { AppSidebarSkeleton } from "@/components/skeletons"
 import {
@@ -51,8 +51,8 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">CMS System</span>
-                  <span className="truncate text-xs">Hệ thống quản trị</span>
+                  <span className="truncate font-medium">{appConfig.title}</span>
+                  <span className="truncate text-xs">{appConfig.description}</span>
                 </div>
               </a>
             </SidebarMenuButton>

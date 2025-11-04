@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
+import { useClientOnly } from "@/hooks/use-client-only"
 
 /**
  * Not Found Page
@@ -31,8 +32,19 @@ function createParticles() {
 
 // Floating particles component
 function FloatingParticles() {
-  // Sử dụng lazy initialization với useState để tránh gọi Math.random() trong render
-  const [particles] = useState(() => createParticles())
+  // Chỉ render particles sau khi component mount trên client để tránh hydration mismatch
+  const isMounted = useClientOnly()
+  
+  // Chỉ tạo particles sau khi mounted để đảm bảo không có hydration mismatch
+  const particles = useMemo(() => {
+    if (!isMounted) return null
+    return createParticles()
+  }, [isMounted])
+
+  // Không render gì trên server hoặc khi chưa mount
+  if (!isMounted || !particles) {
+    return null
+  }
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
