@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/auth-server"
 import { AppSidebar, NavMain } from "@/components/navigation"
 import { NavMainSkeleton } from "@/components/skeletons"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { PermissionGate } from "@/components/shared"
 
 /**
  * Admin Layout
@@ -11,7 +12,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
  * - Layouts KHÔNG nên làm auth checks và redirects (vì Partial Rendering)
  * - Layouts chỉ fetch user data và pass xuống children components
  * - Auth redirects được xử lý bởi Proxy (proxy.ts) sớm trong request pipeline
- * - Permission checking chi tiết được xử lý bởi PermissionRouter ở client-side
+ * - Permission checking được xử lý bởi PermissionGate ở layout level
  * 
  * Theo Next.js 16 docs về Partial Rendering:
  * - Layouts được render một cách độc lập, có thể cache và revalidate riêng
@@ -22,6 +23,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
  * - SidebarProvider: Quản lý sidebar state
  * - AppSidebar: Sidebar navigation (nhận session data)
  * - SidebarInset: Main content area
+ * - PermissionGate: Check permission dựa trên route path, hiển thị ForbiddenNotice nếu không có quyền
  */
 export default async function AdminLayout({
   children,
@@ -35,7 +37,7 @@ export default async function AdminLayout({
   // - Redirect về sign-in nếu chưa đăng nhập
   // 
   // Layout này chỉ cung cấp data cho children components
-  // PermissionRouter ở client-side sẽ validate session và permissions
+  // PermissionGate sẽ check permission dựa trên route path và hiển thị ForbiddenNotice nếu không có quyền
   await getSession()
 
   return (
@@ -48,7 +50,9 @@ export default async function AdminLayout({
         }
       />
       <SidebarInset className="flex flex-col">
+        <PermissionGate>
           {children}
+        </PermissionGate>
       </SidebarInset>
     </SidebarProvider>
   )

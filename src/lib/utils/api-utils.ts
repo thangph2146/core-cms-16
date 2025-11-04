@@ -38,3 +38,37 @@ export async function extractErrorMessage(response: Response): Promise<string> {
   }
 }
 
+/**
+ * Extracts error message from axios error object
+ * @param error - The error object from axios catch
+ * @param defaultMessage - Default message if extraction fails
+ * @returns Error message string
+ */
+export function extractAxiosErrorMessage(
+  error: unknown,
+  defaultMessage = "Đã xảy ra lỗi"
+): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const axiosError = error as { response?: { data?: { error?: string }; status?: number } }
+    if (axiosError.response?.data?.error) {
+      return axiosError.response.data.error
+    }
+    if (axiosError.response?.status === 500) {
+      return "Lỗi máy chủ. Vui lòng thử lại sau."
+    }
+    if (axiosError.response?.status === 404) {
+      return "Không tìm thấy tài nguyên."
+    }
+    if (axiosError.response?.status === 403) {
+      return "Bạn không có quyền thực hiện hành động này."
+    }
+    if (axiosError.response?.status === 401) {
+      return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+    }
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return defaultMessage
+}
+

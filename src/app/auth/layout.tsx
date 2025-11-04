@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth/auth-server"
 import { PublicHeader } from "@/components/headers"
+import { PermissionGate } from "@/components/shared"
 
 /**
  * Auth Layout
@@ -37,7 +38,9 @@ export default async function AuthLayout({
       <PublicHeader />
       <div className="bg-muted flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-sm md:max-w-4xl">
+        <PermissionGate>
           {children}
+        </PermissionGate>
         </div>
       </div>
     </>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -46,8 +47,10 @@ export function UsersTableClient({
   canDelete = false,
   canRestore = false,
   canManage = false,
+  canCreate = false,
   initialData,
 }: UsersTableClientProps) {
+  const router = useRouter()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
@@ -432,6 +435,10 @@ export function UsersTableClient({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => router.push(`/admin/users/${row.id}`)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Xem chi tiết
+                    </DropdownMenuItem>
                     {canDelete && (
                       <DropdownMenuItem onClick={() => handleDeleteSingle(row, refresh)}>
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -441,7 +448,16 @@ export function UsersTableClient({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )
-            : undefined,
+            : (row) => (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/admin/users/${row.id}`)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Xem
+                </Button>
+              ),
         emptyMessage: "Không tìm thấy người dùng nào phù hợp",
       },
       {
@@ -497,6 +513,10 @@ export function UsersTableClient({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => router.push(`/admin/users/${row.id}`)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Xem chi tiết
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Khôi phục
@@ -513,13 +533,22 @@ export function UsersTableClient({
                 </DropdownMenuContent>
               </DropdownMenu>
             )
-          : undefined,
+          : (row) => (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/admin/users/${row.id}`)}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Xem
+              </Button>
+            ),
         emptyMessage: "Không có người dùng đã xóa",
       },
     ]
 
     return modes
-  }, [canDelete, canRestore, canManage, deletedColumns, executeBulk, handleDeleteSingle, handleRestoreSingle, handleHardDeleteSingle, isBulkProcessing])
+  }, [canDelete, canRestore, canManage, deletedColumns, executeBulk, handleDeleteSingle, handleRestoreSingle, handleHardDeleteSingle, isBulkProcessing, router])
 
   const initialDataByView = useMemo(
     () => (initialData ? { active: initialData } : undefined),
@@ -561,6 +590,18 @@ export function UsersTableClient({
       : `Bạn có chắc chắn muốn xóa người dùng "${deleteConfirm.row?.email}"? Người dùng sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
   }
 
+  const headerActions = canCreate ? (
+    <Button
+      type="button"
+      size="sm"
+      onClick={() => router.push("/admin/users/new")}
+      className="h-8 px-3 text-xs sm:text-sm"
+    >
+      <Plus className="mr-2 h-4 w-4" />
+      Thêm mới
+    </Button>
+  ) : undefined
+
   return (
     <>
       <ResourceTableClient<UserRow>
@@ -571,6 +612,7 @@ export function UsersTableClient({
         defaultViewId="active"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
+        headerActions={headerActions}
       />
 
       {/* Delete Confirmation Dialog */}

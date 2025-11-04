@@ -9,41 +9,18 @@ interface SessionWithMeta {
   permissions?: Array<string>
 }
 
-function ForbiddenNotice() {
-  return (
-    <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Users", isActive: true },
-        ]}
-      />
-      <div className="flex flex-1 flex-col gap-4 p-4 max-w[100vw - 20px]">
-        <div className="flex min-h-[400px] flex-1 items-center justify-center">
-          <div className="text-center">
-            <h2 className="mb-2 text-2xl font-bold">Không có quyền truy cập</h2>
-            <p className="text-muted-foreground">
-              Bạn không có quyền xem trang này.
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-
+/**
+ * Users Page
+ * 
+ * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
+ * Chỉ cần check permissions cho UI actions (canDelete, canRestore, canManage, canCreate)
+ */
 export default async function UsersPage() {
   const session = (await getSession()) as SessionWithMeta | null
   const permissions = await getPermissions()
   const roles = session?.roles ?? []
 
-  // Check if user can view users
-  const canView = canPerformAction(
-    permissions,
-    roles,
-    PERMISSIONS.USERS_VIEW
-  )
-
+  // Check permissions cho UI actions (không phải page access)
   const canDelete = canPerformAnyAction(permissions, roles, [
     PERMISSIONS.USERS_DELETE,
     PERMISSIONS.USERS_MANAGE,
@@ -53,10 +30,7 @@ export default async function UsersPage() {
     PERMISSIONS.USERS_MANAGE,
   ])
   const canManage = canPerformAction(permissions, roles, PERMISSIONS.USERS_MANAGE)
-
-  if (!canView) {
-    return <ForbiddenNotice />
-  }
+  const canCreate = canPerformAction(permissions, roles, PERMISSIONS.USERS_CREATE)
 
   return (
     <>
@@ -70,6 +44,7 @@ export default async function UsersPage() {
           canDelete={canDelete}
           canRestore={canRestore}
           canManage={canManage}
+          canCreate={canCreate}
         />
       </div>
     </>

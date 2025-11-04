@@ -8,6 +8,7 @@ export interface UsersTableProps {
   canDelete?: boolean
   canRestore?: boolean
   canManage?: boolean
+  canCreate?: boolean
 }
 
 /**
@@ -43,7 +44,7 @@ function serializeInitialData(
  * Server Component: Users Table
  * Fetches initial user data and passes it to the client component
  */
-export async function UsersTable({ canDelete, canRestore, canManage }: UsersTableProps) {
+export async function UsersTable({ canDelete, canRestore, canManage, canCreate }: UsersTableProps) {
   const initial = await listUsersCached(1, 10, "", "", "active")
   const initialData = serializeInitialData(initial)
 
@@ -52,6 +53,7 @@ export async function UsersTable({ canDelete, canRestore, canManage }: UsersTabl
       canDelete={canDelete}
       canRestore={canRestore}
       canManage={canManage}
+      canCreate={canCreate}
       initialData={initialData}
     />
   )

@@ -87,7 +87,6 @@ function getRoleInfo(roles: Array<{ name: string; displayName?: string }> = []) 
     return {
       label: "Super Admin",
       icon: Crown,
-      gradient: "from-[#00cc44] to-[#00ff88] dark:from-[#00ff88] dark:to-[#00cc44]",
       textColor: "text-[#00cc44] dark:text-[#00ff88]",
       bgColor: "bg-[#00cc44]/10 dark:bg-[#00ff88]/10",
       borderColor: "border-[#00cc44]/20 dark:border-[#00ff88]/20",
@@ -263,7 +262,7 @@ export function DashboardWelcome() {
                   variant="outline" 
                   className={cn(
                     "px-4 py-2 border-2 gap-2 font-semibold shadow-lg backdrop-blur-sm",
-                    `bg-gradient-to-r ${roleInfo.gradient}`,
+                    roleInfo.bgColor,
                     roleInfo.textColor,
                     roleInfo.borderColor,
                     "hover:scale-105 hover:shadow-xl transition-all duration-300"

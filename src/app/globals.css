@@ -219,3 +219,16 @@
 
   }
 }
+
+@layer utilities {
+  /* Resource Form Grid - Responsive với min 200px (không có max) */
+  [data-grid-responsive="true"] {
+    grid-template-columns: 1fr;
+  }
+  
+  @media (min-width: 768px) {
+    [data-grid-responsive="true"] {
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    }
+  }
+}

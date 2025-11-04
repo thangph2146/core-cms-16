@@ -14,9 +14,6 @@ const isDevelopment =
 const LOG_ENABLED = isDevelopment || 
   (isServer ? process.env.DEBUG === "true" : false) ||
   (!isServer ? (typeof window !== "undefined" && (window as { __DEBUG__?: boolean }).__DEBUG__ === true) : false)
-const DEBUG_ENABLED = 
-  (isServer ? process.env.DEBUG === "true" || process.env.SOCKET_DEBUG === "true" : false) ||
-  (!isServer ? (typeof window !== "undefined" && (window as { __DEBUG__?: boolean }).__DEBUG__ === true) : false)
 
 /**
  * Lấy vị trí file từ stack trace
@@ -165,7 +162,7 @@ export const logger = {
   },
 
   debug: (message: string, data?: Record<string, unknown>) => {
-    if (DEBUG_ENABLED) {
+    if (LOG_ENABLED) {
       formatLog("debug", message, data)
     }
   },

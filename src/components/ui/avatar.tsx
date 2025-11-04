@@ -23,12 +23,19 @@ function Avatar({
 
 function AvatarImage({
   className,
+  referrerPolicy,
+  crossOrigin,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Image> & {
+  referrerPolicy?: React.ImgHTMLAttributes<HTMLImageElement>["referrerPolicy"]
+  crossOrigin?: React.ImgHTMLAttributes<HTMLImageElement>["crossOrigin"]
+}) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn("aspect-square size-full", className)}
+      referrerPolicy={referrerPolicy}
+      crossOrigin={crossOrigin}
       {...props}
     />
   )

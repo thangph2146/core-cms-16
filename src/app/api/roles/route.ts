@@ -33,8 +33,13 @@ async function getRolesHandler(
   return NextResponse.json({ data: rolesList })
 }
 
-// Allow either ROLES_VIEW or USERS_CREATE permission
+// Allow ROLES_VIEW, USERS_CREATE, or USERS_VIEW permission
+// USERS_VIEW is included because roles are used for filtering in users table
 export const GET = createGetRoute(getRolesHandler, {
-  permissions: [PERMISSIONS.ROLES_VIEW, PERMISSIONS.USERS_CREATE],
+  permissions: [
+    PERMISSIONS.ROLES_VIEW,
+    PERMISSIONS.USERS_CREATE,
+    PERMISSIONS.USERS_VIEW, // Allow users who can view users to also see roles for filtering
+  ],
 })
 

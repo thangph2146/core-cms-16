@@ -25,6 +25,14 @@ export interface ListedUser {
   }>
 }
 
+export interface UserDetail extends ListedUser {
+  bio: string | null
+  phone: string | null
+  address: string | null
+  emailVerified: Date | null
+  updatedAt: Date
+}
+
 export interface ListUsersResult {
   data: ListedUser[]
   pagination: {
@@ -227,6 +235,38 @@ export async function getUserById(id: string): Promise<ListedUser | null> {
   }
 
   return mapUserRecord(user)
+}
+
+export async function getUserDetailById(id: string): Promise<UserDetail | null> {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      userRoles: {
+        include: {
+          role: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!user) {
+    return null
+  }
+
+  return {
+    ...mapUserRecord(user),
+    bio: user.bio,
+    phone: user.phone,
+    address: user.address,
+    emailVerified: user.emailVerified,
+    updatedAt: user.updatedAt,
+  }
 }
 
 export const listUsersCached = cache(

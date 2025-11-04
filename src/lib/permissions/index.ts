@@ -28,3 +28,10 @@ export {
   canPerformAnyAction,
 } from "./permissions-helpers"
 
+// Route permissions mapping
+export {
+  ROUTE_PERMISSIONS,
+  getRoutePermissions,
+  requiresPermission,
+} from "./route-permissions"
+

@@ -120,6 +120,11 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
 export async function updateUser(ctx: AuthContext, id: string, input: UpdateUserInput): Promise<ListedUser> {
   ensurePermission(ctx, PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_MANAGE)
 
+  // Validate ID
+  if (!id || typeof id !== "string" || id.trim() === "") {
+    throw new ApplicationError("ID người dùng không hợp lệ", 400)
+  }
+
   const existing = await prisma.user.findUnique({
     where: { id },
     include: {
@@ -135,22 +140,85 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
     throw new NotFoundError("User không tồn tại")
   }
 
-  if (input.email && input.email !== existing.email) {
-    const emailExists = await prisma.user.findUnique({ where: { email: input.email } })
-    if (emailExists) {
-      throw new ApplicationError("Email đã được sử dụng", 400)
+  // Validate email if provided
+  if (input.email !== undefined) {
+    if (typeof input.email !== "string" || input.email.trim() === "") {
+      throw new ApplicationError("Email không được để trống", 400)
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(input.email)) {
+      throw new ApplicationError("Email không hợp lệ", 400)
+    }
+
+    // Check if email is already used by another user
+    if (input.email !== existing.email) {
+      const emailExists = await prisma.user.findUnique({ where: { email: input.email } })
+      if (emailExists) {
+        throw new ApplicationError("Email đã được sử dụng", 400)
+      }
+    }
+  }
+
+  // Validate name if provided
+  if (input.name !== undefined && input.name !== null) {
+    if (typeof input.name !== "string") {
+      throw new ApplicationError("Tên phải là chuỗi ký tự", 400)
+    }
+    if (input.name.trim().length > 0 && input.name.trim().length < 2) {
+      throw new ApplicationError("Tên phải có ít nhất 2 ký tự", 400)
+    }
+  }
+
+  // Validate password if provided
+  if (input.password !== undefined && input.password !== null && input.password !== "") {
+    if (typeof input.password !== "string") {
+      throw new ApplicationError("Mật khẩu phải là chuỗi ký tự", 400)
+    }
+    if (input.password.length < 6) {
+      throw new ApplicationError("Mật khẩu phải có ít nhất 6 ký tự", 400)
+    }
+  }
+
+  // Validate roleIds if provided
+  if (input.roleIds !== undefined) {
+    if (!Array.isArray(input.roleIds)) {
+      throw new ApplicationError("roleIds phải là một mảng", 400)
+    }
+    // Validate each roleId
+    for (const roleId of input.roleIds) {
+      if (typeof roleId !== "string" || roleId.trim() === "") {
+        throw new ApplicationError("Một số roleIds không hợp lệ", 400)
+      }
+      // Check if role exists
+      const roleExists = await prisma.role.findUnique({ where: { id: roleId } })
+      if (!roleExists) {
+        throw new ApplicationError(`Vai trò với ID ${roleId} không tồn tại`, 400)
+      }
+    }
+  }
+
+  // Validate phone if provided
+  if (input.phone !== undefined && input.phone !== null && input.phone !== "") {
+    if (typeof input.phone !== "string") {
+      throw new ApplicationError("Số điện thoại phải là chuỗi ký tự", 400)
+    }
+    // Basic phone validation (can be enhanced)
+    const phoneRegex = /^[0-9+\-\s()]+$/
+    if (!phoneRegex.test(input.phone)) {
+      throw new ApplicationError("Số điện thoại không hợp lệ", 400)
     }
   }
 
   const updateData: Prisma.UserUpdateInput = {}
 
-  if (input.email !== undefined) updateData.email = input.email
-  if (input.name !== undefined) updateData.name = input.name
+  if (input.email !== undefined) updateData.email = input.email.trim()
+  if (input.name !== undefined) updateData.name = input.name?.trim() || null
   if (input.isActive !== undefined) updateData.isActive = input.isActive
-  if (input.bio !== undefined) updateData.bio = input.bio
-  if (input.phone !== undefined) updateData.phone = input.phone
-  if (input.address !== undefined) updateData.address = input.address
-  if (input.password) {
+  if (input.bio !== undefined) updateData.bio = input.bio?.trim() || null
+  if (input.phone !== undefined) updateData.phone = input.phone?.trim() || null
+  if (input.address !== undefined) updateData.address = input.address?.trim() || null
+  if (input.password && input.password.trim() !== "") {
     updateData.password = await bcrypt.hash(input.password, 10)
   }
 

@@ -11,5 +11,6 @@ export { cn } from "./utils"
 export {
   parseJsonSafe,
   extractErrorMessage,
+  extractAxiosErrorMessage,
 } from "./api-utils"
 

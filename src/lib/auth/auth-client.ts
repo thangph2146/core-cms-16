@@ -1,9 +1,12 @@
 /**
- * API functions cho authentication với NextAuth
+ * Client-side authentication utilities với NextAuth
+ * 
+ * Wrapper cho NextAuth client-side functions để đảm bảo consistency
+ * và dễ dàng thay đổi implementation trong tương lai
  */
 "use client"
 
-import { signIn, signOut } from "next-auth/react"
+import { signIn, signOut, useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
 
 export interface SignInRequest {
@@ -16,6 +19,17 @@ export interface SignUpRequest {
   email: string
   password: string
 }
+
+/**
+ * Re-export useSession từ NextAuth để đảm bảo consistency
+ * Sử dụng wrapper này thay vì import trực tiếp từ "next-auth/react"
+ */
+export { useSession }
+
+/**
+ * Re-export signIn và signOut để đảm bảo consistency
+ */
+export { signIn, signOut }
 
 export const authApi = {
   signIn: async (data: SignInRequest) => {

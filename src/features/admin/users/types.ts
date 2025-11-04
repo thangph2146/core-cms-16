@@ -1,10 +1,7 @@
-import type { DataTableResult } from "@/components/tables"
+import type { Role } from "./utils"
+import type { ResourceResponse, BaseResourceTableClientProps } from "@/features/admin/resources/types"
 
-export interface UserRole {
-  id: string
-  name: string
-  displayName: string
-}
+export type UserRole = Role
 
 export interface UserRow {
   id: string
@@ -16,20 +13,7 @@ export interface UserRow {
   roles: UserRole[]
 }
 
-export interface UsersTableClientProps {
-  canDelete?: boolean
-  canRestore?: boolean
-  canManage?: boolean
-  initialData?: DataTableResult<UserRow>
-}
+export type UsersTableClientProps = BaseResourceTableClientProps<UserRow>
 
-export interface UsersResponse {
-  data: UserRow[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
-}
+export type UsersResponse = ResourceResponse<UserRow>
 
