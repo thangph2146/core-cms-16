@@ -2,7 +2,7 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { getPermissions, getSession } from "@/lib/auth/auth-server"
 
-import { UsersTable } from "@/features/users/components/users-table"
+import { UsersTable } from "@/features/admin/users/components/users-table"
 
 interface SessionWithMeta {
   roles?: Array<{ name: string }>

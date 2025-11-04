@@ -15,7 +15,7 @@ import type {
   ResourceViewMode,
   ResourceSelectionContext,
   ResourceRowActionContext,
-} from "@/features/resources/types"
+} from "@/features/admin/resources/types"
 
 export interface ResourceTableClientProps<T extends object> {
   title?: string

@@ -4,11 +4,11 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { PERMISSIONS } from "@/lib/permissions"
-import { listUsersCached } from "@/features/users/server/queries"
+import { listUsersCached } from "@/features/admin/users/server/queries"
 import {
   createUser,
   type AuthContext,
-} from "@/features/users/server/mutations"
+} from "@/features/admin/users/server/mutations"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
 

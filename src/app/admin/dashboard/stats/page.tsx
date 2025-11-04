@@ -1,5 +1,5 @@
 import { AdminHeader } from "@/components/headers"
-import { DashboardWelcome } from "@/features/admin/dashboard/dashboard-welcome"
+import { DashboardStats } from "@/features/admin/dashboard/dashboard-stats"
 
 export default function Page() {
   return (
@@ -8,11 +8,16 @@ export default function Page() {
         breadcrumbs={[
           {
             label: "Dashboard",
+            href: "/admin/dashboard",
+          },
+          {
+            label: "Thống kê",
             isActive: true,
           },
         ]}
       />
-      <DashboardWelcome />
+      <DashboardStats />
     </>
   )
 }
+

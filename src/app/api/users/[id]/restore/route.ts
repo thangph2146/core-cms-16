@@ -6,7 +6,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import {
   type AuthContext,
   restoreUser,
-} from "@/features/users/server/mutations"
+} from "@/features/admin/users/server/mutations"
 import { createPostRoute } from "@/lib/api/api-route-wrapper"
 import { validateID } from "@/lib/api/validation"
 

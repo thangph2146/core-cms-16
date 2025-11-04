@@ -3,12 +3,12 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { PERMISSIONS } from "@/lib/permissions"
-import { getUserById } from "@/features/users/server/queries"
+import { getUserById } from "@/features/admin/users/server/queries"
 import {
   type AuthContext,
   updateUser,
   softDeleteUser,
-} from "@/features/users/server/mutations"
+} from "@/features/admin/users/server/mutations"
 import {
   createGetRoute,
   createPutRoute,

@@ -8,7 +8,7 @@ import {
   bulkSoftDeleteUsers,
   bulkRestoreUsers,
   bulkHardDeleteUsers,
-} from "@/features/users/server/mutations"
+} from "@/features/admin/users/server/mutations"
 import { PERMISSIONS } from "@/lib/permissions"
 import { createPostRoute } from "@/lib/api/api-route-wrapper"
 import { validateArray, validateEnum, validateID } from "@/lib/api/validation"

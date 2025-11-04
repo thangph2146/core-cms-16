@@ -1,6 +1,6 @@
 import type { DataTableResult } from "@/components/tables"
 
-import { listUsersCached } from "@/features/users/server/queries"
+import { listUsersCached } from "@/features/admin/users/server/queries"
 import type { UserRow } from "../types"
 import { UsersTableClient } from "./users-table.client"
 

@@ -13,8 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ResourceTableClient } from "@/features/resources/components/resource-table.client"
-import type { ResourceViewMode } from "@/features/resources/types"
+import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api/axios"
 
