@@ -25,8 +25,9 @@ async function patchNotificationHandler(
     permissions: import("@/lib/permissions").Permission[]
     roles: Array<{ name: string }>
   },
-  { params }: { params: Promise<{ id: string }> }
+  ...args: unknown[]
 ) {
+  const { params } = args[0] as { params: Promise<{ id: string }> }
   const { id } = await params
 
   // Validate ID (UUID or CUID)
@@ -82,8 +83,9 @@ async function deleteNotificationHandler(
     permissions: import("@/lib/permissions").Permission[]
     roles: Array<{ name: string }>
   },
-  { params }: { params: Promise<{ id: string }> }
+  ...args: unknown[]
 ) {
+  const { params } = args[0] as { params: Promise<{ id: string }> }
   const { id } = await params
 
   // Validate ID (UUID or CUID)

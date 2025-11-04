@@ -1,11 +1,25 @@
 "use client"
 
+import { useMemo } from "react"
+import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 import {
   BadgeCheck,
   ChevronsUpDown,
   CreditCard,
   LogOut,
+  LayoutDashboard,
+  Users,
+  FileText,
+  FolderTree,
+  Tag,
+  MessageSquare,
+  Shield,
+  Send,
+  Bell,
+  Phone,
+  GraduationCap,
+  Settings2,
 } from "lucide-react"
 
 import {
@@ -29,6 +43,25 @@ import {
   SidebarMenuItem,
   useSidebarOptional,
 } from "@/components/ui/sidebar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { getMenuData } from "@/lib/config/menu-data"
+import type { Permission } from "@/lib/permissions"
+import { canPerformAnyAction } from "@/lib/permissions"
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  Users,
+  FileText,
+  FolderTree,
+  Tag,
+  MessageSquare,
+  Shield,
+  Send,
+  Bell,
+  Phone,
+  GraduationCap,
+  Settings2,
+}
 
 type NavUserProps = {
   variant?: "sidebar" | "header"
@@ -41,19 +74,27 @@ export function NavUser({ variant = "sidebar" }: NavUserProps) {
   const sidebar = useSidebarOptional()
   const isMobile = variant === "sidebar" ? sidebar?.isMobile ?? false : false
   
-  // Lấy thông tin user từ session
   const user = session?.user
   const primaryRole = session?.roles?.[0]
   
-  // Tạo avatar fallback từ tên
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
     const parts = name.trim().split(" ")
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
+    return parts.length >= 2
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+      : name.substring(0, 2).toUpperCase()
   }
+
+  const adminMenuItems = useMemo(() => {
+    const permissions = (session?.permissions || []) as Permission[]
+    const roles = (session?.roles || []) as Array<{ name: string }>
+    
+    if (!permissions.length) return []
+    
+    return getMenuData(permissions).navMain.filter((item) =>
+      canPerformAnyAction(permissions, roles, [...item.permissions])
+    )
+  }, [session?.permissions, session?.roles])
   
   // Loading state
   if (status === "loading" || !user) {
@@ -120,6 +161,27 @@ export function NavUser({ variant = "sidebar" }: NavUserProps) {
           <span>Thanh toán</span>
         </DropdownMenuItem>
       </DropdownMenuGroup>
+      {adminMenuItems.length > 0 && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Admin</DropdownMenuLabel>
+            <ScrollArea className="max-h-[200px] overflow-y-auto">
+              {adminMenuItems.map((item) => {
+                const Icon = ICON_MAP[item.icon] || LayoutDashboard
+                return (
+                  <DropdownMenuItem key={item.url} asChild>
+                    <Link href={item.url} className="flex items-center">
+                      <Icon className={variant === "header" ? "mr-2 h-4 w-4" : ""} />
+                      <span>{item.title}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )
+              })}
+            </ScrollArea>
+          </DropdownMenuGroup>
+        </>
+      )}
       <DropdownMenuSeparator />
       <DropdownMenuItem
         onClick={() => {

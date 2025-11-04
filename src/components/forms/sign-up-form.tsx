@@ -112,6 +112,7 @@ export function SignUpForm({
                   id="name"
                   name="name"
                   type="text"
+                  autoComplete="name"
                   placeholder="Họ và tên"
                   required
                   disabled={isLoading}
@@ -123,6 +124,7 @@ export function SignUpForm({
                   id="email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="example@email.com"
                   required
                   disabled={isLoading}
@@ -134,6 +136,7 @@ export function SignUpForm({
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Tạo mật khẩu"
                   required
                   disabled={isLoading}
@@ -145,6 +148,7 @@ export function SignUpForm({
                   id="confirm-password"
                   name="confirm-password"
                   type="password"
+                  autoComplete="new-password"
                   placeholder="Xác nhận mật khẩu của bạn"
                   required
                   disabled={isLoading}
@@ -190,6 +194,7 @@ export function SignUpForm({
               alt="Hình ảnh"
               width={500}
               height={500}
+              loading="eager"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />    
           </div>

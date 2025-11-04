@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth"
+import { getSession } from "@/lib/auth/auth-server"
 import { getMenuData } from "@/lib/config"
 import { NavMainItem } from "./nav-main-item.client"
 import {

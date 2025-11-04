@@ -247,22 +247,23 @@ export function validateArray<T>(
 /**
  * Sanitize object - recursively sanitize all string values
  */
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
-  const sanitized = { ...obj }
+export function sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
+  const sanitized = { ...obj } as Record<string, unknown>
 
   for (const key in sanitized) {
-    if (typeof sanitized[key] === "string") {
-      sanitized[key] = sanitizeString(sanitized[key]) as any
-    } else if (typeof sanitized[key] === "object" && sanitized[key] !== null && !Array.isArray(sanitized[key])) {
-      sanitized[key] = sanitizeObject(sanitized[key]) as any
-    } else if (Array.isArray(sanitized[key])) {
-      sanitized[key] = sanitized[key].map((item: any) =>
-        typeof item === "string" ? sanitizeString(item) : typeof item === "object" && item !== null ? sanitizeObject(item) : item
-      ) as any
+    const value = sanitized[key]
+    if (typeof value === "string") {
+      sanitized[key] = sanitizeString(value)
+    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      sanitized[key] = sanitizeObject(value as Record<string, unknown>)
+    } else if (Array.isArray(value)) {
+      sanitized[key] = value.map((item: unknown) =>
+        typeof item === "string" ? sanitizeString(item) : typeof item === "object" && item !== null ? sanitizeObject(item as Record<string, unknown>) : item
+      )
     }
   }
 
-  return sanitized
+  return sanitized as T
 }
 
 /**

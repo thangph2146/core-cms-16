@@ -175,13 +175,13 @@ function validateBodySize(request: NextRequest): { valid: boolean; error?: strin
  * Rate limiting middleware
  */
 export function withRateLimit(
-  handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse>,
+  handler: (req: NextRequest, ...args: unknown[]) => Promise<NextResponse>,
   options?: {
     config?: RateLimitConfig
     endpointType?: "auth" | "write" | "read" | "default"
   }
 ) {
-  return async (req: NextRequest, ...args: any[]): Promise<NextResponse> => {
+  return async (req: NextRequest, ...args: unknown[]): Promise<NextResponse> => {
     try {
       const config =
         options?.config ||
@@ -265,7 +265,7 @@ export function withRateLimit(
  * Combines rate limiting, security headers, and validation
  */
 export function withSecurity(
-  handler: (req: NextRequest, ...args: any[]) => Promise<NextResponse>,
+  handler: (req: NextRequest, ...args: unknown[]) => Promise<NextResponse>,
   options?: {
     rateLimit?: RateLimitConfig
     endpointType?: "auth" | "write" | "read" | "default"

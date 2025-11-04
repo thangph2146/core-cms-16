@@ -23,6 +23,8 @@ import type { ReactNode } from "react"
 import { ThemeProvider } from "./theme-provider"
 import { SessionProvider } from "./session-provider"
 import { QueryProvider } from "./query-provider"
+import { LoadingFallback } from "./loading-fallback"
+import { Suspense } from "react"
 
 export interface ProvidersProps {
   children: ReactNode
@@ -35,9 +37,11 @@ export interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider>
-      <SessionProvider>
-        <QueryProvider>{children}</QueryProvider>
-      </SessionProvider>
+      <Suspense fallback={<LoadingFallback />}>
+        <SessionProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </SessionProvider>
+      </Suspense>
     </ThemeProvider>
   )
 }

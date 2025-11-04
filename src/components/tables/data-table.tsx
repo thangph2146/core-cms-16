@@ -368,9 +368,7 @@ export function DataTable<T extends object>({
     initialData,
     selection,
     selectionActions,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     maxHeight: _maxHeight,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     enableHorizontalScroll: _enableHorizontalScroll = true,
     maxWidth,
 }: DataTableProps<T>) {

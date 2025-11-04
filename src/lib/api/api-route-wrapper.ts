@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth, getPermissions } from "@/lib/auth"
 import type { Permission } from "@/lib/permissions"
-import { canPerformAction, canPerformAnyAction } from "@/lib/permissions"
+import { canPerformAnyAction } from "@/lib/permissions"
 import { withSecurity } from "./security"
 import { logger } from "@/lib/config"
 
@@ -44,7 +44,7 @@ export function createApiRoute(
       permissions: Permission[]
       roles: Array<{ name: string }>
     },
-    ...args: any[]
+    ...args: unknown[]
   ) => Promise<NextResponse>,
   options: ApiRouteOptions = {}
 ) {
@@ -57,7 +57,7 @@ export function createApiRoute(
 
   const wrappedHandler = async (
     req: NextRequest,
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<NextResponse> => {
     try {
       // Authentication check

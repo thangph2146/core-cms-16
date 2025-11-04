@@ -118,7 +118,7 @@ async function getNotificationsHandler(
 // POST - Tạo notification mới (admin/system only)
 async function postNotificationsHandler(
   request: NextRequest,
-  context: {
+  _context: {
     session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>>
     permissions: import("@/lib/permissions").Permission[]
     roles: Array<{ name: string }>

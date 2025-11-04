@@ -95,7 +95,7 @@ function formatLog(
     debug: "🔷",
   }[level]
 
-  const prefix = `[${levelEmoji} Socket] ${timestamp}`
+  const prefix = `[${levelEmoji}] ${timestamp}`
   const locationStr = `[${location}]`
 
   // Format data

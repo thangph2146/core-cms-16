@@ -6,7 +6,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { PERMISSIONS } from "@/lib/permissions"
 import { listUsersCached } from "@/features/users/server/queries"
 import {
-  ApplicationError,
   createUser,
   type AuthContext,
 } from "@/features/users/server/mutations"
@@ -15,7 +14,7 @@ import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
 
 async function getUsersHandler(
   req: NextRequest,
-  context: {
+  _context: {
     session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>>
     permissions: import("@/lib/permissions").Permission[]
     roles: Array<{ name: string }>

@@ -85,6 +85,7 @@ export function SignIn({
                   id="email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="example@email.com"
                   required
                   disabled={isLoading}
@@ -104,6 +105,7 @@ export function SignIn({
                   id="password"
                   name="password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="Nhập mật khẩu của bạn"
                   required
                   disabled={isLoading}
@@ -149,6 +151,7 @@ export function SignIn({
               alt="Hình ảnh"
               width={500}
               height={500}
+              loading="eager"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />    
           </div>

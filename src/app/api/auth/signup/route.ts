@@ -3,7 +3,6 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/database"
-import { logger } from "@/lib/config"
 import bcrypt from "bcryptjs"
 import { createPostRoute } from "@/lib/api/api-route-wrapper"
 import {

@@ -4,7 +4,6 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import {
-  ApplicationError,
   type AuthContext,
   bulkSoftDeleteUsers,
   bulkRestoreUsers,

@@ -8,7 +8,7 @@ import { createGetRoute } from "@/lib/api/api-route-wrapper"
 
 async function getRolesHandler(
   _req: NextRequest,
-  context: {
+  _context: {
     session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>>
     permissions: import("@/lib/permissions").Permission[]
     roles: Array<{ name: string }>
