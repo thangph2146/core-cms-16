@@ -70,11 +70,16 @@ export function PermissionGateClient({
 
   // Log khi pathname thay đổi
   useEffect(() => {
-    if (mounted && pathname !== prevPathnameRef.current) {
+    if (mounted && pathname && pathname !== prevPathnameRef.current) {
       logger.debug("PermissionGateClient mounted", { pathname, session, status })
       prevPathnameRef.current = pathname
     }
   }, [mounted, pathname, session, status])
+
+  // Early return nếu không có pathname
+  if (!pathname) {
+    return null
+  }
 
   const isAdminRoute = pathname.startsWith(ADMIN_PREFIX)
   const isAuthRoute = pathname.startsWith(AUTH_PREFIX)

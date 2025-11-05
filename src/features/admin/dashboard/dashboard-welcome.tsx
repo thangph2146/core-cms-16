@@ -3,10 +3,7 @@
 import { motion } from "framer-motion"
 import { useSession } from "next-auth/react"
 import {
-  Users,
   FileText,
-  MessageSquare,
-  Bell,
   Activity,
   Calendar,
   Clock,
@@ -14,15 +11,7 @@ import {
   Crown,
   Edit,
   User,
-  BarChart3,
-  Settings,
-  Tag,
-  FolderTree,
   AlertCircle,
-  MessageCircle,
-  UserCheck,
-  GraduationCap,
-  KeyRound,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

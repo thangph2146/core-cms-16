@@ -97,7 +97,7 @@ async function getUserNotificationsHandler(req: NextRequest) {
   })
 }
 
-async function deleteAllNotificationsHandler(req: NextRequest) {
+async function deleteAllNotificationsHandler(_req: NextRequest) {
   const session = await auth()
 
   if (!session?.user?.id) {

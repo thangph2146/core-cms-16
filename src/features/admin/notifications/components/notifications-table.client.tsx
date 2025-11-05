@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react"
-import { Eye, EyeOff, Trash2, CheckCircle2, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Trash2, CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
 import { ConfirmDialog } from "@/components/dialogs"
@@ -65,7 +65,7 @@ export function NotificationsTableClient({
   const [isProcessing, setIsProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
-  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false)
+  const [_deleteAllConfirm, setDeleteAllConfirm] = useState(false)
   const tableRefreshRef = useRef<(() => void) | null>(null)
 
   // Function để trigger refresh của table
@@ -237,7 +237,7 @@ export function NotificationsTableClient({
         totalPages: response.data.pagination.totalPages,
       }
     },
-    [queryClient]
+    []
   )
 
   const handleMarkAsRead = useCallback(
@@ -343,11 +343,11 @@ export function NotificationsTableClient({
     [showFeedback, triggerTableRefresh]
   )
 
-  const handleDeleteAll = useCallback(() => {
+  const _handleDeleteAll = useCallback(() => {
     setDeleteAllConfirm(true)
   }, [])
 
-  const confirmDeleteAll = useCallback(async () => {
+  const _confirmDeleteAll = useCallback(async () => {
     try {
       setIsProcessing(true)
       const result = await deleteAllNotifications.mutateAsync(undefined)
@@ -456,7 +456,7 @@ export function NotificationsTableClient({
         cell: (row) => dateFormatter.format(new Date(row.createdAt)),
       },
     ],
-    [dateFormatter]
+    [dateFormatter, session?.user?.id]
   )
 
   const viewModes: ResourceViewMode<NotificationRow>[] = [
@@ -585,25 +585,6 @@ export function NotificationsTableClient({
     all: initialData,
   }
 
-  // Header actions: Xóa tất cả notification của chính user
-  const headerActions = canManage ? (
-    <Button
-      variant="destructive"
-      size="sm"
-      onClick={handleDeleteAll}
-      disabled={deleteAllNotifications.isPending || isProcessing}
-      className="h-8 text-xs"
-      title="Xóa tất cả thông báo của bạn (chỉ xóa notification của chính bạn)"
-    >
-      {deleteAllNotifications.isPending ? (
-        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-      )}
-      Xóa tất cả
-    </Button>
-  ) : undefined
-
   return (
     <>
       <ResourceTableClient
@@ -614,7 +595,6 @@ export function NotificationsTableClient({
         defaultViewId="all"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
-        headerActions={headerActions}
         onRefreshReady={handleRefreshReady}
       />
 
@@ -638,19 +618,7 @@ export function NotificationsTableClient({
         />
       )}
 
-      <ConfirmDialog
-        open={deleteAllConfirm}
-        onOpenChange={(open) => {
-          if (!open) setDeleteAllConfirm(false)
-        }}
-        title="Xóa tất cả thông báo"
-        description="Bạn có chắc chắn muốn xóa TẤT CẢ thông báo của bạn? Hành động này không thể hoàn tác. Chỉ các thông báo mà bạn là chủ sở hữu mới được xóa."
-        variant="destructive"
-        confirmLabel="Xóa tất cả"
-        cancelLabel="Hủy"
-        onConfirm={confirmDeleteAll}
-        isLoading={deleteAllNotifications.isPending || isProcessing}
-      />
+  
 
       {feedback && (
         <FeedbackDialog

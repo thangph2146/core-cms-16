@@ -12,7 +12,7 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
   try {
     const existingGlobal = getSocketServer()
 
-    // @ts-ignore - Next.js exposes underlying HTTP server
+    // @ts-expect-error - Next.js exposes underlying HTTP server
     const server = res.socket?.server as ServerWithIO | undefined
 
     if (!server) {

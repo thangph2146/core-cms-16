@@ -47,7 +47,7 @@ export function SignUpForm({
       const { apiClient } = await import("@/lib/api/axios")
       const { apiRoutes } = await import("@/lib/api/routes")
       
-      const response = await apiClient.post<{ message: string }>(
+      await apiClient.post<{ message: string }>(
         apiRoutes.auth.signUp,
         { name, email, password }
       )

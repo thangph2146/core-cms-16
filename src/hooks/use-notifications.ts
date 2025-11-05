@@ -90,7 +90,7 @@ export function useDeleteNotification() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiClient.delete(apiRoutes.notifications.delete(id))
+      await apiClient.delete(apiRoutes.notifications.delete(id))
       return id
     },
     onSuccess: () => {

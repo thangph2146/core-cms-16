@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
 
@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog, type FeedbackVariant } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
-import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -51,7 +51,9 @@ export function UsersTableClient({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
-  const [rolesOptions, setRolesOptions] = useState<Array<{ label: string; value: string }>>(initialRolesOptions)
+  const [rolesOptions, _setRolesOptions] = useState<Array<{ label: string; value: string }>>(initialRolesOptions)
+  const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set())
+  const tableRefreshRef = useRef<(() => void) | null>(null)
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -65,6 +67,47 @@ export function UsersTableClient({
       setFeedback(null)
     }
   }, [])
+
+  // Handler để toggle user status
+  const handleToggleStatus = useCallback(
+    async (row: UserRow, newStatus: boolean, refresh: () => void) => {
+      if (!canManage) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền thay đổi trạng thái người dùng")
+        return
+      }
+
+      // Thêm user vào set toggling
+      setTogglingUsers((prev) => new Set(prev).add(row.id))
+
+      try {
+        await apiClient.put(apiRoutes.users.update(row.id), {
+          isActive: newStatus,
+        })
+
+        showFeedback(
+          "success",
+          "Cập nhật thành công",
+          `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} người dùng ${row.email}`
+        )
+        refresh()
+      } catch (error) {
+        console.error("Error toggling user status:", error)
+        showFeedback(
+          "error",
+          "Lỗi cập nhật",
+          `Không thể ${newStatus ? "kích hoạt" : "vô hiệu hóa"} người dùng. Vui lòng thử lại.`
+        )
+      } finally {
+        // Xóa user khỏi set toggling
+        setTogglingUsers((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
+      }
+    },
+    [canManage, showFeedback]
+  )
 
   // Initialize roles options from server (passed as props)
   // No need to fetch in useEffect anymore - roles are fetched server-side
@@ -146,14 +189,21 @@ export function UsersTableClient({
               Đã xóa
             </span>
           ) : (
-            <span
-              className={cn(
-                "inline-flex min-w-[88px] items-center justify-center rounded-full px-2 py-1 text-xs font-medium",
-                row.isActive ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-700",
-              )}
-            >
-              {row.isActive ? "Active" : "Inactive"}
-            </span>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={row.isActive}
+                disabled={togglingUsers.has(row.id) || !canManage}
+                onCheckedChange={(checked) => {
+                  if (tableRefreshRef.current) {
+                    handleToggleStatus(row, checked, tableRefreshRef.current)
+                  }
+                }}
+                aria-label={row.isActive ? "Vô hiệu hóa người dùng" : "Kích hoạt người dùng"}
+              />
+              <span className="text-xs text-muted-foreground">
+                {row.isActive ? "Hoạt động" : "Tạm khóa"}
+              </span>
+            </div>
           ),
       },
       {
@@ -175,7 +225,7 @@ export function UsersTableClient({
         },
       },
     ],
-    [dateFormatter, rolesOptions],
+    [dateFormatter, rolesOptions, togglingUsers, canManage, handleToggleStatus],
   )
 
   const deletedColumns = useMemo<DataTableColumn<UserRow>[]>(
@@ -595,6 +645,9 @@ export function UsersTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
+        onRefreshReady={(refresh) => {
+          tableRefreshRef.current = refresh
+        }}
       />
 
       {/* Delete Confirmation Dialog */}

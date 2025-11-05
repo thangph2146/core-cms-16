@@ -13,7 +13,6 @@ import {
   MessageSquare,
   Trash2,
   EyeOff,
-  Eye,
 } from "lucide-react"
 import { useMarkNotificationRead, useDeleteNotification } from "@/hooks/use-notifications"
 import type { Notification } from "@/hooks/use-notifications"
@@ -113,7 +112,7 @@ export function NotificationItem({
   return (
     <div
       className={cn(
-        "group relative border-l-4 p-4 transition-colors hover:bg-accent",
+        "group relative border-l-4 p-4 transition-colors hover:bg-accent cursor-pointer",
         styleClass,
         !notification.isRead && "bg-accent/50"
       )}

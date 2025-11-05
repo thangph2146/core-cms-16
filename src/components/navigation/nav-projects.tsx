@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import {
   Folder,
   MoreHorizontal,
@@ -43,6 +42,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import type { IconName } from "@/lib/config"
+import { useClientOnly } from "@/hooks/use-client-only"
 
 const iconMap: Record<IconName, LucideIcon> = {
   LayoutDashboard,
@@ -74,11 +74,7 @@ export function NavProjects({
   const { isMobile } = useSidebar()
   // Chỉ render sau khi component đã mount trên client để tránh hydration mismatch
   // Radix UI generate ID random khác nhau giữa server và client
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  const isMounted = useClientOnly()
 
   // Render placeholder trên server để tránh hydration mismatch
   if (!isMounted) {

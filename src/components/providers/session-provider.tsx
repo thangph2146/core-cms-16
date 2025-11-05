@@ -89,6 +89,7 @@ function PermissionRouter({ children }: { children: React.ReactNode }) {
   }, [pendingPath])
 
   const callbackPath = useMemo(() => {
+    if (!searchParams) return null
     const raw = searchParams.get("callbackUrl")
     if (!raw) return null
 
@@ -103,8 +104,8 @@ function PermissionRouter({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    // Early return nếu đang loading session
-    if (status === "loading") {
+    // Early return nếu đang loading session hoặc không có pathname
+    if (status === "loading" || !pathname) {
       return
     }
 
@@ -277,14 +278,16 @@ function PermissionRouter({ children }: { children: React.ReactNode }) {
   // Loading state logic: Hiển thị loading để tránh flash content
   // Đặc biệt quan trọng cho admin routes để đảm bảo không render content khi chưa xác nhận session
   const hasSession = Boolean(session?.user)
-  const isAuthPage = pathname.startsWith(AUTH_PREFIX) && pathname !== ROOT_PATH
+  const isAuthPage = pathname ? pathname.startsWith(AUTH_PREFIX) && pathname !== ROOT_PATH : false
   
   // Hiển thị loading khi:
   // 1. Đang kiểm tra session (status === "loading")
   // 2. Đang chờ redirect (pendingPath chưa được clear)
   // 3. Đã đăng nhập nhưng đang ở trang auth (chờ redirect về dashboard)
+  // 4. Không có pathname (đang loading)
   const shouldRenderLoading =
     status === "loading" || // Đang kiểm tra session
+    !pathname || // Không có pathname
     (pendingPath !== null && pathname === pendingPath) || // Đang chờ redirect hoàn tất
     (hasSession && isAuthPage && status === "authenticated") // Đã đăng nhập ở auth page (chờ redirect)
 

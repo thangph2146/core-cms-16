@@ -70,8 +70,9 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
     },
     {
       name: "isActive",
-      label: "Kích hoạt",
-      type: "checkbox",
+      label: "Trạng thái",
+      description: "Bật/tắt để kích hoạt hoặc vô hiệu hóa người dùng",
+      type: "switch",
       defaultValue: true,
     }
   ]

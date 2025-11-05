@@ -44,13 +44,14 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
 export interface ResourceFormField<T = unknown> {
   name: keyof T | string
   label: string
   description?: string
-  type?: "text" | "email" | "password" | "number" | "textarea" | "select" | "checkbox" | "date"
+  type?: "text" | "email" | "password" | "number" | "textarea" | "select" | "checkbox" | "switch" | "date"
   placeholder?: string
   required?: boolean
   disabled?: boolean
@@ -365,6 +366,21 @@ export function ResourceForm<T extends Record<string, unknown>>({
                 {field.label}
               </Label>
             </div>
+            {error && <FieldError>{error}</FieldError>}
+          </FieldContent>
+        )
+
+      case "switch":
+        return (
+          <FieldContent>
+            <Switch
+              id={field.name as string}
+              checked={Boolean(fieldValue)}
+              onCheckedChange={(checked) => handleFieldChange(field.name as string, checked)}
+              disabled={field.disabled || isPending}
+              aria-invalid={error ? "true" : "false"}
+              aria-label={field.label}
+            />
             {error && <FieldError>{error}</FieldError>}
           </FieldContent>
         )
