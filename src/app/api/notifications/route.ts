@@ -1,213 +1,113 @@
 /**
- * API Route cho Notifications
+ * API Route: GET /api/notifications - List user's notifications
+ * 
+ * Supports:
+ * - limit: number of notifications to return (default: 20)
+ * - offset: number of notifications to skip (default: 0)
+ * - unreadOnly: boolean to filter only unread notifications (default: false)
  */
 import { NextRequest, NextResponse } from "next/server"
-import type { Notification } from "@prisma/client"
+import { auth } from "@/lib/auth/auth"
 import { prisma } from "@/lib/database"
-import { PERMISSIONS } from "@/lib/permissions"
-import {
-  getSocketServer,
-  mapNotificationToPayload,
-  storeNotificationInCache,
-} from "@/lib/socket/state"
-import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
-import {
-  validateInteger,
-  validateEnum,
-  validateStringLength,
-  sanitizeString,
-  validateID,
-} from "@/lib/api/validation"
+import type { Prisma } from "@prisma/client"
 
-function broadcastNotification(notification: Notification) {
-  const payload = mapNotificationToPayload(notification)
-  storeNotificationInCache(notification.userId, payload)
+async function getUserNotificationsHandler(req: NextRequest) {
+  const session = await auth()
 
-  const io = getSocketServer()
-  if (!io) {
-    return
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  io.to(`user:${notification.userId}`).emit("notification:new", payload)
-}
-
-// GET - Lấy danh sách notifications của user
-async function getNotificationsHandler(
-  request: NextRequest,
-  context: {
-    session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>>
-    permissions: import("@/lib/permissions").Permission[]
-    roles: Array<{ name: string }>
-  }
-) {
-  const { searchParams } = new URL(request.url)
+  const searchParams = req.nextUrl.searchParams
   
-  // Validate và sanitize limit
-  const limitParam = searchParams.get("limit") || "20"
-  const limitValidation = validateInteger(limitParam, 1, 100, "Limit")
-  if (!limitValidation.valid) {
-    return NextResponse.json({ error: limitValidation.error }, { status: 400 })
-  }
-  const limit = limitValidation.value!
-
-  // Validate và sanitize offset
-  const offsetParam = searchParams.get("offset") || "0"
-  const offsetValidation = validateInteger(offsetParam, 0, 10000, "Offset")
-  if (!offsetValidation.valid) {
-    return NextResponse.json({ error: offsetValidation.error }, { status: 400 })
-  }
-  const offset = offsetValidation.value!
-
-  // Validate unreadOnly
+  // Parse pagination params (support both offset/limit and page/limit)
+  const limitParam = searchParams.get("limit")
+  const offsetParam = searchParams.get("offset")
   const unreadOnlyParam = searchParams.get("unreadOnly")
+
+  // Validate and parse limit
+  const limit = limitParam ? parseInt(limitParam, 10) : 20
+  if (isNaN(limit) || limit < 1 || limit > 100) {
+    return NextResponse.json(
+      { error: "Limit must be a number between 1 and 100" },
+      { status: 400 }
+    )
+  }
+
+  // Validate and parse offset
+  const offset = offsetParam ? parseInt(offsetParam, 10) : 0
+  if (isNaN(offset) || offset < 0) {
+    return NextResponse.json(
+      { error: "Offset must be a non-negative number" },
+      { status: 400 }
+    )
+  }
+
+  // Parse unreadOnly
   const unreadOnly = unreadOnlyParam === "true"
 
-  const where: {
-    userId: string
-    isRead?: boolean
-    expiresAt?: { gt: Date } | null
-  } = {
-    userId: context.session.user.id,
+  // Build where clause
+  const where: Prisma.NotificationWhereInput = {
+    userId: session.user.id,
+    OR: [
+      { expiresAt: null },
+      { expiresAt: { gt: new Date() } },
+    ],
   }
 
   if (unreadOnly) {
     where.isRead = false
   }
 
-  // Filter out expired notifications
-  where.expiresAt = {
-    gt: new Date(),
-  }
-
+  // Get notifications and counts
   const [notifications, total, unreadCount] = await Promise.all([
     prisma.notification.findMany({
       where,
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
       take: limit,
       skip: offset,
     }),
+    prisma.notification.count({ where }),
     prisma.notification.count({
       where: {
-        userId: context.session.user.id,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    }),
-    prisma.notification.count({
-      where: {
-        userId: context.session.user.id,
+        ...where,
         isRead: false,
-        expiresAt: {
-          gt: new Date(),
-        },
       },
     }),
   ])
 
+  // Map to response format
+  const mappedNotifications = notifications.map((n) => ({
+    id: n.id,
+    userId: n.userId,
+    kind: n.kind,
+    title: n.title,
+    description: n.description,
+    isRead: n.isRead,
+    actionUrl: n.actionUrl,
+    metadata: n.metadata as Record<string, unknown> | null,
+    expiresAt: n.expiresAt,
+    createdAt: n.createdAt,
+    updatedAt: n.updatedAt,
+    readAt: n.readAt,
+  }))
+
   return NextResponse.json({
-    notifications,
+    notifications: mappedNotifications,
     total,
     unreadCount,
-    hasMore: offset + notifications.length < total,
+    hasMore: offset + limit < total,
   })
 }
 
-// POST - Tạo notification mới (admin/system only)
-async function postNotificationsHandler(
-  request: NextRequest,
-  _context: {
-    session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>>
-    permissions: import("@/lib/permissions").Permission[]
-    roles: Array<{ name: string }>
-  }
-) {
-  const body = await request.json()
-  const { userId, kind, title, description, actionUrl, metadata, expiresAt } =
-    body
-
-  // Validate required fields
-  if (!userId || !kind || !title) {
+export async function GET(req: NextRequest) {
+  try {
+    return await getUserNotificationsHandler(req)
+  } catch (error) {
+    console.error("Error fetching notifications:", error)
     return NextResponse.json(
-      { error: "userId, kind, và title là bắt buộc" },
-      { status: 400 }
+      { error: "Internal server error" },
+      { status: 500 }
     )
   }
-
-  // Validate ID (UUID or CUID)
-  const userIdValidation = validateID(userId)
-  if (!userIdValidation.valid) {
-    return NextResponse.json({ error: userIdValidation.error }, { status: 400 })
-  }
-
-  // Validate và sanitize title
-  const titleValidation = validateStringLength(title, 1, 200, "Tiêu đề")
-  if (!titleValidation.valid) {
-    return NextResponse.json({ error: titleValidation.error }, { status: 400 })
-  }
-
-  // Validate kind enum
-  const validKinds = [
-    "MESSAGE",
-    "SYSTEM",
-    "ANNOUNCEMENT",
-    "ALERT",
-    "WARNING",
-    "SUCCESS",
-    "INFO",
-  ] as const
-  const kindValidation = validateEnum(kind, validKinds, "Loại thông báo")
-  if (!kindValidation.valid) {
-    return NextResponse.json({ error: kindValidation.error }, { status: 400 })
-  }
-
-  // Sanitize strings
-  const sanitizedTitle = sanitizeString(title)
-  const sanitizedDescription = description ? sanitizeString(description) : null
-  const sanitizedActionUrl = actionUrl ? sanitizeString(actionUrl) : null
-
-  // Validate expiresAt if provided
-  let expiresAtDate: Date | null = null
-  if (expiresAt) {
-    expiresAtDate = new Date(expiresAt)
-    if (isNaN(expiresAtDate.getTime())) {
-      return NextResponse.json(
-        { error: "Ngày hết hạn không hợp lệ" },
-        { status: 400 }
-      )
-    }
-    // Ensure expiresAt is in the future
-    if (expiresAtDate <= new Date()) {
-      return NextResponse.json(
-        { error: "Ngày hết hạn phải trong tương lai" },
-        { status: 400 }
-      )
-    }
-  }
-
-  const notification = await prisma.notification.create({
-    data: {
-      userId,
-      kind: kindValidation.value!,
-      title: sanitizedTitle,
-      description: sanitizedDescription,
-      actionUrl: sanitizedActionUrl,
-      metadata: metadata || {},
-      expiresAt: expiresAtDate,
-    },
-  })
-
-  broadcastNotification(notification)
-
-  return NextResponse.json(notification, { status: 201 })
 }
-
-export const GET = createGetRoute(getNotificationsHandler, {
-  permissions: PERMISSIONS.NOTIFICATIONS_VIEW,
-})
-
-export const POST = createPostRoute(postNotificationsHandler, {
-  permissions: PERMISSIONS.NOTIFICATIONS_MANAGE,
-})

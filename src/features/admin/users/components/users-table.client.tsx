@@ -37,11 +37,6 @@ interface DeleteConfirmState {
   onConfirm: () => Promise<void>
 }
 
-interface RoleOption {
-  id: string
-  name: string
-  displayName: string
-}
 
 export function UsersTableClient({
   canDelete = false,
@@ -49,12 +44,13 @@ export function UsersTableClient({
   canManage = false,
   canCreate = false,
   initialData,
+  initialRolesOptions = [],
 }: UsersTableClientProps) {
   const router = useRouter()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
-  const [rolesOptions, setRolesOptions] = useState<Array<{ label: string; value: string }>>([])
+  const [rolesOptions, setRolesOptions] = useState<Array<{ label: string; value: string }>>(initialRolesOptions)
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -69,23 +65,8 @@ export function UsersTableClient({
     }
   }, [])
 
-
-  // Fetch roles for filter options
-  useEffect(() => {
-    async function fetchRoles() {
-      try {
-        const response = await apiClient.get<{ data: RoleOption[] }>("/roles")
-        const options = response.data.data.map((role) => ({
-          label: role.displayName,
-          value: role.name,
-        }))
-        setRolesOptions(options)
-      } catch (error) {
-        console.error("Error fetching roles", error)
-      }
-    }
-    fetchRoles()
-  }, [])
+  // Initialize roles options from server (passed as props)
+  // No need to fetch in useEffect anymore - roles are fetched server-side
 
   const dateFormatter = useMemo(
     () =>
@@ -240,7 +221,7 @@ export function UsersTableClient({
         }
       })
 
-      const response = await apiClient.get<UsersResponse>(`/users?${params.toString()}`)
+      const response = await apiClient.get<UsersResponse>(`/admin/users?${params.toString()}`)
       const payload = response.data
 
       return {
@@ -263,7 +244,7 @@ export function UsersTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(`/users/${row.id}`)
+            await apiClient.delete(`/admin/users/${row.id}`)
             showFeedback("success", "Xóa thành công", `Đã xóa người dùng ${row.email}`)
             refresh()
           } catch (error: unknown) {
@@ -286,7 +267,7 @@ export function UsersTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(`/users/${row.id}/hard-delete`)
+            await apiClient.delete(`/admin/users/${row.id}/hard-delete`)
             showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn người dùng ${row.email}`)
             refresh()
           } catch (error: unknown) {
@@ -305,7 +286,7 @@ export function UsersTableClient({
       if (!canRestore) return
 
       try {
-        await apiClient.post(`/users/${row.id}/restore`)
+        await apiClient.post(`/admin/users/${row.id}/restore`)
         refresh()
       } catch (error) {
         console.error("Failed to restore user", error)
@@ -326,7 +307,7 @@ export function UsersTableClient({
           onConfirm: async () => {
             setIsBulkProcessing(true)
             try {
-              await apiClient.post("/users/bulk", { action, ids })
+              await apiClient.post("/admin/users/bulk", { action, ids })
               showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} người dùng`)
               clearSelection()
               refresh()
@@ -347,7 +328,7 @@ export function UsersTableClient({
           onConfirm: async () => {
             setIsBulkProcessing(true)
             try {
-              await apiClient.post("/users/bulk", { action, ids })
+              await apiClient.post("/admin/users/bulk", { action, ids })
               showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn ${ids.length} người dùng`)
               clearSelection()
               refresh()

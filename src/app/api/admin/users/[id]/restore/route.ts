@@ -1,5 +1,5 @@
 /**
- * API Route: POST /api/users/[id]/restore
+ * API Route: POST /api/admin/users/[id]/restore
  */
 import { NextRequest, NextResponse } from "next/server"
 import { type AuthContext, restoreUser } from "@/features/admin/users/server/mutations"

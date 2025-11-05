@@ -1,5 +1,5 @@
 /**
- * API Route: GET /api/users/[id], PUT /api/users/[id], DELETE /api/users/[id]
+ * API Route: GET /api/admin/users/[id], PUT /api/admin/users/[id], DELETE /api/admin/users/[id]
  */
 import { NextRequest, NextResponse } from "next/server"
 import { getUserDetailById } from "@/features/admin/users/server/queries"

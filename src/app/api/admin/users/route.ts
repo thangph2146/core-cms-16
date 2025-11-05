@@ -1,6 +1,6 @@
 /**
- * API Route: GET /api/users - List users
- * POST /api/users - Create user
+ * API Route: GET /api/admin/users - List users
+ * POST /api/admin/users - Create user
  */
 import { NextRequest, NextResponse } from "next/server"
 import { listUsersCached } from "@/features/admin/users/server/queries"

@@ -1,5 +1,5 @@
 /**
- * API Route: DELETE /api/users/[id]/hard-delete - Hard delete user (xóa vĩnh viễn)
+ * API Route: DELETE /api/admin/users/[id]/hard-delete - Hard delete user (xóa vĩnh viễn)
  */
 import { NextRequest, NextResponse } from "next/server"
 import { type AuthContext, hardDeleteUser } from "@/features/admin/users/server/mutations"

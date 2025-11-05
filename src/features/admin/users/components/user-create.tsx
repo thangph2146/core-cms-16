@@ -6,17 +6,18 @@ import { apiClient } from "@/lib/api/axios"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
 import { useRoles } from "../hooks/use-roles"
-import { normalizeRoleIds } from "../utils"
+import { normalizeRoleIds, type Role } from "../utils"
 import { getBaseUserFields, getPasswordField, type UserFormData } from "../form-fields"
 
 export interface UserCreateProps {
   backUrl?: string
+  roles?: Role[]
 }
 
-export function UserCreate({ backUrl = "/admin/users" }: UserCreateProps) {
+export function UserCreate({ backUrl = "/admin/users", roles: rolesFromServer }: UserCreateProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const { roles } = useRoles()
+  const { roles } = useRoles({ initialRoles: rolesFromServer })
 
   const handleSubmit = async (data: Partial<UserFormData>) => {
     try {
@@ -34,7 +35,7 @@ export function UserCreate({ backUrl = "/admin/users" }: UserCreateProps) {
         return { success: false, error: "Email và mật khẩu là bắt buộc" }
       }
 
-      const response = await apiClient.post("/users", submitData)
+      const response = await apiClient.post("/admin/users", submitData)
 
       if (response.status === 201) {
         toast({

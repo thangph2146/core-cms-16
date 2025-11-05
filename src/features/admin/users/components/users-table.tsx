@@ -1,6 +1,6 @@
 import type { DataTableResult } from "@/components/tables"
 
-import { listUsersCached } from "@/features/admin/users/server/queries"
+import { listUsersCached, getRolesCached } from "@/features/admin/users/server/queries"
 import type { UserRow } from "../types"
 import { UsersTableClient } from "./users-table.client"
 
@@ -42,11 +42,18 @@ function serializeInitialData(
 
 /**
  * Server Component: Users Table
- * Fetches initial user data and passes it to the client component
+ * Fetches initial user data and roles, then passes them to the client component
  */
 export async function UsersTable({ canDelete, canRestore, canManage, canCreate }: UsersTableProps) {
   const initial = await listUsersCached(1, 10, "", "", "active")
   const initialData = serializeInitialData(initial)
+  
+  // Fetch roles for filter options
+  const roles = await getRolesCached()
+  const rolesOptions = roles.map((role) => ({
+    label: role.displayName,
+    value: role.name,
+  }))
 
   return (
     <UsersTableClient
@@ -55,6 +62,7 @@ export async function UsersTable({ canDelete, canRestore, canManage, canCreate }
       canManage={canManage}
       canCreate={canCreate}
       initialData={initialData}
+      initialRolesOptions={rolesOptions}
     />
   )
 }

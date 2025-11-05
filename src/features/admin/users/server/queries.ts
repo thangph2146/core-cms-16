@@ -237,7 +237,11 @@ export async function getUserById(id: string): Promise<ListedUser | null> {
   return mapUserRecord(user)
 }
 
-export async function getUserDetailById(id: string): Promise<UserDetail | null> {
+/**
+ * Server Component: Get user detail by ID
+ * Uses React cache() for automatic request deduplication and caching
+ */
+export const getUserDetailById = cache(async (id: string): Promise<UserDetail | null> => {
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
@@ -267,7 +271,7 @@ export async function getUserDetailById(id: string): Promise<UserDetail | null> 
     emailVerified: user.emailVerified,
     updatedAt: user.updatedAt,
   }
-}
+})
 
 export const listUsersCached = cache(
   async (page: number, limit: number, search: string, filtersKey: string, status: string) => {
@@ -282,5 +286,28 @@ export const listUsersCached = cache(
     })
   },
 )
+
+/**
+ * Get all active roles (cached)
+ * Used for form options, filters, etc.
+ */
+export const getRolesCached = cache(async () => {
+  const roles = await prisma.role.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      displayName: true,
+    },
+    orderBy: {
+      displayName: "asc",
+    },
+  })
+
+  return roles
+})
 
 export { mapUserRecord, type UserWithRoles }

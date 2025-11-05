@@ -13,7 +13,9 @@ export interface UserRow {
   roles: UserRole[]
 }
 
-export type UsersTableClientProps = BaseResourceTableClientProps<UserRow>
+export interface UsersTableClientProps extends BaseResourceTableClientProps<UserRow> {
+  initialRolesOptions?: Array<{ label: string; value: string }>
+}
 
 export type UsersResponse = ResourceResponse<UserRow>
 

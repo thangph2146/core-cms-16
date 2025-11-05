@@ -1,31 +1,72 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { apiClient } from "@/lib/api/axios"
 import type { Role } from "../utils"
 
-export function useRoles() {
-  const [roles, setRoles] = useState<Role[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export interface UseRolesOptions {
+  /**
+   * Danh sách roles được cung cấp sẵn (từ Server Component) để tránh fetch lại
+   */
+  initialRoles?: Role[]
+  /**
+   * Có cho phép fetch roles hay không (mặc định true)
+   */
+  enabled?: boolean
+}
+
+export function useRoles(options: UseRolesOptions = {}) {
+  const { initialRoles = [], enabled = true } = options
+  const initialRolesProvided = useMemo(() => initialRoles.length > 0, [initialRoles])
+
+  const [roles, setRoles] = useState<Role[]>(initialRoles)
+  const [isLoading, setIsLoading] = useState(enabled && !initialRolesProvided)
   const [error, setError] = useState<Error | null>(null)
+  const hasFetchedRef = useRef(false)
+
+  // Đồng bộ state khi initialRoles thay đổi
+  useEffect(() => {
+    if (initialRolesProvided) {
+      setRoles(initialRoles)
+      setIsLoading(false)
+    }
+  }, [initialRoles, initialRolesProvided])
 
   useEffect(() => {
+    if (!enabled || initialRolesProvided || hasFetchedRef.current) {
+      return
+    }
+
+    let isCancelled = false
+
     async function fetchRoles() {
       try {
+        hasFetchedRef.current = true
         setIsLoading(true)
         setError(null)
         const response = await apiClient.get<{ data: Role[] }>("/roles")
-        setRoles(response.data.data)
+        if (!isCancelled) {
+          setRoles(response.data.data)
+        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Failed to fetch roles")
         console.error("Error fetching roles:", error)
-        setError(error)
+        if (!isCancelled) {
+          setError(error)
+        }
       } finally {
-        setIsLoading(false)
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
       }
     }
+
     fetchRoles()
-  }, [])
+
+    return () => {
+      isCancelled = true
+    }
+  }, [enabled, initialRolesProvided])
 
   return { roles, isLoading, error }
 }

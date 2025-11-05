@@ -8,7 +8,7 @@ import { isSuperAdmin } from "@/lib/permissions"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
 import { useRoles } from "../hooks/use-roles"
-import { normalizeRoleIds } from "../utils"
+import { normalizeRoleIds, type Role } from "../utils"
 import { getBaseUserFields, getPasswordEditField } from "../form-fields"
 import type { UserRow } from "../types"
 
@@ -31,6 +31,7 @@ export interface UserEditProps {
   backUrl?: string
   backLabel?: string
   userId?: string // For redirect after success in page mode
+  roles?: Role[]
 }
 
 export function UserEdit({
@@ -42,13 +43,14 @@ export function UserEdit({
   backUrl,
   backLabel = "Quay lại",
   userId,
+  roles: rolesFromServer,
 }: UserEditProps) {
   const router = useRouter()
   const { data: session } = useSession()
   const currentUserRoles = session?.roles || []
   const isSuperAdminUser = isSuperAdmin(currentUserRoles)
   const { toast } = useToast()
-  const { roles } = useRoles()
+  const { roles } = useRoles({ initialRoles: rolesFromServer })
 
   const handleSubmit = async (data: Partial<UserEditData>) => {
     if (!user?.id) {
@@ -66,7 +68,7 @@ export function UserEdit({
         delete submitData.password
       }
 
-      const response = await apiClient.put(`/users/${user.id}`, submitData)
+      const response = await apiClient.put(`/admin/users/${user.id}`, submitData)
 
       if (response.status === 200) {
         toast({

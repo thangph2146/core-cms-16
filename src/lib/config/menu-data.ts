@@ -86,12 +86,7 @@ export function getMenuData(userPermissions: Permission[]): {
           title: "Thêm mới",
           url: "/admin/users/new",
           permissions: [PERMISSIONS.USERS_CREATE],
-        },
-        {
-          title: "Phân quyền",
-          url: "/admin/users/roles",
-          permissions: [PERMISSIONS.USERS_MANAGE],
-        },
+        }
       ],
     },
     {

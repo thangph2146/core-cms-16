@@ -1,5 +1,5 @@
 import { AdminHeader } from "@/components/headers"
-import { getUserDetailById } from "@/features/admin/users/server/queries"
+import { getRolesCached, getUserDetailById } from "@/features/admin/users/server/queries"
 import { UserEdit } from "@/features/admin/users/components/user-edit"
 
 function NotFoundNotice() {
@@ -45,6 +45,8 @@ export default async function EditUserPage({
     return <NotFoundNotice />
   }
 
+  const roles = await getRolesCached()
+
   // Transform user data to match UserEditData format
   const userForEdit = {
     ...user,
@@ -71,6 +73,7 @@ export default async function EditUserPage({
           userId={id}
           backUrl={`/admin/users/${id}`}
           backLabel="Quay lại chi tiết"
+          roles={roles}
         />
       </div>
     </>

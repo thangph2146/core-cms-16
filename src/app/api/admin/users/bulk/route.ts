@@ -1,5 +1,5 @@
 /**
- * API Route: POST /api/users/bulk
+ * API Route: POST /api/admin/users/bulk
  * Body: { action: "delete" | "restore" | "hard-delete", ids: string[] }
  */
 import { NextRequest, NextResponse } from "next/server"
