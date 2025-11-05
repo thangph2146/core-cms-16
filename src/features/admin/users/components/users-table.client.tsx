@@ -18,6 +18,7 @@ import { ResourceTableClient } from "@/features/admin/resources/components/resou
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
 
 import type { UserRow, UsersResponse, UsersTableClientProps } from "../types"
 
@@ -244,7 +245,7 @@ export function UsersTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(`/admin/users/${row.id}`)
+            await apiClient.delete(apiRoutes.users.delete(row.id))
             showFeedback("success", "Xóa thành công", `Đã xóa người dùng ${row.email}`)
             refresh()
           } catch (error: unknown) {
@@ -267,7 +268,7 @@ export function UsersTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(`/admin/users/${row.id}/hard-delete`)
+            await apiClient.delete(apiRoutes.users.hardDelete(row.id))
             showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn người dùng ${row.email}`)
             refresh()
           } catch (error: unknown) {
@@ -286,7 +287,7 @@ export function UsersTableClient({
       if (!canRestore) return
 
       try {
-        await apiClient.post(`/admin/users/${row.id}/restore`)
+        await apiClient.post(apiRoutes.users.restore(row.id))
         refresh()
       } catch (error) {
         console.error("Failed to restore user", error)
@@ -307,7 +308,7 @@ export function UsersTableClient({
           onConfirm: async () => {
             setIsBulkProcessing(true)
             try {
-              await apiClient.post("/admin/users/bulk", { action, ids })
+              await apiClient.post(apiRoutes.users.bulk, { action, ids })
               showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} người dùng`)
               clearSelection()
               refresh()
@@ -328,7 +329,7 @@ export function UsersTableClient({
           onConfirm: async () => {
             setIsBulkProcessing(true)
             try {
-              await apiClient.post("/admin/users/bulk", { action, ids })
+              await apiClient.post(apiRoutes.users.bulk, { action, ids })
               showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn ${ids.length} người dùng`)
               clearSelection()
               refresh()

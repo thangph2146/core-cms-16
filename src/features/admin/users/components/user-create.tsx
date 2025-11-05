@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
 import { useRoles } from "../hooks/use-roles"
@@ -35,7 +36,7 @@ export function UserCreate({ backUrl = "/admin/users", roles: rolesFromServer }:
         return { success: false, error: "Email và mật khẩu là bắt buộc" }
       }
 
-      const response = await apiClient.post("/admin/users", submitData)
+      const response = await apiClient.post(apiRoutes.users.create, submitData)
 
       if (response.status === 201) {
         toast({

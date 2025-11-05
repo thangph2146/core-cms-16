@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useMemo, useState, useRef } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import { Eye, EyeOff, Trash2, CheckCircle2, Loader2 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQueryClient, useQuery } from "@tanstack/react-query"
 import { ConfirmDialog } from "@/components/dialogs"
 import { queryKeys, invalidateQueries } from "@/lib/query-keys"
 import { apiRoutes } from "@/lib/api/routes"
@@ -20,7 +20,8 @@ import { Badge } from "@/components/ui/badge"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
-import { useDeleteAllNotifications } from "@/hooks/use-notifications"
+import { useDeleteAllNotifications, useAdminNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { logger } from "@/lib/config"
 import type { NotificationRow } from "../types"
 
 interface NotificationsTableClientProps {
@@ -60,6 +61,7 @@ export function NotificationsTableClient({
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const deleteAllNotifications = useDeleteAllNotifications()
+  
   const [isProcessing, setIsProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
@@ -70,11 +72,114 @@ export function NotificationsTableClient({
   // Sử dụng refresh function từ ResourceTableClient và invalidateQueries
   // Theo chuẩn Next.js 16: chỉ invalidate những queries thực sự cần thiết
   const triggerTableRefresh = useCallback(() => {
-    // Chỉ invalidate admin notifications table - không cần invalidate user notifications
+    logger.info("triggerTableRefresh called", {
+      hasRefreshFn: !!tableRefreshRef.current,
+    })
+    
+    // Invalidate admin notifications table
     invalidateQueries.adminNotifications(queryClient)
+    logger.debug("Admin notifications queries invalidated")
+    
     // Trigger DataTable refresh qua refreshKey
-    tableRefreshRef.current?.()
+    if (tableRefreshRef.current) {
+      logger.info("Calling table refresh function")
+      tableRefreshRef.current()
+    } else {
+      logger.warn("Table refresh function not available yet")
+    }
   }, [queryClient])
+
+  // Sử dụng socket bridge để invalidate queries khi có socket events
+  const { socket } = useAdminNotificationsSocketBridge()
+
+  // Lắng nghe socket events trực tiếp và trigger table refresh
+  useEffect(() => {
+    if (!socket || !session?.user?.id) {
+      return
+    }
+
+    const handleEvent = () => {
+      logger.info("Direct socket event received - triggering table refresh", {
+        userId: session.user.id,
+      })
+      triggerTableRefresh()
+    }
+
+    if (socket.connected) {
+      logger.info("Setting up direct socket listeners for table refresh", {
+        socketId: socket.id,
+        connected: socket.connected,
+      })
+
+      socket.on("notification:new", handleEvent)
+      socket.on("notification:admin", handleEvent)
+      socket.on("notification:updated", handleEvent)
+      socket.on("notifications:sync", handleEvent)
+    } else {
+      logger.debug("Socket not connected yet, waiting for connection")
+      const onConnect = () => {
+        logger.info("Socket connected, attaching direct listeners for table refresh", {
+          socketId: socket.id,
+        })
+        socket.on("notification:new", handleEvent)
+        socket.on("notification:admin", handleEvent)
+        socket.on("notification:updated", handleEvent)
+        socket.on("notifications:sync", handleEvent)
+      }
+      socket.once("connect", onConnect)
+    }
+
+    return () => {
+      if (socket) {
+        socket.off("notification:new", handleEvent)
+        socket.off("notification:admin", handleEvent)
+        socket.off("notification:updated", handleEvent)
+        socket.off("notifications:sync", handleEvent)
+      }
+    }
+  }, [socket, session?.user?.id, triggerTableRefresh])
+
+  // Tạo một query trong cache để có thể subscribe vào invalidate events
+  // Query này không fetch data (enabled: false), chỉ để có query trong cache
+  // Khi admin notifications query bị invalidate, sẽ trigger refresh table
+  useQuery({
+    queryKey: queryKeys.notifications.admin(),
+    queryFn: async () => {
+      // Không fetch data, chỉ để có query trong cache
+      return null
+    },
+    enabled: false, // Không tự động fetch
+    staleTime: Infinity, // Không bao giờ stale
+  })
+
+  // Lắng nghe sự thay đổi của admin notifications query để tự động refresh table
+  // Khi có socket events hoặc thao tác từ notification bell, query keys sẽ bị invalidate
+  // và trigger refresh này để admin table cập nhật ngay lập tức
+  useEffect(() => {
+    // Subscribe vào query cache để detect khi admin notifications bị invalidate
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // Check if this is an event for admin notifications query
+      if (
+        event &&
+        event.query &&
+        Array.isArray(event.query.queryKey) &&
+        event.query.queryKey[0] === "notifications" &&
+        event.query.queryKey[1] === "admin"
+      ) {
+        logger.info("Admin notifications query event detected - triggering table refresh", {
+          eventType: event.type,
+          queryKey: event.query.queryKey,
+          hasRefreshFn: !!tableRefreshRef.current,
+        })
+        // Trigger table refresh ngay khi detect event (có thể là invalidate, updated, etc.)
+        triggerTableRefresh()
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [queryClient, triggerTableRefresh])
 
   // Callback để nhận refresh function từ ResourceTableClient
   const handleRefreshReady = useCallback((refresh: () => void) => {

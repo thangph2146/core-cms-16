@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth/auth"
 import { prisma } from "@/lib/database"
+import { getSocketServer, getNotificationCache, mapNotificationToPayload } from "@/lib/socket/state"
 
 async function markAllAsReadHandler(_req: NextRequest) {
   const session = await auth()
@@ -24,6 +25,28 @@ async function markAllAsReadHandler(_req: NextRequest) {
       readAt: new Date(),
     },
   })
+
+  // Emit socket event để đồng bộ real-time
+  const io = getSocketServer()
+  if (io && result.count > 0) {
+    try {
+      // Reload notifications từ DB và sync với cache
+      const notifications = await prisma.notification.findMany({
+        where: { userId: session.user.id },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      })
+
+      const cache = getNotificationCache()
+      const payloads = notifications.map(mapNotificationToPayload)
+      cache.set(session.user.id, payloads)
+
+      // Emit sync event để client reload notifications
+      io.to(`user:${session.user.id}`).emit("notifications:sync", payloads)
+    } catch (error) {
+      console.warn("Failed to emit socket event for mark-all-read", error)
+    }
+  }
 
   return NextResponse.json({
     success: true,

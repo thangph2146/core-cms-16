@@ -24,13 +24,18 @@ export function NotificationBell() {
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
-  const { data, isLoading } = useNotifications({ limit: 10, refetchInterval: 30000 })
+  const { socket } = useNotificationsSocketBridge()
+  
+  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
+  // Chỉ polling nếu không có socket connection (fallback)
+  const { data, isLoading } = useNotifications({ 
+    limit: 10, 
+    disablePolling: !!socket, // Tắt polling nếu có socket
+    refetchInterval: 30000 // 30 giây (fallback khi không có socket)
+  })
   const markAllAsRead = useMarkAllAsRead()
   const deleteAllNotifications = useDeleteAllNotifications()
   const [open, setOpen] = React.useState(false)
-  
-  // Khởi tạo socket connection cho real-time notifications
-  useNotificationsSocketBridge()
 
   const unreadCount = data?.unreadCount || 0
   const notifications = data?.notifications || []

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
 import { isSuperAdmin } from "@/lib/permissions"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
@@ -68,7 +69,7 @@ export function UserEdit({
         delete submitData.password
       }
 
-      const response = await apiClient.put(`/admin/users/${user.id}`, submitData)
+      const response = await apiClient.put(apiRoutes.users.update(user.id), submitData)
 
       if (response.status === 200) {
         toast({

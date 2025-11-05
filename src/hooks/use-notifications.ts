@@ -10,6 +10,7 @@ import { apiClient } from "@/lib/api/axios"
 import { useSocket } from "@/hooks/use-socket"
 import { queryKeys, invalidateQueries } from "@/lib/query-keys"
 import { apiRoutes } from "@/lib/api/routes"
+import { logger } from "@/lib/config"
 
 export interface Notification {
   id: string
@@ -39,9 +40,11 @@ export function useNotifications(options?: {
   offset?: number
   unreadOnly?: boolean
   refetchInterval?: number
+  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
+  disablePolling?: boolean
 }) {
   const { data: session } = useSession()
-  const { limit = 20, offset = 0, unreadOnly = false, refetchInterval = 30000 } = options || {}
+  const { limit = 20, offset = 0, unreadOnly = false, refetchInterval = 30000, disablePolling = false } = options || {}
 
   return useQuery<NotificationsResponse>({
     queryKey: queryKeys.notifications.user(session?.user?.id, { limit, offset, unreadOnly }),
@@ -52,8 +55,13 @@ export function useNotifications(options?: {
       return response.data
     },
     enabled: !!session?.user?.id,
-    refetchInterval: refetchInterval, // Polling mỗi 30 giây
-    staleTime: 10000, // 10 giây
+    // Chỉ polling nếu không có socket connection (disablePolling = false)
+    // Socket sẽ handle real-time updates, polling chỉ là fallback
+    refetchInterval: disablePolling ? false : refetchInterval,
+    // Tăng staleTime để giảm refetch không cần thiết khi có socket
+    staleTime: disablePolling ? 60000 : 30000, // 60s nếu có socket, 30s nếu không
+    // Tăng gcTime để cache lâu hơn
+    gcTime: 5 * 60 * 1000, // 5 phút
   })
 }
 
@@ -68,9 +76,9 @@ export function useMarkNotificationRead() {
       return response.data
     },
     onSuccess: () => {
-      // Chỉ invalidate user notifications - admin table sẽ tự refresh khi cần
-      // Theo chuẩn Next.js 16: chỉ invalidate những queries thực sự cần thiết
-      invalidateQueries.userNotifications(queryClient, session?.user?.id)
+      // Invalidate cả user và admin notifications vì thay đổi trạng thái đọc ảnh hưởng đến cả 2
+      // Admin table cần cập nhật ngay khi notification được đánh dấu đã đọc/chưa đọc
+      invalidateQueries.allNotifications(queryClient, session?.user?.id)
     },
   })
 }
@@ -109,8 +117,9 @@ export function useMarkAllAsRead() {
       return response.data
     },
     onSuccess: () => {
-      // Chỉ invalidate user notifications - admin table sẽ tự refresh khi cần
-      invalidateQueries.userNotifications(queryClient, session?.user?.id)
+      // Invalidate cả user và admin notifications vì đánh dấu tất cả đã đọc ảnh hưởng đến cả 2
+      // Admin table cần cập nhật ngay khi tất cả notifications được đánh dấu đã đọc
+      invalidateQueries.allNotifications(queryClient, session?.user?.id)
     },
   })
 }
@@ -140,7 +149,6 @@ export function useDeleteAllNotifications() {
 export function useNotificationsSocketBridge() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
-  // Lấy role từ session.roles (không phải session.user.roles)
   const primaryRole = session?.roles?.[0]?.name ?? null
 
   const { socket, onNotification, onNotificationUpdated, onNotificationsSync } = useSocket({
@@ -153,19 +161,70 @@ export function useNotificationsSocketBridge() {
     if (!userId) return
 
     const invalidate = () => {
-      // Chỉ invalidate user notifications khi có socket update
-      invalidateQueries.userNotifications(queryClient, userId)
+      // Invalidate cả user và admin notifications để đồng bộ giữa Notification Bell và Admin Table
+      invalidateQueries.allNotifications(queryClient, userId)
     }
 
     const stopNew = onNotification(() => {
+      logger.debug("Socket notification:new received", { userId })
       invalidate()
     })
-
     const stopUpdated = onNotificationUpdated(() => {
+      logger.debug("Socket notification:updated received", { userId })
+      invalidate()
+    })
+    const stopSync = onNotificationsSync(() => {
+      logger.debug("Socket notifications:sync received", { userId })
       invalidate()
     })
 
+    return () => {
+      stopNew?.()
+      stopUpdated?.()
+      stopSync?.()
+    }
+  }, [session?.user?.id, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
+
+  return { socket }
+}
+
+/**
+ * Hook để quản lý Socket.IO real-time updates cho Admin Notifications Table.
+ * Tự động invalidate admin notifications queries khi có socket events:
+ * - notification:new: Khi có notification mới
+ * - notification:updated: Khi notification được cập nhật (đánh dấu đọc/chưa đọc, xóa, etc.)
+ * - notifications:sync: Khi có sync request từ server
+ * - notification:admin: Khi có notification admin-specific
+ */
+export function useAdminNotificationsSocketBridge() {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const primaryRole = session?.roles?.[0]?.name ?? null
+
+  const { socket, onNotification, onNotificationUpdated, onNotificationsSync } = useSocket({
+    userId: session?.user?.id,
+    role: primaryRole,
+  })
+
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+
+    const invalidate = () => {
+      // Invalidate cả user và admin notifications để đồng bộ giữa Notification Bell và Admin Table
+      invalidateQueries.allNotifications(queryClient, userId)
+    }
+
+    const stopNew = onNotification(() => {
+      logger.debug("Socket notification:new received (admin)", { userId })
+      invalidate()
+    })
+    const stopUpdated = onNotificationUpdated(() => {
+      logger.debug("Socket notification:updated received (admin)", { userId })
+      invalidate()
+    })
     const stopSync = onNotificationsSync(() => {
+      logger.debug("Socket notifications:sync received (admin)", { userId })
       invalidate()
     })
 

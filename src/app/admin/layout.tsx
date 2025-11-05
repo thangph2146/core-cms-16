@@ -49,7 +49,7 @@ export default async function AdminLayout({
           </Suspense>
         }
       />
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col w-full overflow-x-hidden">
         <PermissionGate>
           {children}
         </PermissionGate>

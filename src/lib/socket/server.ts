@@ -1,7 +1,4 @@
-import type { NextRequest } from "next/server"
-import { NextResponse } from "next/server"
-// import type { Server as HTTPServer } from "http" // TODO: Will be used when implementing custom server setup
-import { Server as IOServer, Socket } from "socket.io"
+import { Server as IOServer, type Socket } from "socket.io"
 import { NotificationKind, type Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { logger } from "@/lib/config"
@@ -9,39 +6,33 @@ import {
   getNotificationCache,
   mapNotificationToPayload,
   storeNotificationInCache,
-  // setSocketServer, // TODO: Will be used when implementing custom server setup
   MAX_IN_MEMORY_NOTIFICATIONS,
-  type SocketNotificationPayload as NotificationPayload,
-  type SocketNotificationKind as NotificationKindClient,
+  type SocketNotificationPayload,
+  type SocketNotificationKind,
 } from "@/lib/socket/state"
 
-// Helper to create a stable room id for a 1-1 conversation
-function conversationRoom(a: string, b: string) {
-  const [x, y] = [a, b].sort()
-  return `conversation:${x}:${y}`
-}
+const notificationCache = getNotificationCache()
 
 const userRoom = (userId: string) => `user:${userId}`
 const roleRoom = (role: string) => `role:${role}`
 
-function randomNotificationId(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+const conversationRoom = (a: string, b: string) => {
+  const [x, y] = [a, b].sort()
+  return `conversation:${x}:${y}`
 }
 
-function toJsonValue(
-  value: Record<string, unknown> | null | undefined,
-): JsonValue | null | undefined {
-  if (value == null) {
-    return value
-  }
-  return value as JsonValue
-}
+const randomNotificationId = (prefix: string) =>
+  `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
-const notificationCache = getNotificationCache()
 type JsonValue = Prisma.InputJsonValue
 type JsonObject = Prisma.InputJsonObject
 
-function normalizeKind(kind?: string | NotificationKind | null): NotificationKind {
+const toJsonValue = (value: Record<string, unknown> | null | undefined): JsonValue | null | undefined => {
+  if (value == null) return value ?? null
+  return value as JsonValue
+}
+
+const normalizeKind = (kind?: string | NotificationKind | null): NotificationKind => {
   if (!kind) return NotificationKind.MESSAGE
   const normalized = String(kind).toUpperCase() as NotificationKind
   if ((Object.values(NotificationKind) as string[]).includes(normalized)) {
@@ -50,10 +41,8 @@ function normalizeKind(kind?: string | NotificationKind | null): NotificationKin
   return NotificationKind.MESSAGE
 }
 
-function mapKindToClient(kind: NotificationKind): NotificationKindClient {
-  return kind.toLowerCase() as NotificationKindClient
-}
-
+const mapKindToClient = (kind: NotificationKind): SocketNotificationKind =>
+  kind.toLowerCase() as SocketNotificationKind
 
 async function persistNotificationForUser({
   userId,
@@ -70,7 +59,7 @@ async function persistNotificationForUser({
   kind?: string | NotificationKind
   metadata?: JsonValue | null
 }) {
-  const created = await prisma.notification.create({
+  return prisma.notification.create({
     data: {
       userId,
       title,
@@ -80,8 +69,6 @@ async function persistNotificationForUser({
       metadata: metadata ?? undefined,
     },
   })
-
-  return created
 }
 
 async function createNotificationsForRole(
@@ -114,6 +101,7 @@ async function createNotificationsForRole(
   }
 
   const normalizedKind = normalizeKind(notification.kind)
+
   const payloads = users.map((user) => ({
     userId: user.id,
     title: notification.title,
@@ -149,20 +137,14 @@ async function ensureUserNotificationsCached(userId: string) {
 
   logger.debug("Loading notifications from database", { userId })
   try {
-    // Không filter theo expiresAt - giữ nguyên thông báo cho đến khi user tự xóa
     const notifications = await prisma.notification.findMany({
-      where: {
-        userId,
-      },
+      where: { userId },
       orderBy: { createdAt: "desc" },
       take: MAX_IN_MEMORY_NOTIFICATIONS,
     })
 
     if (notifications.length > 0) {
-      notificationCache.set(
-        userId,
-        notifications.map(mapNotificationToPayload),
-      )
+      notificationCache.set(userId, notifications.map(mapNotificationToPayload))
       logger.success("Loaded notifications into cache", {
         userId,
         count: notifications.length,
@@ -177,13 +159,11 @@ async function ensureUserNotificationsCached(userId: string) {
   }
 }
 
-// TODO: Will be used when implementing custom server setup for Socket.IO with App Router
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function setupSocketHandlers(io: IOServer) {
+export async function setupSocketHandlers(io: IOServer) {
   logger.info("Setting up Socket.IO handlers", {
     action: "initialize_handlers",
   })
-  
+
   io.on("connection", async (socket: Socket) => {
     const auth = socket.handshake.auth as { userId?: string; role?: string }
     const userId = auth?.userId
@@ -287,8 +267,7 @@ async function setupSocketHandlers(io: IOServer) {
         })
 
         const getActionUrl = (recipientId: string, messageId: string, senderId: string) => {
-          const isFromAdmin =
-            senderId.includes("admin") || senderId.startsWith("cmh8leuua")
+          const isFromAdmin = senderId.includes("admin") || senderId.startsWith("cmh8leuua")
 
           if (isFromAdmin) {
             return `/parents/messages/${messageId}`
@@ -297,7 +276,7 @@ async function setupSocketHandlers(io: IOServer) {
         }
 
         let persistedId: string | null = null
-        let persistedPayload: NotificationPayload | null = null
+        let persistedPayload: SocketNotificationPayload | null = null
         let actionUrl = getActionUrl(toUserId, parentMessageId ?? "", fromUserId)
         const messageMetadata: JsonObject = parentMessageId
           ? { fromUserId, parentMessageId }
@@ -323,15 +302,12 @@ async function setupSocketHandlers(io: IOServer) {
           logger.error("Failed to persist notification", error instanceof Error ? error : new Error(String(error)))
         }
 
-        const notification: NotificationPayload =
+        const notification: SocketNotificationPayload =
           persistedPayload ?? {
-            id:
-              persistedId ??
-              randomNotificationId("msg"),
+            id: persistedId ?? randomNotificationId("msg"),
             kind: "message",
             title: "Bạn có tin nhắn mới",
-            description:
-              content.length > 50 ? content.substring(0, 50) + "..." : content,
+            description: content.length > 50 ? content.substring(0, 50) + "..." : content,
             fromUserId,
             toUserId,
             parentMessageId,
@@ -411,7 +387,7 @@ async function setupSocketHandlers(io: IOServer) {
       }: {
         targetUserId?: string
         targetRole?: string
-        notification: Omit<NotificationPayload, "id" | "timestamp" | "read">
+        notification: Omit<SocketNotificationPayload, "id" | "timestamp" | "read">
       }) => {
         logger.info("System notification requested", {
           socketId,
@@ -420,7 +396,7 @@ async function setupSocketHandlers(io: IOServer) {
           notificationTitle: notification.title,
         })
 
-        const systemNotification: NotificationPayload = {
+        const systemNotification: SocketNotificationPayload = {
           ...notification,
           id: randomNotificationId("sys"),
           timestamp: Date.now(),
@@ -491,60 +467,4 @@ async function setupSocketHandlers(io: IOServer) {
   })
 }
 
-// TODO: Will be used when implementing custom server setup for Socket.IO with App Router
-// type ServerWithIO = HTTPServer & { io?: IOServer }
-
-// Note: Socket.IO với App Router cần custom server setup
-// Route handler này chỉ để initialize socket server
-// Socket.IO sẽ upgrade connection từ HTTP sang WebSocket
-// Áp dụng security middleware nhưng không yêu cầu authentication
-// vì Socket.IO sẽ tự xử lý authentication qua handshake
-import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
-
-async function socketGetHandler(
-  req: NextRequest,
-  _context: {
-    session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>> | null
-    permissions: import("@/lib/permissions").Permission[]
-    roles: Array<{ name: string }>
-  }
-) {
-  logger.info("Socket API handler called", {
-    method: "GET",
-    url: req.url,
-  })
-
-  // Lấy server instance từ request
-  // Lưu ý: Socket.IO với App Router cần setup qua custom server
-  // Hoặc sử dụng edge runtime với WebSocket support
-  return NextResponse.json({ message: "Socket.IO server endpoint" }, { status: 200 })
-}
-
-async function socketPostHandler(
-  req: NextRequest,
-  _context: {
-    session: Awaited<ReturnType<typeof import("@/lib/auth").requireAuth>> | null
-    permissions: import("@/lib/permissions").Permission[]
-    roles: Array<{ name: string }>
-  }
-) {
-  logger.info("Socket API handler called", {
-    method: "POST",
-    url: req.url,
-  })
-
-  return NextResponse.json({ message: "Socket.IO server endpoint" }, { status: 200 })
-}
-
-// Socket endpoint không yêu cầu authentication vì Socket.IO tự xử lý qua handshake
-// Nhưng vẫn áp dụng rate limiting để chống DDoS
-export const GET = createGetRoute(socketGetHandler, {
-  requireAuth: false,
-  rateLimit: "read",
-})
-
-export const POST = createPostRoute(socketPostHandler, {
-  requireAuth: false,
-  rateLimit: "write",
-})
 

@@ -43,20 +43,16 @@ export function SignUpForm({
     }
 
     try {
-      // Tạo user mới
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      })
+      // Tạo user mới - sử dụng apiClient và apiRoutes
+      const { apiClient } = await import("@/lib/api/axios")
+      const { apiRoutes } = await import("@/lib/api/routes")
+      
+      const response = await apiClient.post<{ message: string }>(
+        apiRoutes.auth.signUp,
+        { name, email, password }
+      )
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || "Đã xảy ra lỗi. Vui lòng thử lại.")
-        setIsLoading(false)
-        return
-      }
+      // Axios tự động throw error cho status >= 400, nên nếu đến đây thì đã thành công
 
       // Auto sign in sau khi đăng ký
       const result = await signIn("credentials", {

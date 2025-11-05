@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   Folder,
   MoreHorizontal,
@@ -71,6 +72,40 @@ export function NavProjects({
   }[]
 }) {
   const { isMobile } = useSidebar()
+  // Chỉ render sau khi component đã mount trên client để tránh hydration mismatch
+  // Radix UI generate ID random khác nhau giữa server và client
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Render placeholder trên server để tránh hydration mismatch
+  if (!isMounted) {
+    return (
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Projects</SidebarGroupLabel>
+        <SidebarMenu>
+          {projects.map((item) => {
+            const Icon = iconMap[item.icon]
+            if (!Icon) {
+              return null
+            }
+            return (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild>
+                  <a href={item.url}>
+                    <Icon />
+                    <span>{item.name}</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroup>
+    )
+  }
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">

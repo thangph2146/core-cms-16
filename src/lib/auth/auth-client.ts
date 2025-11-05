@@ -8,6 +8,7 @@
 
 import { signIn, signOut, useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
 
 export interface SignInRequest {
   email: string
@@ -42,7 +43,7 @@ export const authApi = {
   },
 
   signUp: async (data: SignUpRequest): Promise<{ message: string }> => {
-    const response = await apiClient.post<{ message: string }>("/auth/signup", data)
+    const response = await apiClient.post<{ message: string }>(apiRoutes.auth.signUp, data)
     return response.data
   },
 
@@ -50,11 +51,12 @@ export const authApi = {
     await signOut({ callbackUrl: "/auth/sign-in" })
   },
 
-  // Use NextAuth useSession hook instead of API call
+  // DEPRECATED: Use NextAuth useSession hook instead of API call
+  // This method is kept for backward compatibility only
+  // TODO: Remove this method and use useSession hook instead
   getCurrentUser: async () => {
-    // This should be replaced with useSession hook
-    // For backward compatibility, we'll use session endpoint
-    const response = await apiClient.get("/auth/me")
+    // Note: This endpoint may not exist. Use useSession hook instead.
+    const response = await apiClient.get(apiRoutes.auth.session)
     return response.data
   },
 }

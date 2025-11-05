@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth/auth"
 import { prisma } from "@/lib/database"
+import { getSocketServer } from "@/lib/socket/state"
+import { mapNotificationToPayload } from "@/lib/socket/state"
 
 async function patchNotificationHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -45,6 +47,17 @@ async function patchNotificationHandler(req: NextRequest, { params }: { params: 
     where: { id },
     data: updateData,
   })
+
+  // Emit socket event để đồng bộ real-time với các clients khác
+  const io = getSocketServer()
+  if (io && updated.userId) {
+    try {
+      const payload = mapNotificationToPayload(updated)
+      io.to(`user:${updated.userId}`).emit("notification:updated", payload)
+    } catch (error) {
+      console.warn("Failed to emit socket event for notification update", error)
+    }
+  }
 
   return NextResponse.json({
     id: updated.id,
