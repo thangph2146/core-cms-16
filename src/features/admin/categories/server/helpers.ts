@@ -8,10 +8,10 @@
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import { serializeDate } from "@/features/admin/resources/server"
-import type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult } from "./queries"
+import type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult } from "../types"
 import type { CategoryRow } from "../types"
 
-type CategoryWithRelations = Prisma.CategoryGetPayload<{}>
+type CategoryWithRelations = Prisma.CategoryGetPayload<Record<string, never>>
 
 /**
  * Map Prisma category record to ListedCategory format
@@ -54,7 +54,7 @@ export function buildWhereClause(params: ListCategoriesInput): Prisma.CategoryWh
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
-      const value = rawValue?.trim()
+      const value = typeof rawValue === "string" ? rawValue.trim() : ""
       if (!value) continue
 
       switch (key) {

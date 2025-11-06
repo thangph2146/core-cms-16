@@ -6,11 +6,9 @@
  */
 
 import { prisma } from "@/lib/database"
-import { validatePagination, buildPagination, type ResourcePagination } from "@/features/admin/resources/server"
+import { validatePagination, buildPagination } from "@/features/admin/resources/server"
 import { mapCategoryRecord, buildWhereClause } from "./helpers"
-import type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult } from "./queries"
-
-export type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult }
+import type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult } from "../types"
 
 export async function listCategories(params: ListCategoriesInput = {}): Promise<ListCategoriesResult> {
   const { page, limit } = validatePagination(params.page, params.limit, 100)

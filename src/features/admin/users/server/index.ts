@@ -6,6 +6,7 @@
  * - cache.ts: Cached functions using React cache()
  * - mutations.ts: Data mutations (create, update, delete)
  * - helpers.ts: Shared helper functions
+ * - notifications.ts: Realtime notifications via Socket.IO
  */
 
 // Queries (non-cached)
@@ -51,4 +52,9 @@ export {
   serializeUserDetail,
   type UserWithRoles,
 } from "./helpers"
+
+// Notifications
+export {
+  notifySuperAdminsOfUserAction,
+} from "./notifications"
 

@@ -111,6 +111,46 @@ export const apiRoutes = {
     bulk: "/admin/categories/bulk",
   },
 
+  // Tags
+  tags: {
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.page) searchParams.set("page", params.page.toString())
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.status) searchParams.set("status", params.status)
+      const queryString = searchParams.toString()
+      return `/admin/tags${queryString ? `?${queryString}` : ""}`
+    },
+    detail: (id: string) => `/admin/tags/${id}`,
+    create: "/admin/tags",
+    update: (id: string) => `/admin/tags/${id}`,
+    delete: (id: string) => `/admin/tags/${id}`,
+    restore: (id: string) => `/admin/tags/${id}/restore`,
+    hardDelete: (id: string) => `/admin/tags/${id}/hard-delete`,
+    bulk: "/admin/tags/bulk",
+  },
+
+  // Contact Requests
+  contactRequests: {
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.page) searchParams.set("page", params.page.toString())
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.status) searchParams.set("status", params.status)
+      const queryString = searchParams.toString()
+      return `/admin/contact-requests${queryString ? `?${queryString}` : ""}`
+    },
+    detail: (id: string) => `/admin/contact-requests/${id}`,
+    update: (id: string) => `/admin/contact-requests/${id}`,
+    assign: (id: string) => `/admin/contact-requests/${id}/assign`,
+    delete: (id: string) => `/admin/contact-requests/${id}`,
+    restore: (id: string) => `/admin/contact-requests/${id}/restore`,
+    hardDelete: (id: string) => `/admin/contact-requests/${id}/hard-delete`,
+    bulk: "/admin/contact-requests/bulk",
+  },
+
   // Socket
   socket: "/socket",
 } as const

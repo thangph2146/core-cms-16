@@ -1,4 +1,4 @@
-import type { ResourceResponse, BaseResourceTableClientProps } from "@/features/admin/resources/types"
+import type { ResourceResponse, BaseResourceTableClientProps, ResourcePagination, BulkActionResult } from "@/features/admin/resources/types"
 
 export interface CategoryRow {
   id: string
@@ -9,6 +9,7 @@ export interface CategoryRow {
   deletedAt: string | null
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CategoriesTableClientProps extends BaseResourceTableClientProps<CategoryRow> {}
 
 export type CategoriesResponse = ResourceResponse<CategoryRow>
@@ -36,12 +37,7 @@ export interface CategoryDetail extends ListedCategory {
 
 export interface ListCategoriesResult {
   data: ListedCategory[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
+  pagination: ResourcePagination
 }
 
 export interface CreateCategoryInput {
@@ -56,9 +52,5 @@ export interface UpdateCategoryInput {
   description?: string | null
 }
 
-export interface BulkActionResult {
-  success: boolean
-  message: string
-  affected: number
-}
+export type { BulkActionResult }
 

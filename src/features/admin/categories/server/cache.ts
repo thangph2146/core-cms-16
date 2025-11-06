@@ -7,7 +7,7 @@
 
 import { cache } from "react"
 import { listCategories, getCategoryById } from "./queries"
-import type { ListCategoriesInput, ListCategoriesResult, CategoryDetail } from "./queries"
+import type { ListCategoriesInput, ListCategoriesResult, CategoryDetail } from "../types"
 
 /**
  * Cache function: List categories

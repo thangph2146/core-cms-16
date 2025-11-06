@@ -45,7 +45,7 @@ export function useRoles(options: UseRolesOptions = {}) {
         hasFetchedRef.current = true
         setIsLoading(true)
         setError(null)
-        const response = await apiClient.get<{ data: Role[] }>(apiRoutes.roles.list)
+        const response = await apiClient.get<{ data: Role[] }>(apiRoutes.roles.list())
         if (!isCancelled) {
           setRoles(response.data.data)
         }

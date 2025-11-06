@@ -3,7 +3,7 @@
  */
 
 import type { ResourceFormField } from "@/features/admin/resources/components"
-import { validateCategoryName, validateCategorySlug, validateDescription, generateSlug } from "./utils"
+import { validateCategoryName, validateCategorySlug, validateDescription } from "./utils"
 import React from "react"
 import { Tag, Hash, AlignLeft } from "lucide-react"
 

@@ -269,11 +269,12 @@ src/features/admin/users/
 │   ├── user-edit.tsx                  # Server Component (fetch data + roles)
 │   └── user-edit.client.tsx            # Client Component (form)
 ├── server/
-│   ├── index.ts                       # Export barrel (queries, cache, mutations, helpers)
+│   ├── index.ts                       # Export barrel (queries, cache, mutations, helpers, notifications)
 │   ├── queries.ts                     # Non-cached database queries (dùng trong API routes)
 │   ├── cache.ts                       # Cached queries với React cache() (dùng trong Server Components)
 │   ├── mutations.ts                   # Create, update, delete operations với permission checks
-│   └── helpers.ts                     # Helper functions (serialization, mapping, transformation)
+│   ├── helpers.ts                     # Helper functions (serialization, mapping, transformation)
+│   └── notifications.ts               # Realtime notifications via Socket.IO
 ├── hooks/
 │   ├── index.ts                       # Export barrel
 │   └── use-roles.ts                   # Custom hooks (client-side)
@@ -379,6 +380,7 @@ export function UsersTableClient({ initialData, canDelete }: UsersTableClientPro
 - ✅ **`cache.ts`**: Cached queries với React `cache()` (dùng trong Server Components)
 - ✅ **`mutations.ts`**: Create, update, delete operations với permission checks
 - ✅ **`helpers.ts`**: Helper functions (serialization, mapping, transformation)
+- ✅ **`notifications.ts`**: Realtime notifications via Socket.IO cho các actions (create, update, delete, etc.)
 
 **Ví dụ queries.ts:**
 
@@ -441,6 +443,7 @@ import type { Permission } from "@/lib/permissions"
 import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { mapUserRecord, type ListedUser, type UserWithRoles } from "./queries"
+import { notifySuperAdminsOfUserAction } from "./notifications"
 
 export interface AuthContext {
   actorId: string
@@ -532,12 +535,174 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
     })
   }
   
-  // Notifications, logging, etc.
-  await notifySuperAdminsOfUserAction("create", ctx.actorId, user)
+  // Emit notification realtime
+  await notifySuperAdminsOfUserAction(
+    "create",
+    ctx.actorId,
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    }
+  )
   
   return mapUserRecord(user)
 }
 ```
+
+**Ví dụ notifications.ts:**
+
+```typescript
+// src/features/admin/users/server/notifications.ts
+import { prisma } from "@/lib/database"
+import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
+import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
+import { NotificationKind } from "@prisma/client"
+
+/**
+ * Helper function để tạo system notification cho super admin về user actions
+ */
+export async function notifySuperAdminsOfUserAction(
+  action: "create" | "update" | "delete" | "restore" | "hard-delete",
+  actorId: string,
+  targetUser: { id: string; email: string; name: string | null },
+  changes?: {
+    email?: { old: string; new: string }
+    isActive?: { old: boolean; new: boolean }
+    roles?: { old: string[]; new: string[] }
+  }
+) {
+  try {
+    // 1. Lấy thông tin actor và format notification
+    const actor = await getActorInfo(actorId)
+    const actorName = actor?.name || actor?.email || "Hệ thống"
+    const targetUserName = targetUser.name || targetUser.email
+    
+    let title = ""
+    let description = ""
+    const actionUrl = `/admin/users/${targetUser.id}`
+    
+    // Format title và description dựa trên action
+    switch (action) {
+      case "create":
+        title = "👤 Người dùng mới được tạo"
+        description = `${actorName} đã tạo người dùng mới: ${targetUserName} (${targetUser.email})`
+        break
+      case "update":
+        // Format changes...
+        title = "✏️ Người dùng được cập nhật"
+        description = `${actorName} đã cập nhật người dùng: ${targetUserName} (${targetUser.email})`
+        break
+      // ... other cases
+    }
+    
+    // 2. Tạo notification trong database cho tất cả super admins
+    const result = await createNotificationForSuperAdmins(
+      title,
+      description,
+      actionUrl,
+      NotificationKind.SYSTEM,
+      {
+        type: `user_${action}`,
+        actorId,
+        actorName: actor?.name || actor?.email,
+        actorEmail: actor?.email,
+        targetUserId: targetUser.id,
+        targetUserName,
+        targetUserEmail: targetUser.email,
+        changes,
+        timestamp: new Date().toISOString(),
+      }
+    )
+    
+    // 3. Emit socket event với notifications từ database (IDs thực tế)
+    const io = getSocketServer()
+    if (io && result.count > 0) {
+      // Lấy danh sách super admins
+      const superAdmins = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          userRoles: {
+            some: {
+              role: {
+                name: "super_admin",
+                isActive: true,
+                deletedAt: null,
+              },
+            },
+          },
+        },
+        select: { id: true },
+      })
+      
+      // Fetch notifications vừa tạo để lấy IDs thực tế
+      const createdNotifications = await prisma.notification.findMany({
+        where: {
+          title,
+          description,
+          actionUrl,
+          kind: NotificationKind.SYSTEM,
+          userId: { in: superAdmins.map((a) => a.id) },
+          createdAt: { gte: new Date(Date.now() - 5000) },
+        },
+        orderBy: { createdAt: "desc" },
+        take: superAdmins.length,
+      })
+      
+      // Emit to each super admin với notification từ database
+      for (const admin of superAdmins) {
+        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
+        if (dbNotification) {
+          const socketNotification = mapNotificationToPayload(dbNotification)
+          storeNotificationInCache(admin.id, socketNotification)
+          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+        } else {
+          // Fallback nếu không tìm thấy notification trong database
+          const fallbackNotification = {
+            id: `user-${action}-${targetUser.id}-${Date.now()}`,
+            kind: "system" as const,
+            title,
+            description,
+            actionUrl,
+            timestamp: Date.now(),
+            read: false,
+            toUserId: admin.id,
+            metadata: {
+              type: `user_${action}`,
+              actorId,
+              targetUserId: targetUser.id,
+            },
+          }
+          storeNotificationInCache(admin.id, fallbackNotification)
+          io.to(`user:${admin.id}`).emit("notification:new", fallbackNotification)
+        }
+      }
+      
+      // Also emit to role room for broadcast
+      if (createdNotifications.length > 0) {
+        const roleNotification = mapNotificationToPayload(createdNotifications[0])
+        io.to("role:super_admin").emit("notification:new", roleNotification)
+      }
+    }
+  } catch (error) {
+    // Log error nhưng không throw để không ảnh hưởng đến main operation
+    console.error("[notifications] Failed to notify super admins:", error)
+  }
+}
+```
+
+**Quy tắc:**
+- ✅ Tách riêng logic notifications vào file `notifications.ts`
+- ✅ Tạo notification trong database trước (với `createNotificationForSuperAdmins`)
+- ✅ Fetch notifications từ database để lấy IDs thực tế (trong vòng 5 giây)
+- ✅ Sử dụng `mapNotificationToPayload` để convert từ database sang socket format
+- ✅ Sử dụng `storeNotificationInCache` để lưu vào cache
+- ✅ Emit đến từng user room với `toUserId` và `user:${adminId}` room
+- ✅ Có fallback nếu không tìm thấy notification trong database
+- ✅ Emit đến role room (`role:super_admin`) cho broadcast
+- ✅ Không throw error để không ảnh hưởng đến main operation
+- ✅ Sử dụng emoji trong titles để dễ nhận biết (👤, ✏️, 🗑️, ♻️, ⚠️)
 
 **Ví dụ helpers.ts:**
 
@@ -856,7 +1021,7 @@ src/lib/
    - Permission checks
    - Validation
    - Database operations
-   - Notifications, logging
+   - Realtime notifications (gọi từ `notifications.ts`)
 
 4. **Serialize data trước khi pass xuống Client**
    - Dates → strings
@@ -967,11 +1132,12 @@ src/
     │   ├── user-edit.tsx                # Server: fetch data + roles
     │   └── user-edit.client.tsx         # Client: form
     ├── server/
-    │   ├── index.ts                     # Export barrel (queries, cache, mutations, helpers)
+    │   ├── index.ts                     # Export barrel (queries, cache, mutations, helpers, notifications)
     │   ├── queries.ts                   # Non-cached queries (API routes)
     │   ├── cache.ts                      # Cached queries (Server Components)
     │   ├── mutations.ts                  # Create, update, delete với permissions
-    │   └── helpers.ts                    # Serialization, mapping, transformation
+    │   ├── helpers.ts                    # Serialization, mapping, transformation
+    │   └── notifications.ts              # Realtime notifications via Socket.IO
     ├── hooks/
     │   ├── index.ts                     # Export barrel
     │   └── use-roles.ts                  # Custom hooks
@@ -1008,7 +1174,7 @@ src/
    └──> Mutation checks permissions
    └──> Validate business rules
    └──> Create user in database
-   └──> Send notifications to super admins
+   └──> Emit realtime notifications to super admins (via Socket.IO)
    └──> Return sanitized user data
 
 6. Success
@@ -1060,7 +1226,7 @@ src/
    └──> Check email uniqueness (if changed)
    └──> Track changes (email, isActive, roles)
    └──> Update user in database (transaction)
-   └──> Send notifications if changes detected
+   └──> Emit realtime notifications if changes detected (via Socket.IO)
    └──> Return sanitized user data
 
 4. Success

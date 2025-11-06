@@ -1,0 +1,532 @@
+"use client"
+
+import { useCallback, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
+
+import { ConfirmDialog } from "@/components/dialogs"
+import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
+import { FeedbackDialog, type FeedbackVariant } from "@/components/dialogs"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
+
+import type { TagRow, TagsResponse, TagsTableClientProps } from "../types"
+
+interface FeedbackState {
+  open: boolean
+  variant: FeedbackVariant
+  title: string
+  description?: string
+  details?: string
+}
+
+interface DeleteConfirmState {
+  open: boolean
+  type: "soft" | "hard"
+  row?: TagRow
+  bulkIds?: string[]
+  onConfirm: () => Promise<void>
+}
+
+export function TagsTableClient({
+  canDelete = false,
+  canRestore = false,
+  canManage = false,
+  canCreate = false,
+  initialData,
+}: TagsTableClientProps) {
+  const router = useRouter()
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const tableRefreshRef = useRef<(() => void) | null>(null)
+
+  const showFeedback = useCallback(
+    (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
+      setFeedback({ open: true, variant, title, description, details })
+    },
+    [],
+  )
+
+  const handleFeedbackOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      setFeedback(null)
+    }
+  }, [])
+
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("vi-VN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [],
+  )
+
+  const baseColumns = useMemo<DataTableColumn<TagRow>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Tên thẻ tag",
+        filter: { placeholder: "Lọc tên thẻ tag..." },
+        searchable: true,
+        className: "min-w-[150px] max-w-[250px]",
+        headerClassName: "min-w-[150px] max-w-[250px]",
+      },
+      {
+        accessorKey: "slug",
+        header: "Slug",
+        filter: { placeholder: "Lọc slug..." },
+        searchable: true,
+        className: "min-w-[150px] max-w-[250px]",
+        headerClassName: "min-w-[150px] max-w-[250px]",
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Ngày tạo",
+        filter: {
+          type: "date",
+          placeholder: "Chọn ngày tạo",
+          dateFormat: "dd/MM/yyyy",
+        },
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
+        cell: (row) => {
+          try {
+            return dateFormatter.format(new Date(row.createdAt))
+          } catch {
+            return row.createdAt
+          }
+        },
+      },
+    ],
+    [dateFormatter],
+  )
+
+  const deletedColumns = useMemo<DataTableColumn<TagRow>[]>(
+    () => [
+      ...baseColumns,
+      {
+        accessorKey: "deletedAt",
+        header: "Ngày xóa",
+        filter: {
+          type: "date",
+          placeholder: "Chọn ngày xóa",
+          dateFormat: "dd/MM/yyyy",
+        },
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
+        cell: (row) => {
+          if (!row.deletedAt) return "-"
+          try {
+            return dateFormatter.format(new Date(row.deletedAt))
+          } catch {
+            return row.deletedAt
+          }
+        },
+      },
+    ],
+    [baseColumns, dateFormatter],
+  )
+
+  const loader = useCallback(
+    async (query: DataTableQueryState, view: ResourceViewMode<TagRow>) => {
+      const baseUrl = apiRoutes.tags.list({
+        page: query.page,
+        limit: query.limit,
+        status: view.status ?? "active",
+        search: query.search.trim() || undefined,
+      })
+
+      const filterParams = new URLSearchParams()
+      Object.entries(query.filters).forEach(([key, value]) => {
+        if (value) {
+          filterParams.set(`filter[${key}]`, value)
+        }
+      })
+
+      const filterString = filterParams.toString()
+      const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
+
+      const response = await apiClient.get<TagsResponse>(url)
+      const payload = response.data
+
+      return {
+        rows: payload.data,
+        page: payload.pagination.page,
+        limit: payload.pagination.limit,
+        total: payload.pagination.total,
+        totalPages: payload.pagination.totalPages,
+      } satisfies DataTableResult<TagRow>
+    },
+    [],
+  )
+
+  const handleDeleteSingle = useCallback(
+    (row: TagRow, refresh: () => void) => {
+      if (!canDelete) return
+      setDeleteConfirm({
+        open: true,
+        type: "soft",
+        row,
+        onConfirm: async () => {
+          try {
+            await apiClient.delete(apiRoutes.tags.delete(row.id))
+            showFeedback("success", "Xóa thành công", `Đã xóa thẻ tag ${row.name}`)
+            refresh()
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+            showFeedback("error", "Xóa thất bại", `Không thể xóa thẻ tag ${row.name}`, errorMessage)
+            throw error
+          }
+        },
+      })
+    },
+    [canDelete, showFeedback],
+  )
+
+  const handleHardDeleteSingle = useCallback(
+    (row: TagRow, refresh: () => void) => {
+      if (!canManage) return
+      setDeleteConfirm({
+        open: true,
+        type: "hard",
+        row,
+        onConfirm: async () => {
+          try {
+            await apiClient.delete(apiRoutes.tags.hardDelete(row.id))
+            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn thẻ tag ${row.name}`)
+            refresh()
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn thẻ tag ${row.name}`, errorMessage)
+            throw error
+          }
+        },
+      })
+    },
+    [canManage, showFeedback],
+  )
+
+  const handleRestoreSingle = useCallback(
+    async (row: TagRow, refresh: () => void) => {
+      if (!canRestore) return
+
+      try {
+        await apiClient.post(apiRoutes.tags.restore(row.id))
+        refresh()
+      } catch (error) {
+        console.error("Failed to restore tag", error)
+      }
+    },
+    [canRestore],
+  )
+
+  const executeBulk = useCallback(
+    (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
+      if (ids.length === 0) return
+
+      if (action === "delete") {
+        setDeleteConfirm({
+          open: true,
+          type: "soft",
+          bulkIds: ids,
+          onConfirm: async () => {
+            setIsBulkProcessing(true)
+            try {
+              await apiClient.post(apiRoutes.tags.bulk, { action, ids })
+              showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} thẻ tag`)
+              clearSelection()
+              refresh()
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+              showFeedback("error", "Xóa hàng loạt thất bại", `Không thể xóa ${ids.length} thẻ tag`, errorMessage)
+              throw error
+            } finally {
+              setIsBulkProcessing(false)
+            }
+          },
+        })
+      } else if (action === "hard-delete") {
+        setDeleteConfirm({
+          open: true,
+          type: "hard",
+          bulkIds: ids,
+          onConfirm: async () => {
+            setIsBulkProcessing(true)
+            try {
+              await apiClient.post(apiRoutes.tags.bulk, { action, ids })
+              showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn ${ids.length} thẻ tag`)
+              clearSelection()
+              refresh()
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+              showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn ${ids.length} thẻ tag`, errorMessage)
+              throw error
+            } finally {
+              setIsBulkProcessing(false)
+            }
+          },
+        })
+      } else {
+        setIsBulkProcessing(true)
+        ;(async () => {
+          try {
+            await apiClient.post(apiRoutes.tags.bulk, { action, ids })
+            showFeedback("success", "Khôi phục thành công", `Đã khôi phục ${ids.length} thẻ tag`)
+            clearSelection()
+            refresh()
+          } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+            showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục ${ids.length} thẻ tag`, errorMessage)
+          } finally {
+            setIsBulkProcessing(false)
+          }
+        })()
+      }
+    },
+    [showFeedback],
+  )
+
+  const viewModes = useMemo<ResourceViewMode<TagRow>[]>(() => {
+    const modes: ResourceViewMode<TagRow>[] = [
+      {
+        id: "active",
+        label: "Đang hoạt động",
+        status: "active",
+        selectionEnabled: canDelete,
+        selectionActions: canDelete
+          ? ({ selectedIds, clearSelection, refresh }) => (
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span>
+                  Đã chọn <strong>{selectedIds.length}</strong> thẻ tag
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={isBulkProcessing}
+                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+                  >
+                    <Trash2 className="mr-2 h-5 w-5" />
+                    Xóa đã chọn
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                    Bỏ chọn
+                  </Button>
+                </div>
+              </div>
+            )
+          : undefined,
+        rowActions:
+          canDelete || canRestore
+            ? (row, { refresh }) => (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => router.push(`/admin/tags/${row.id}`)}>
+                      <Eye className="mr-2 h-5 w-5" />
+                      Xem chi tiết
+                    </DropdownMenuItem>
+                    {canDelete && (
+                      <DropdownMenuItem onClick={() => handleDeleteSingle(row, refresh)}>
+                        <Trash2 className="mr-2 h-5 w-5" />
+                        Xóa
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            : (row) => (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/admin/tags/${row.id}`)}
+                >
+                  <Eye className="mr-2 h-5 w-5" />
+                  Xem
+                </Button>
+              ),
+        emptyMessage: "Không tìm thấy thẻ tag nào phù hợp",
+      },
+      {
+        id: "deleted",
+        label: "Đã xóa",
+        status: "deleted",
+        columns: deletedColumns,
+        selectionEnabled: canRestore || canManage,
+        selectionActions: canRestore || canManage
+          ? ({ selectedIds, clearSelection, refresh }) => (
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                <span>
+                  Đã chọn <strong>{selectedIds.length}</strong> thẻ tag (đã xóa)
+                </span>
+                <div className="flex items-center gap-2">
+                  {canRestore && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isBulkProcessing}
+                      onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                    >
+                      <RotateCcw className="mr-2 h-5 w-5" />
+                      Khôi phục
+                    </Button>
+                  )}
+                  {canManage && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing}
+                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      Xóa vĩnh viễn
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                    Bỏ chọn
+                  </Button>
+                </div>
+              </div>
+            )
+          : undefined,
+        rowActions:
+          canRestore || canManage
+            ? (row, { refresh }) => (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canRestore && (
+                      <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
+                        <RotateCcw className="mr-2 h-5 w-5" />
+                        Khôi phục
+                      </DropdownMenuItem>
+                    )}
+                    {canManage && (
+                      <DropdownMenuItem onClick={() => handleHardDeleteSingle(row, refresh)}>
+                        <AlertTriangle className="mr-2 h-5 w-5" />
+                        Xóa vĩnh viễn
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            : undefined,
+        emptyMessage: "Không tìm thấy thẻ tag đã xóa nào",
+      },
+    ]
+
+    return modes
+  }, [
+    canDelete,
+    canRestore,
+    canManage,
+    isBulkProcessing,
+    executeBulk,
+    handleDeleteSingle,
+    handleRestoreSingle,
+    handleHardDeleteSingle,
+    deletedColumns,
+    router,
+  ])
+
+  const initialDataByView = useMemo(
+    () => (initialData ? { active: initialData } : undefined),
+    [initialData],
+  )
+
+  const headerActions = canCreate ? (
+    <Button
+      type="button"
+      size="sm"
+      onClick={() => router.push("/admin/tags/new")}
+      className="h-8 px-3 text-xs sm:text-sm"
+    >
+      <Plus className="mr-2 h-5 w-5" />
+      Thêm mới
+    </Button>
+  ) : undefined
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteConfirm) return
+    try {
+      await deleteConfirm.onConfirm()
+    } catch {
+      // Error already handled in onConfirm
+    } finally {
+      setDeleteConfirm(null)
+    }
+  }, [deleteConfirm])
+
+  return (
+    <>
+      <ResourceTableClient<TagRow>
+        title="Quản lý thẻ tag"
+        baseColumns={baseColumns}
+        loader={loader}
+        viewModes={viewModes}
+        defaultViewId="active"
+        initialDataByView={initialDataByView}
+        fallbackRowCount={6}
+        headerActions={headerActions}
+        onRefreshReady={(refresh) => {
+          tableRefreshRef.current = refresh
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirm?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteConfirm(null)
+          }
+        }}
+        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa thẻ tag?"}
+        description={
+          deleteConfirm?.type === "hard"
+            ? deleteConfirm.bulkIds
+              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} thẻ tag đã chọn? Hành động này không thể hoàn tác.`
+              : `Bạn có chắc chắn muốn xóa vĩnh viễn thẻ tag "${deleteConfirm?.row?.name}"? Hành động này không thể hoàn tác.`
+            : deleteConfirm?.bulkIds
+              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} thẻ tag đã chọn?`
+              : `Bạn có chắc chắn muốn xóa thẻ tag "${deleteConfirm?.row?.name}"?`
+        }
+        confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
+        cancelLabel="Hủy"
+        variant={deleteConfirm?.type === "hard" ? "destructive" : "default"}
+        onConfirm={handleDeleteConfirm}
+      />
+
+      <FeedbackDialog
+        open={feedback?.open ?? false}
+        onOpenChange={handleFeedbackOpenChange}
+        variant={feedback?.variant ?? "success"}
+        title={feedback?.title ?? ""}
+        description={feedback?.description}
+        details={feedback?.details}
+      />
+    </>
+  )
+}
+

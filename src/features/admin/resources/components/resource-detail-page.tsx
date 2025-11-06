@@ -7,7 +7,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { Edit, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { ResourceForm, type ResourceFormField } from "./resource-form"
+import { ResourceFormSkeleton } from "@/components/skeletons"
 
 export interface ResourceDetailField<T = unknown> {
   name: keyof T | string
@@ -318,16 +319,26 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
 
       {/* Edit Form */}
       {editFields && onEditSubmit && (
-        <ResourceForm<T>
-          data={data}
-          fields={editFields}
-          onSubmit={onEditSubmit}
-          open={isEditOpen}
-          onOpenChange={setIsEditOpen}
-          variant="dialog"
-          title={`${editLabel} ${title || ""}`.trim()}
-          showCard={false}
-        />
+        <Suspense
+          fallback={
+            <ResourceFormSkeleton
+              variant="dialog"
+              fieldCount={editFields.length}
+              title={true}
+            />
+          }
+        >
+          <ResourceForm<T>
+            data={data}
+            fields={editFields}
+            onSubmit={onEditSubmit}
+            open={isEditOpen}
+            onOpenChange={setIsEditOpen}
+            variant="dialog"
+            title={`${editLabel} ${title || ""}`.trim()}
+            showCard={false}
+          />
+        </Suspense>
       )}
     </div>
   )

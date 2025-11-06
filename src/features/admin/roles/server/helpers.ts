@@ -11,7 +11,7 @@ import { serializeDate } from "@/features/admin/resources/server"
 import type { ListRolesInput, ListedRole, RoleDetail, ListRolesResult } from "./queries"
 import type { RoleRow } from "../types"
 
-type RoleWithRelations = Prisma.RoleGetPayload<{}>
+type RoleWithRelations = Prisma.RoleGetPayload<Record<string, never>>
 
 /**
  * Map Prisma role record to ListedRole format

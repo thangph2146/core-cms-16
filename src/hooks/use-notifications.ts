@@ -7,7 +7,7 @@ import { useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
-import { useSocket } from "@/hooks/use-socket"
+import { useSocket, type SocketNotificationPayload } from "@/hooks/use-socket"
 import { queryKeys, invalidateQueries } from "@/lib/query-keys"
 import { apiRoutes } from "@/lib/api/routes"
 import { logger } from "@/lib/config"
@@ -160,21 +160,143 @@ export function useNotificationsSocketBridge() {
     const userId = session?.user?.id
     if (!userId) return
 
+    // Helper để convert SocketNotificationPayload sang Notification format
+    const convertSocketToNotification = (payload: SocketNotificationPayload): Notification => {
+      const timestamp = payload.timestamp ?? Date.now()
+      const kind = typeof payload.kind === "string" ? payload.kind.toUpperCase() : "SYSTEM"
+      return {
+        id: payload.id,
+        userId,
+        kind: kind as Notification["kind"],
+        title: payload.title,
+        description: payload.description ?? null,
+        isRead: payload.read ?? false,
+        actionUrl: payload.actionUrl ?? null,
+        metadata: payload.metadata ?? null,
+        expiresAt: null,
+        createdAt: new Date(timestamp),
+        updatedAt: new Date(timestamp),
+        readAt: payload.read ? new Date(timestamp) : null,
+      }
+    }
+
+    // Helper để update cache trực tiếp
+    const updateCache = (updater: (oldData: NotificationsResponse | undefined) => NotificationsResponse | undefined) => {
+      // Update tất cả user notification queries với các params khác nhau
+      queryClient.setQueriesData<NotificationsResponse>(
+        { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
+        updater
+      )
+    }
+
     const invalidate = () => {
       // Invalidate cả user và admin notifications để đồng bộ giữa Notification Bell và Admin Table
       invalidateQueries.allNotifications(queryClient, userId)
     }
 
-    const stopNew = onNotification(() => {
-      logger.debug("Socket notification:new received", { userId })
+    const stopNew = onNotification((payload: SocketNotificationPayload) => {
+      logger.debug("Socket notification:new received", { userId, notificationId: payload.id })
+      
+      // Chỉ update cache nếu notification dành cho user này
+      if (payload.toUserId === userId) {
+        // Update cache trực tiếp - thêm notification mới vào đầu danh sách
+        updateCache((oldData) => {
+          if (!oldData) return oldData
+          
+          const newNotification = convertSocketToNotification(payload)
+          
+          // Kiểm tra xem notification đã tồn tại chưa (tránh duplicate)
+          const exists = oldData.notifications.some((n) => n.id === newNotification.id)
+          if (exists) {
+            // Nếu đã tồn tại, update nó
+            return {
+              ...oldData,
+              notifications: oldData.notifications.map((n) =>
+                n.id === newNotification.id ? newNotification : n
+              ),
+              unreadCount: newNotification.isRead ? oldData.unreadCount : oldData.unreadCount + 1,
+            }
+          }
+          
+          // Thêm notification mới vào đầu danh sách
+          return {
+            ...oldData,
+            notifications: [newNotification, ...oldData.notifications],
+            total: oldData.total + 1,
+            unreadCount: newNotification.isRead ? oldData.unreadCount : oldData.unreadCount + 1,
+          }
+        })
+      }
+      
+      // Invalidate để trigger refetch nếu cần
       invalidate()
     })
-    const stopUpdated = onNotificationUpdated(() => {
-      logger.debug("Socket notification:updated received", { userId })
+
+    const stopUpdated = onNotificationUpdated((payload: SocketNotificationPayload) => {
+      logger.debug("Socket notification:updated received", { userId, notificationId: payload.id })
+      
+      // Chỉ update cache nếu notification dành cho user này
+      if (payload.toUserId === userId) {
+        // Update cache trực tiếp
+        updateCache((oldData) => {
+          if (!oldData) return oldData
+          
+          const updatedNotification = convertSocketToNotification(payload)
+          const oldNotification = oldData.notifications.find((n) => n.id === updatedNotification.id)
+          
+          if (!oldNotification) {
+            // Nếu không tìm thấy, thêm mới
+            return {
+              ...oldData,
+              notifications: [updatedNotification, ...oldData.notifications],
+              total: oldData.total + 1,
+              unreadCount: updatedNotification.isRead ? oldData.unreadCount : oldData.unreadCount + 1,
+            }
+          }
+          
+          // Update notification trong danh sách
+          const wasRead = oldNotification.isRead
+          const isNowRead = updatedNotification.isRead
+          
+          return {
+            ...oldData,
+            notifications: oldData.notifications.map((n) =>
+              n.id === updatedNotification.id ? updatedNotification : n
+            ),
+            unreadCount: wasRead !== isNowRead
+              ? isNowRead
+                ? Math.max(0, oldData.unreadCount - 1)
+                : oldData.unreadCount + 1
+              : oldData.unreadCount,
+          }
+        })
+      }
+      
+      // Invalidate để trigger refetch nếu cần
       invalidate()
     })
-    const stopSync = onNotificationsSync(() => {
-      logger.debug("Socket notifications:sync received", { userId })
+
+    const stopSync = onNotificationsSync((payloads: SocketNotificationPayload[]) => {
+      logger.debug("Socket notifications:sync received", { userId, count: payloads.length })
+      
+      // Update cache với toàn bộ notifications mới
+      updateCache(() => {
+        const notifications = payloads
+          .filter((p) => p.toUserId === userId)
+          .map(convertSocketToNotification)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        
+        const unreadCount = notifications.filter((n) => !n.isRead).length
+        
+        return {
+          notifications: notifications.slice(0, 20), // Limit to 20 for bell
+          total: notifications.length,
+          unreadCount,
+          hasMore: notifications.length > 20,
+        }
+      })
+      
+      // Invalidate để trigger refetch nếu cần
       invalidate()
     })
 

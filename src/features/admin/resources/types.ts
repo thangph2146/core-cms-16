@@ -61,3 +61,12 @@ export interface BaseResourceTableClientProps<T extends object> {
   canView?: boolean
   initialData?: DataTableResult<T>
 }
+
+/**
+ * Generic bulk action result structure
+ */
+export interface BulkActionResult {
+  success: boolean
+  message: string
+  affected: number
+}

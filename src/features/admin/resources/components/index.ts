@@ -7,8 +7,9 @@
  */
 
 // Server Components
-export { ResourceTable } from "./resource-table"
-export { ResourceDetail } from "./resource-detail"
+export { ResourceTable, ResourceTableWithSuspense } from "./resource-table"
+export { ResourceDetail, ResourceDetailWithSuspense, ResourceDetailAsync } from "./resource-detail"
+export type { ResourceDetailAsyncProps } from "./resource-detail"
 
 // Client Components
 export { ResourceTableClient } from "./resource-table.client"

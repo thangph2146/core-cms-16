@@ -50,10 +50,12 @@ src/features/admin/users/
 │   ├── user-edit.tsx                  # Server Component (fetch data + roles)
 │   └── user-edit.client.tsx           # Client Component (form)
 ├── server/
+│   ├── index.ts                       # Export barrel (queries, cache, mutations, helpers, notifications)
 │   ├── queries.ts                     # Non-cached database queries (dùng trong API routes)
 │   ├── cache.ts                       # Cached queries với React cache() (dùng trong Server Components)
 │   ├── mutations.ts                   # Create, update, delete operations với permission checks
-│   └── helpers.ts                     # Helper functions (serialization, mapping, transformation)
+│   ├── helpers.ts                     # Helper functions (serialization, mapping, transformation)
+│   └── notifications.ts               # Realtime notifications via Socket.IO
 ├── hooks/
 │   └── use-roles.ts                   # Custom hooks (client-side)
 ├── types.ts                           # Type definitions cho feature
@@ -579,10 +581,12 @@ features/admin/users/
 │   ├── user-edit.tsx                  # Server Component
 │   └── user-edit.client.tsx           # Client Component
 ├── server/
+│   ├── index.ts                       # Export barrel (queries, cache, mutations, helpers, notifications)
 │   ├── queries.ts                     # Non-cached database queries
 │   ├── cache.ts                       # Cached queries (React cache())
 │   ├── mutations.ts                   # Create, update, delete operations
-│   └── helpers.ts                     # Helper functions (serialization, mapping)
+│   ├── helpers.ts                     # Helper functions (serialization, mapping)
+│   └── notifications.ts               # Realtime notifications via Socket.IO
 ├── hooks/
 │   └── use-roles.ts                   # Custom hooks
 ├── types.ts                           # Type definitions
@@ -699,8 +703,78 @@ export async function UsersTable() {
 - `cache.ts`: Cached queries với React `cache()` (dùng trong Server Components)
 - `mutations.ts`: Create, update, delete operations với permission checks
 - `helpers.ts`: Serialization, mapping, transformation
+- `notifications.ts`: Realtime notifications via Socket.IO cho các actions
 
 **Pattern**: Page → Server Component (fetch với cache) → Client Component (UI/interactions)
+
+### Realtime Notifications Pattern
+
+**Cấu trúc:**
+- Tách riêng logic notifications vào file `notifications.ts` trong `server/` directory
+- Mutations gọi notification functions sau khi thực hiện actions
+- Notifications được tạo trong database và emit qua Socket.IO
+
+**Flow:**
+1. Mutation thực hiện action (create, update, delete, etc.)
+2. Mutation gọi `notifySuperAdminsOfUserAction()` từ `notifications.ts`
+3. Notification function:
+   - Tạo notifications trong database cho tất cả super admins
+   - Fetch notifications vừa tạo để lấy IDs thực tế
+   - Map notifications sang socket payload format
+   - Store vào cache và emit qua Socket.IO
+4. Client nhận socket events và update UI realtime
+
+**Ví dụ:**
+
+```typescript
+// src/features/admin/users/server/mutations.ts
+import { notifySuperAdminsOfUserAction } from "./notifications"
+
+export async function createUser(ctx: AuthContext, input: CreateUserInput) {
+  // ... business logic ...
+  
+  const user = await prisma.user.create({ ... })
+  
+  // Emit notification realtime
+  await notifySuperAdminsOfUserAction(
+    "create",
+    ctx.actorId,
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    }
+  )
+  
+  return mapUserRecord(user)
+}
+```
+
+```typescript
+// src/features/admin/users/server/notifications.ts
+export async function notifySuperAdminsOfUserAction(
+  action: "create" | "update" | "delete" | "restore" | "hard-delete",
+  actorId: string,
+  targetUser: { id: string; email: string; name: string | null },
+  changes?: { ... }
+) {
+  // 1. Tạo notifications trong database
+  const result = await createNotificationForSuperAdmins(...)
+  
+  // 2. Fetch notifications vừa tạo để lấy IDs thực tế
+  const createdNotifications = await prisma.notification.findMany({ ... })
+  
+  // 3. Emit socket events với notifications từ database
+  for (const admin of superAdmins) {
+    const dbNotification = createdNotifications.find(...)
+    if (dbNotification) {
+      const socketNotification = mapNotificationToPayload(dbNotification)
+      storeNotificationInCache(admin.id, socketNotification)
+      io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+    }
+  }
+}
+```
 
 ## 🎓 So sánh Server vs Client Components
 

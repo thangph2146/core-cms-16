@@ -3,7 +3,7 @@ import type { Permission } from "@/lib/permissions"
 import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { mapCategoryRecord, type CategoryWithRelations } from "./helpers"
-import type { ListedCategory } from "./queries"
+import type { ListedCategory } from "../types"
 import { generateSlug } from "../utils"
 import type { CreateCategoryInput, UpdateCategoryInput, BulkActionResult } from "../types"
 
