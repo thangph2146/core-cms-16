@@ -20,14 +20,11 @@ async function getAdminNotificationsHandler(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Chỉ super admin mới được truy cập
   const roles = session?.roles ?? []
-  if (!isSuperAdmin(roles)) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "Chỉ Super Admin mới có quyền xem tất cả thông báo trong hệ thống." },
-      { status: 403 }
-    )
-  }
+  const isSuperAdminUser = isSuperAdmin(roles)
+  
+  // Nếu không phải super admin, chỉ được xem notifications của chính họ
+  const userId = isSuperAdminUser ? undefined : session.user.id
 
   const searchParams = req.nextUrl.searchParams
   
@@ -59,7 +56,9 @@ async function getAdminNotificationsHandler(req: NextRequest) {
 
   try {
     // Sử dụng cached query function để fetch notifications
-    const result = await listNotificationsCached(page, limit, search)
+    // Nếu userId được truyền, chỉ fetch notifications của user đó
+    // Nếu không (super admin), fetch tất cả notifications
+    const result = await listNotificationsCached(page, limit, search, "", userId)
 
     return NextResponse.json({
       data: result.data.map((notification) => ({

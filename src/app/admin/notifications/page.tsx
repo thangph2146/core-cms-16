@@ -2,21 +2,26 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction, isSuperAdmin } from "@/lib/permissions"
 import { getPermissions, getSession } from "@/lib/auth/auth-server"
 import { NotificationsTable } from "@/features/admin/notifications/components/notifications-table"
-import { ForbiddenNotice } from "@/components/shared"
 
 interface SessionWithMeta {
+  user?: {
+    id?: string
+    email?: string | null
+    name?: string | null
+  }
   roles?: Array<{ name: string }>
   permissions?: Array<string>
 }
 
 /**
- * Notifications Page - CHỈ SUPER ADMIN ĐƯỢC TRUY CẬP
+ * Notifications Page - TẤT CẢ ROLES ĐƯỢC TRUY CẬP
  * 
- * Page này hiển thị tất cả thông báo trong hệ thống để super admin quản lý và kiểm tra hành vi hệ thống.
- * Chỉ super admin mới có quyền truy cập trang này.
+ * Page này hiển thị thông báo:
+ * - Super Admin: Xem tất cả thông báo trong hệ thống
+ * - Các roles khác: Chỉ xem thông báo của chính họ
  * 
  * Permission checking:
- * - Page access: Chỉ super admin (checked ở đây)
+ * - Page access: Tất cả roles có NOTIFICATIONS_VIEW permission
  * - UI actions: canManage (dựa trên NOTIFICATIONS_MANAGE permission)
  */
 export default async function NotificationsPage() {
@@ -24,20 +29,12 @@ export default async function NotificationsPage() {
   const permissions = await getPermissions()
   const roles = session?.roles ?? []
 
-  // Kiểm tra super admin - CHỈ SUPER ADMIN MỚI ĐƯỢC TRUY CẬP
+  
+  // Kiểm tra super admin để quyết định xem tất cả hay chỉ của user
   const isSuperAdminUser = isSuperAdmin(roles)
-
-  if (!isSuperAdminUser) {
-    return (
-      <ForbiddenNotice
-        breadcrumbs={[
-          { label: "Thông báo", isActive: true },
-        ]}
-        title="Không có quyền truy cập"
-        message="Trang này chỉ dành cho Super Admin. Chỉ Super Admin mới có quyền xem tất cả thông báo trong hệ thống để quản lý và kiểm tra hành vi hệ thống."
-      />
-    )
-  }
+  
+  // Nếu không phải super admin, chỉ xem notifications của chính họ
+  const userId = isSuperAdminUser ? undefined : session?.user?.id
 
   // Check permissions cho UI actions
   const canManage = canPerformAction(permissions, roles, PERMISSIONS.NOTIFICATIONS_MANAGE)
@@ -50,7 +47,7 @@ export default async function NotificationsPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <NotificationsTable canManage={canManage} />
+        <NotificationsTable canManage={canManage} userId={userId} isSuperAdmin={isSuperAdminUser} />
       </div>
     </>
   )

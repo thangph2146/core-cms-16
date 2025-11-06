@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,13 +17,40 @@ import { Input } from "@/components/ui/input"
 import Image from "next/image"
 import Link from "next/link"
 
+// Map NextAuth error codes thành thông báo tiếng Việt
+const ERROR_MESSAGES: Record<string, string> = {
+  AccessDenied: "Tài khoản của bạn đã bị vô hiệu hóa hoặc đã bị xóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+  Configuration: "Có lỗi cấu hình hệ thống. Vui lòng thử lại sau.",
+  Verification: "Liên kết xác minh không hợp lệ hoặc đã hết hạn.",
+  Default: "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.",
+}
+
 export function SignIn({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Đọc error từ query parameter ngay khi component mount
+  // Sử dụng useMemo để tránh setState trong effect
+  const initialError = searchParams?.get("error") 
+    ? (ERROR_MESSAGES[searchParams.get("error")!] || ERROR_MESSAGES.Default)
+    : null
+  
+  const [error, setError] = useState<string | null>(initialError)
+
+  // Xóa error param khỏi URL sau khi đọc (chỉ chạy 1 lần khi có error)
+  useEffect(() => {
+    if (!searchParams || !initialError) return
+    
+    // Xóa error param khỏi URL để tránh hiển thị lại khi refresh
+    const newUrl = new URL(window.location.href)
+    newUrl.searchParams.delete("error")
+    router.replace(newUrl.pathname + newUrl.search, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Chỉ chạy 1 lần khi mount - searchParams và router không cần trong deps
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -45,7 +72,23 @@ export function SignIn({
         setError("Email hoặc mật khẩu không đúng")
         setIsLoading(false)
       } else {
-        router.push("/admin/dashboard")
+        // Sử dụng callbackUrl từ query params hoặc fallback về dashboard
+        const callbackUrl = searchParams?.get("callbackUrl")
+        let redirectUrl = "/admin/dashboard"
+        
+        if (callbackUrl) {
+          try {
+            const decoded = decodeURIComponent(callbackUrl)
+            // Validate callbackUrl: phải bắt đầu bằng / và không phải auth route
+            if (decoded.startsWith("/") && !decoded.startsWith("/auth")) {
+              redirectUrl = decoded
+            }
+          } catch {
+            // Nếu decode fail, sử dụng fallback
+          }
+        }
+        
+        router.push(redirectUrl)
         router.refresh()
       }
     } catch {
@@ -58,7 +101,23 @@ export function SignIn({
     setIsLoading(true)
     setError(null)
     try {
-      await signIn("google", { callbackUrl: "/admin/dashboard" })
+      // Sử dụng callbackUrl từ query params hoặc fallback về dashboard
+      const callbackUrl = searchParams?.get("callbackUrl")
+      let redirectUrl = "/admin/dashboard"
+      
+      if (callbackUrl) {
+        try {
+          const decoded = decodeURIComponent(callbackUrl)
+          // Validate callbackUrl: phải bắt đầu bằng / và không phải auth route
+          if (decoded.startsWith("/") && !decoded.startsWith("/auth")) {
+            redirectUrl = decoded
+          }
+        } catch {
+          // Nếu decode fail, sử dụng fallback
+        }
+      }
+      
+      await signIn("google", { callbackUrl: redirectUrl })
     } catch {
       setError("Đã xảy ra lỗi khi đăng nhập bằng Google. Vui lòng thử lại.")
       setIsLoading(false)

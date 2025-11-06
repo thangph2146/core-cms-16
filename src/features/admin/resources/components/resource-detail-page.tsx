@@ -1,3 +1,10 @@
+/**
+ * Client Component: Resource Detail Page
+ * 
+ * Generic detail page component với sections và edit form
+ * Pattern: Server Component → Client Component (UI/interactions)
+ */
+
 "use client"
 
 import { useState } from "react"
@@ -10,7 +17,7 @@ import {
   FieldContent,
   FieldDescription,
   FieldGroup,
-  FieldLabel,
+  FieldTitle,
 } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
@@ -133,22 +140,22 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
           return (
             <Field 
               key={field.name as string} 
-              orientation="responsive"
-              className="py-4 border-b border-border/50 last:border-0 @md/field-group:items-start"
+              orientation="vertical"
+              className="py-2.5 border-b border-border/50 last:border-0"
             >
-              <FieldLabel className="w-[140px] sm:w-[180px] text-sm font-semibold text-muted-foreground flex-shrink-0 self-start pt-0.5">
+              <FieldTitle className="text-muted-foreground text-xs font-medium mb-1">
                 {field.label}
-              </FieldLabel>
-              <FieldContent className="flex-1 min-w-0 self-start">
-                <div className="text-sm font-medium break-words break-all whitespace-pre-wrap min-h-[1.5rem]">
+              </FieldTitle>
+              <FieldContent>
+                <div className="text-sm break-words break-all whitespace-pre-wrap">
                   {isLoading ? (
-                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-32" />
                   ) : (
                     formatValue(field, value)
                   )}
                 </div>
                 {field.description && (
-                  <FieldDescription className="mt-1.5 break-words">{field.description}</FieldDescription>
+                  <FieldDescription className="text-xs mt-1">{field.description}</FieldDescription>
                 )}
               </FieldContent>
             </Field>
@@ -254,13 +261,13 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
         {/* Default Section - Full width if exists */}
         {fields.length > 0 && (
           <Card className="lg:col-span-2">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold">Thông tin chi tiết</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Thông tin chi tiết</CardTitle>
               {description && (
-                <CardDescription className="mt-1">{description}</CardDescription>
+                <CardDescription className="mt-0.5 text-xs">{description}</CardDescription>
               )}
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="pt-0 pb-4">
               {renderFields(fields)}
             </CardContent>
           </Card>
@@ -271,13 +278,13 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
           <>
             {sections.map((section, index) => (
               <Card key={index} className="h-fit">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-semibold">{section.title}</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">{section.title}</CardTitle>
                   {section.description && (
-                    <CardDescription className="mt-1">{section.description}</CardDescription>
+                    <CardDescription className="mt-0.5 text-xs">{section.description}</CardDescription>
                   )}
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 pb-4">
                   {renderFields(section.fields)}
                 </CardContent>
               </Card>

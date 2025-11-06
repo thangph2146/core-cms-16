@@ -11,6 +11,7 @@ import { randomBytes } from "crypto"
 import { prisma } from "@/lib/database"
 import { DEFAULT_ROLES } from "@/lib/permissions"
 import { NotificationKind } from "@prisma/client"
+import { logger } from "@/lib/config"
 import {
   createNotificationForSuperAdmins,
   createNotificationForUser,
@@ -142,7 +143,8 @@ export const authConfig: NextAuthConfig = {
           },
         })
 
-        if (!user || !user.isActive) {
+        // Kiểm tra user tồn tại, đang active và không bị xóa
+        if (!user || !user.isActive || user.deletedAt !== null) {
           return null
         }
 
@@ -169,37 +171,90 @@ export const authConfig: NextAuthConfig = {
 
       try {
         const normalizedEmail = user.email.toLowerCase()
-        let dbUser = await getUserWithRoles(normalizedEmail)
+        
+        // Tìm user bao gồm cả user đã bị xóa để kiểm tra
+        // Sử dụng findFirst với where rõ ràng để đảm bảo tìm được cả user bị xóa
+        let dbUser = await prisma.user.findFirst({
+          where: { 
+            email: normalizedEmail,
+            // Không filter theo deletedAt hoặc isActive - tìm tất cả
+          },
+          include: {
+            userRoles: {
+              include: {
+                role: true,
+              },
+            },
+          },
+        })
 
+        // Nếu không tìm thấy với normalizedEmail, thử với email gốc
         if (!dbUser && normalizedEmail !== user.email) {
-          dbUser = await getUserWithRoles(user.email)
+          dbUser = await prisma.user.findFirst({
+            where: { 
+              email: user.email,
+              // Không filter theo deletedAt hoặc isActive - tìm tất cả
+            },
+            include: {
+              userRoles: {
+                include: {
+                  role: true,
+                },
+              },
+            },
+          })
         }
 
-        if (!dbUser && account?.provider === "google") {
-          dbUser = await createUserFromOAuth({
-            email: normalizedEmail,
-            name: user.name,
-            image: user.image,
-          })
+        // Log để debug
+        logger.debug("User lookup result", {
+          email: normalizedEmail,
+          found: !!dbUser,
+          isActive: dbUser?.isActive,
+          deletedAt: dbUser?.deletedAt,
+          provider: account?.provider,
+          userId: dbUser?.id,
+        })
+
+        // Nếu user đã tồn tại, kiểm tra trạng thái TRƯỚC khi xử lý tiếp
+        if (dbUser) {
+          // Nếu user bị vô hiệu hóa hoặc đã xóa, KHÔNG cho phép đăng nhập
+          // và KHÔNG tạo user mới (để tránh duplicate)
+          if (!dbUser.isActive || dbUser.deletedAt !== null) {
+            logger.warn("Login attempt BLOCKED - user is inactive or deleted", {
+              email: normalizedEmail,
+              isActive: dbUser.isActive,
+              deletedAt: dbUser.deletedAt,
+              provider: account?.provider,
+              userId: dbUser.id,
+            })
+            return false
+          }
+          // User tồn tại và active - tiếp tục xử lý
+        } else {
+          // User chưa tồn tại - chỉ tạo user mới nếu đăng nhập bằng Google
+          if (account?.provider === "google") {
+            logger.info("Creating new user from Google OAuth", {
+              email: normalizedEmail,
+              name: user.name,
+            })
+            dbUser = await createUserFromOAuth({
+              email: normalizedEmail,
+              name: user.name,
+              image: user.image,
+            })
+          } else {
+            // Không phải Google và user không tồn tại - không cho phép đăng nhập
+            logger.warn("Login attempt BLOCKED - user not found", {
+              email: normalizedEmail,
+              provider: account?.provider,
+            })
+            return false
+          }
         }
 
         const lookupEmail = dbUser?.email ?? normalizedEmail
 
-        if (
-          dbUser &&
-          account?.provider === "google" &&
-          (dbUser.deletedAt !== null || !dbUser.isActive)
-        ) {
-          await prisma.user.update({
-            where: { id: dbUser.id },
-            data: {
-              deletedAt: null,
-              isActive: true,
-            },
-          })
-          dbUser = await getUserWithRoles(lookupEmail)
-        }
-
+        // Đảm bảo user có role (chỉ cho user mới tạo hoặc user đã tồn tại nhưng chưa có role)
         if (
           dbUser &&
           account?.provider === "google" &&
@@ -212,10 +267,47 @@ export const authConfig: NextAuthConfig = {
               roleId: defaultRole.id,
             },
           })
-          dbUser = await getUserWithRoles(lookupEmail)
+          // Refresh user từ database sau khi thêm role
+          dbUser = await prisma.user.findFirst({
+            where: { email: lookupEmail },
+            include: {
+              userRoles: {
+                include: {
+                  role: true,
+                },
+              },
+            },
+          })
         }
 
-        if (!dbUser || !dbUser.isActive) {
+        // Kiểm tra lại user tồn tại, đang active và không bị xóa (double check)
+        // QUAN TRỌNG: Kiểm tra lại sau khi refresh từ database
+        if (!dbUser) {
+          logger.warn("Login attempt BLOCKED - user not found after refresh", {
+            email: normalizedEmail,
+            provider: account?.provider,
+          })
+          return false
+        }
+
+        // Kiểm tra isActive và deletedAt một lần nữa
+        if (!dbUser.isActive) {
+          logger.warn("Login attempt BLOCKED - user is inactive", {
+            email: normalizedEmail,
+            userId: dbUser.id,
+            isActive: dbUser.isActive,
+            provider: account?.provider,
+          })
+          return false
+        }
+
+        if (dbUser.deletedAt !== null) {
+          logger.warn("Login attempt BLOCKED - user is deleted", {
+            email: normalizedEmail,
+            userId: dbUser.id,
+            deletedAt: dbUser.deletedAt,
+            provider: account?.provider,
+          })
           return false
         }
 
@@ -241,7 +333,7 @@ export const authConfig: NextAuthConfig = {
           const providerName = provider === "google" ? "Google OAuth" : "Credentials"
           const loginTime = new Date().toISOString()
           
-          console.log("[auth] Creating login notifications:", {
+          logger.debug("Creating login notifications", {
             userId: dbUser.id,
             email: dbUser.email,
             name: userName,
@@ -283,33 +375,25 @@ export const authConfig: NextAuthConfig = {
           
           // Log kết quả chi tiết
           if (userNotificationResult.status === "fulfilled" && userNotificationResult.value) {
-            console.log("[auth] ✅ User welcome notification created successfully:", {
+            logger.success("User welcome notification created successfully", {
               notificationId: userNotificationResult.value.id,
               userId: dbUser.id,
               email: dbUser.email,
               title: "🎉 Chào mừng bạn đăng nhập!",
             })
           } else {
-            console.error("[auth] ❌ Error creating user welcome notification:", {
-              error: userNotificationResult.status === "rejected" ? userNotificationResult.reason : "Unknown error",
-              userId: dbUser.id,
-              email: dbUser.email,
-            })
+            logger.error("Error creating user welcome notification", userNotificationResult.status === "rejected" ? userNotificationResult.reason : new Error("Unknown error"))
           }
           
           if (adminNotificationResult.status === "fulfilled" && adminNotificationResult.value) {
-            console.log("[auth] ✅ Super admin monitoring notification created successfully:", {
+            logger.success("Super admin monitoring notification created successfully", {
               count: adminNotificationResult.value.count || 0,
               userId: dbUser.id,
               email: dbUser.email,
               title: "🔔 Hoạt động đăng nhập hệ thống",
             })
           } else {
-            console.error("[auth] ❌ Error creating super admin monitoring notification:", {
-              error: adminNotificationResult.status === "rejected" ? adminNotificationResult.reason : "Unknown error",
-              userId: dbUser.id,
-              email: dbUser.email,
-            })
+            logger.error("Error creating super admin monitoring notification", adminNotificationResult.status === "rejected" ? adminNotificationResult.reason : new Error("Unknown error"))
           }
           
           // Summary log
@@ -317,14 +401,14 @@ export const authConfig: NextAuthConfig = {
           const adminNotificationSuccess = adminNotificationResult.status === "fulfilled" && adminNotificationResult.value !== null
           
           if (userNotificationSuccess && adminNotificationSuccess) {
-            console.log("[auth] ✅ Both notifications created successfully:", {
+            logger.success("Both notifications created successfully", {
               userId: dbUser.id,
               email: dbUser.email,
               userNotificationId: userNotificationResult.value?.id,
               adminNotificationCount: adminNotificationResult.value?.count || 0,
             })
           } else {
-            console.warn("[auth] ⚠️ Some notifications failed to create:", {
+            logger.warn("Some notifications failed to create", {
               userId: dbUser.id,
               email: dbUser.email,
               userNotificationSuccess,
@@ -333,18 +417,12 @@ export const authConfig: NextAuthConfig = {
           }
         } catch (notificationError) {
           // Log error nhưng không block sign-in process
-          console.error("[auth] Error creating login notifications:", notificationError)
-          if (notificationError instanceof Error) {
-            console.error("[auth] Error details:", {
-              message: notificationError.message,
-              stack: notificationError.stack,
-            })
-          }
+          logger.error("Error creating login notifications", notificationError instanceof Error ? notificationError : new Error(String(notificationError)))
         }
 
         return true
       } catch (error) {
-        console.error("[auth] Error in signIn callback:", error)
+        logger.error("Error in signIn callback", error instanceof Error ? error : new Error(String(error)))
         return false
       }
     },
@@ -372,6 +450,15 @@ export const authConfig: NextAuthConfig = {
       else if (trigger === "update" && token.email) {
         // Refresh user data từ database khi session được update
         const dbUser = await getUserWithRoles(token.email as string)
+        
+        // Kiểm tra user vẫn active và không bị xóa - nếu không thì invalidate token
+        if (!dbUser || !dbUser.isActive || dbUser.deletedAt !== null) {
+          // User đã bị vô hiệu hóa hoặc xóa - return null để force logout
+          // NextAuth sẽ xử lý null token bằng cách invalidate session
+          // Type assertion cần thiết vì NextAuth JWT callback có thể return null
+          return null as unknown as typeof token
+        }
+        
         const authPayload = mapUserAuthPayload(dbUser)
         
         if (authPayload) {
@@ -388,6 +475,15 @@ export const authConfig: NextAuthConfig = {
         token.email
       ) {
         const dbUser = await getUserWithRoles(token.email as string)
+        
+        // Kiểm tra user vẫn active và không bị xóa - nếu không thì invalidate token
+        if (!dbUser || !dbUser.isActive || dbUser.deletedAt !== null) {
+          // User đã bị vô hiệu hóa hoặc xóa - return null để force logout
+          // NextAuth sẽ xử lý null token bằng cách invalidate session
+          // Type assertion cần thiết vì NextAuth JWT callback có thể return null
+          return null as unknown as typeof token
+        }
+        
         const authPayload = mapUserAuthPayload(dbUser)
 
         if (authPayload) {

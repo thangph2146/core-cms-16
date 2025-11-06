@@ -37,12 +37,16 @@ function serializeInitialData(
 
 export interface NotificationsTableProps {
   canManage?: boolean
+  userId?: string // Nếu có, chỉ fetch notifications của user này (không phải super admin)
+  isSuperAdmin?: boolean // Flag để biết user có phải super admin không
 }
 
-export async function NotificationsTable({ canManage }: NotificationsTableProps) {
-  const initial = await listNotificationsCached(1, 10, "", "")
+export async function NotificationsTable({ canManage, userId, isSuperAdmin }: NotificationsTableProps) {
+  // Nếu userId được truyền vào, chỉ fetch notifications của user đó
+  // Nếu không (super admin), fetch tất cả notifications
+  const initial = await listNotificationsCached(1, 10, "", "", userId)
   const initialData = serializeInitialData(initial)
 
-  return <NotificationsTableClient canManage={canManage} initialData={initialData} />
+  return <NotificationsTableClient canManage={canManage} initialData={initialData} isSuperAdmin={isSuperAdmin} />
 }
 

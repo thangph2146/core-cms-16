@@ -3,7 +3,7 @@
  * POST /api/admin/users - Create user
  */
 import { NextRequest, NextResponse } from "next/server"
-import { listUsersCached } from "@/features/admin/users/server/queries"
+import { listUsersCached } from "@/features/admin/users/server/cache"
 import {
   createUser,
   type AuthContext,

@@ -1,0 +1,54 @@
+/**
+ * Server-side exports for Users feature
+ * 
+ * Structure:
+ * - queries.ts: Non-cached database queries
+ * - cache.ts: Cached functions using React cache()
+ * - mutations.ts: Data mutations (create, update, delete)
+ * - helpers.ts: Shared helper functions
+ */
+
+// Queries (non-cached)
+export {
+  listUsers,
+  getUserById,
+  type ListUsersInput,
+  type ListedUser,
+  type UserDetail,
+  type ListUsersResult,
+} from "./queries"
+
+// Cache functions
+export {
+  listUsersCached,
+  getUserDetailById,
+  getRolesCached,
+} from "./cache"
+
+// Mutations
+export {
+  createUser,
+  updateUser,
+  softDeleteUser,
+  hardDeleteUser,
+  restoreUser,
+  bulkSoftDeleteUsers,
+  bulkRestoreUsers,
+  bulkHardDeleteUsers,
+  type AuthContext,
+  type CreateUserInput,
+  type UpdateUserInput,
+  ApplicationError,
+  NotFoundError,
+} from "./mutations"
+
+// Helpers
+export {
+  mapUserRecord,
+  buildWhereClause,
+  serializeUserForTable,
+  serializeUsersList,
+  serializeUserDetail,
+  type UserWithRoles,
+} from "./helpers"
+

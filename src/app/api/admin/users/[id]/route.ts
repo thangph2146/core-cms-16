@@ -2,7 +2,7 @@
  * API Route: GET /api/admin/users/[id], PUT /api/admin/users/[id], DELETE /api/admin/users/[id]
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getUserDetailById } from "@/features/admin/users/server/queries"
+import { getUserDetailById } from "@/features/admin/users/server/cache"
 import {
   type AuthContext,
   updateUser,

@@ -1,13 +1,12 @@
 /**
  * Server Component: User Detail
  * 
- * Fetches user data using cached server query and passes it to client component
- * for rendering UI with animations and interactions.
- * 
- * Pattern: Server Component (data fetching) -> Client Component (UI/interactions)
+ * Fetches user data và pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getUserDetailById } from "../server/queries"
+import { getUserDetailById } from "../server/cache"
+import { serializeUserDetail } from "../server/helpers"
 import { UserDetailClient } from "./user-detail.client"
 import type { UserDetailData } from "./user-detail.client"
 
@@ -16,17 +15,7 @@ export interface UserDetailProps {
   backUrl?: string
 }
 
-/**
- * UserDetail Server Component
- * 
- * Fetches user data on the server using cached query and passes it to client component.
- * This ensures:
- * - Data is fetched on server (better SEO, faster initial load)
- * - Automatic request deduplication via React cache()
- * - Server-side caching for better performance
- */
 export async function UserDetail({ userId, backUrl = "/admin/users" }: UserDetailProps) {
-  // Fetch user data using cached server query
   const user = await getUserDetailById(userId)
 
   if (!user) {
@@ -39,22 +28,11 @@ export async function UserDetail({ userId, backUrl = "/admin/users" }: UserDetai
     )
   }
 
-  // Transform user data to match UserDetailData format (serialize dates)
-  const userForDetail: UserDetailData = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    avatar: user.avatar,
-    bio: user.bio,
-    phone: user.phone,
-    address: user.address,
-    isActive: user.isActive,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString(),
-    emailVerified: user.emailVerified?.toISOString() || null,
-    roles: user.roles,
-  }
-
-  // Pass data to client component for rendering
-  return <UserDetailClient userId={userId} user={userForDetail} backUrl={backUrl} />
+  return (
+    <UserDetailClient
+      userId={userId}
+      user={serializeUserDetail(user) as UserDetailData}
+      backUrl={backUrl}
+    />
+  )
 }

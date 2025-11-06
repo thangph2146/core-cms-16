@@ -29,6 +29,7 @@ import type { NotificationRow } from "../types"
 interface NotificationsTableClientProps {
   canManage?: boolean
   initialData: DataTableResult<NotificationRow>
+  isSuperAdmin?: boolean // Flag để biết user có phải super admin không
 }
 
 interface FeedbackState {
@@ -53,6 +54,7 @@ const NOTIFICATION_KINDS: Record<string, { label: string; variant: "default" | "
 export function NotificationsTableClient({
   canManage = false,
   initialData,
+  isSuperAdmin: _isSuperAdminProp = false,
 }: NotificationsTableClientProps) {
   const router = useRouter()
   const { data: session } = useSession()

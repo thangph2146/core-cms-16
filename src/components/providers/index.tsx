@@ -17,7 +17,6 @@
  * @see https://ui.shadcn.com/docs/dark-mode/next
  * @see https://nextjs.org/docs/app/building-your-application/routing/loading-ui-and-streaming
  */
-"use client"
 
 import type { ReactNode } from "react"
 import type { Session } from "next-auth"
@@ -25,6 +24,7 @@ import { ThemeProvider } from "./theme-provider"
 import { SessionProvider } from "./session-provider"
 import { QueryProvider } from "./query-provider"
 import { LoadingFallback } from "./loading-fallback"
+import { PermissionGate } from "../shared/permission/gate/permission-gate"
 import { Suspense } from "react"
 
 export interface ProvidersProps {
@@ -41,7 +41,9 @@ export function Providers({ children, initialSession }: ProvidersProps) {
     <ThemeProvider>
       <Suspense fallback={<LoadingFallback />}>
         <SessionProvider session={initialSession}>
-          <QueryProvider>{children}</QueryProvider>
+            <PermissionGate>
+              <QueryProvider>{children}</QueryProvider>
+            </PermissionGate>
         </SessionProvider>
       </Suspense>
     </ThemeProvider>

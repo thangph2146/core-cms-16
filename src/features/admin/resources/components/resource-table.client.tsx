@@ -1,3 +1,10 @@
+/**
+ * Client Component: Resource Table
+ * 
+ * Generic table component với view modes, selection, và actions
+ * Pattern: Server Component → Client Component (UI/interactions)
+ */
+
 "use client"
 
 import { useCallback, useState, useEffect } from "react"

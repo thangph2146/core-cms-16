@@ -67,11 +67,11 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Loại thông báo",
       type: "custom",
       render: () => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Bell className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
+            <Bell className="h-4 w-4 text-primary" />
           </div>
-          <Badge variant={kindConfig.variant}>{kindConfig.label}</Badge>
+          <Badge variant={kindConfig.variant} className="text-xs">{kindConfig.label}</Badge>
         </div>
       ),
     },
@@ -80,11 +80,11 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Tiêu đề",
       type: "custom",
       render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-            <FileText className="h-5 w-5 text-chart-1" />
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-1/10">
+            <FileText className="h-4 w-4 text-chart-1" />
           </div>
-          <div className="font-medium">{String(value || "—")}</div>
+          <div className="text-sm">{String(value || "—")}</div>
         </div>
       ),
     },
@@ -93,11 +93,11 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Mô tả",
       type: "custom",
       render: (value) => (
-        <div className="space-y-2">
+        <div>
           {value ? (
-            <p className="text-sm leading-relaxed">{String(value)}</p>
+            <p className="text-sm leading-normal">{String(value)}</p>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground text-sm">—</span>
           )}
         </div>
       ),
@@ -109,13 +109,13 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       render: (value) => {
         const user = value as NotificationDetailData["user"]
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-              <User className="h-5 w-5 text-chart-2" />
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-2/10">
+              <User className="h-4 w-4 text-chart-2" />
             </div>
             <div>
-              <div className="font-medium">{user?.email || "—"}</div>
-              {user?.name && <div className="text-sm text-muted-foreground">{user.name}</div>}
+              <div className="text-sm">{user?.email || "—"}</div>
+              {user?.name && <div className="text-xs text-muted-foreground">{user.name}</div>}
             </div>
           </div>
         )
@@ -126,15 +126,15 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Trạng thái đọc",
       type: "custom",
       render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-3/10">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-3/10">
             {value ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-4 w-4 text-green-500" />
             ) : (
-              <XCircleIcon className="h-5 w-5 text-orange-500" />
+              <XCircleIcon className="h-4 w-4 text-orange-500" />
             )}
           </div>
-          <Badge variant={value ? "default" : "secondary"}>
+          <Badge variant={value ? "default" : "secondary"} className="text-xs">
             {value ? "Đã đọc" : "Chưa đọc"}
           </Badge>
         </div>
@@ -167,11 +167,11 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Ngày tạo",
       type: "custom",
       render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-            <Calendar className="h-5 w-5 text-chart-4" />
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-4/10">
+            <Calendar className="h-4 w-4 text-chart-4" />
           </div>
-          <div>
+          <div className="text-sm">
             {value ? formatDateVi(value as string) : "—"}
           </div>
         </div>
@@ -182,11 +182,11 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       label: "Ngày đọc",
       type: "custom",
       render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Clock className="h-5 w-5 text-chart-5" />
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-5/10">
+            <Clock className="h-4 w-4 text-chart-5" />
           </div>
-          <div>
+          <div className="text-sm">
             {value ? formatDateVi(value as string) : <span className="text-muted-foreground">Chưa đọc</span>}
           </div>
         </div>
@@ -198,21 +198,21 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
       type: "custom",
       render: (value) => {
         const expiresAt = value as string | null
-        if (!expiresAt) return <span className="text-muted-foreground">Không có hạn</span>
+        if (!expiresAt) return <span className="text-muted-foreground text-sm">Không có hạn</span>
         const isExpired = new Date(expiresAt) < new Date()
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-1/10">
               {isExpired ? (
-                <AlertCircle className="h-5 w-5 text-red-500" />
+                <AlertCircle className="h-4 w-4 text-red-500" />
               ) : (
-                <Info className="h-5 w-5 text-chart-1" />
+                <Info className="h-4 w-4 text-chart-1" />
               )}
             </div>
             <div>
-              <div>{formatDateVi(expiresAt)}</div>
+              <div className="text-sm">{formatDateVi(expiresAt)}</div>
               {isExpired && (
-                <Badge variant="destructive" className="mt-1">
+                <Badge variant="destructive" className="mt-1 text-xs">
                   Đã hết hạn
                 </Badge>
               )}

@@ -1,141 +1,59 @@
-"use client"
+/**
+ * Server Component: User Edit
+ * 
+ * Fetches user data và roles, sau đó pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
-import { apiClient } from "@/lib/api/axios"
-import { apiRoutes } from "@/lib/api/routes"
-import { isSuperAdmin } from "@/lib/permissions"
-import { useToast } from "@/hooks/use-toast"
-import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
-import { useRoles } from "../hooks/use-roles"
-import { normalizeRoleIds, type Role } from "../utils"
-import { getBaseUserFields, getPasswordEditField } from "../form-fields"
-import type { UserRow } from "../types"
-
-interface UserEditData extends UserRow {
-  avatar?: string | null
-  bio?: string | null
-  phone?: string | null
-  address?: string | null
-  roleIds?: string[] | string
-  password?: string
-  [key: string]: unknown
-}
+import { getUserDetailById, getRolesCached } from "../server/cache"
+import { serializeUserDetail } from "../server/helpers"
+import { UserEditClient } from "./user-edit.client"
+import type { UserEditClientProps } from "./user-edit.client"
 
 export interface UserEditProps {
-  user: UserEditData | null
+  userId: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSuccess?: () => void
   variant?: "dialog" | "sheet" | "page"
   backUrl?: string
   backLabel?: string
-  userId?: string // For redirect after success in page mode
-  roles?: Role[]
 }
 
-export function UserEdit({
-  user,
+export async function UserEdit({
+  userId,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  userId,
-  roles: rolesFromServer,
 }: UserEditProps) {
-  const router = useRouter()
-  const { data: session } = useSession()
-  const currentUserRoles = session?.roles || []
-  const isSuperAdminUser = isSuperAdmin(currentUserRoles)
-  const { toast } = useToast()
-  const { roles } = useRoles({ initialRoles: rolesFromServer })
+  const [user, roles] = await Promise.all([
+    getUserDetailById(userId),
+    getRolesCached(),
+  ])
 
-  const handleSubmit = async (data: Partial<UserEditData>) => {
-    if (!user?.id) {
-      return { success: false, error: "Không tìm thấy người dùng" }
-    }
-
-    try {
-      const submitData: Record<string, unknown> = {
-        ...data,
-        roleIds: normalizeRoleIds(data.roleIds),
-      }
-
-      // Remove password if empty (don't change password)
-      if (!submitData.password || submitData.password === "") {
-        delete submitData.password
-      }
-
-      const response = await apiClient.put(apiRoutes.users.update(user.id), submitData)
-
-      if (response.status === 200) {
-        toast({
-          variant: "success",
-          title: "Cập nhật thành công",
-          description: "Thông tin người dùng đã được cập nhật.",
-        })
-        onSuccess?.()
-        // Redirect to detail page if in page mode and userId provided
-        if (variant === "page" && userId) {
-          router.push(`/admin/users/${userId}`)
-          router.refresh()
-        }
-        return { success: true }
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Cập nhật thất bại",
-        description: "Không thể cập nhật người dùng. Vui lòng thử lại.",
-      })
-      return { success: false, error: "Không thể cập nhật người dùng" }
-    } catch (error: unknown) {
-      const errorMessage = extractAxiosErrorMessage(error, "Đã xảy ra lỗi khi cập nhật")
-
-      toast({
-        variant: "destructive",
-        title: "Lỗi cập nhật",
-        description: errorMessage,
-      })
-
-      return { success: false, error: errorMessage }
-    }
+  if (!user) {
+    return null
   }
 
-  const userForEdit: UserEditData | null = user
-    ? {
-        ...user,
-        roleIds: user.roles && user.roles.length > 0 ? user.roles[0].id : "",
-      }
-    : null
-
-  const roleDefaultValue = typeof userForEdit?.roleIds === "string" ? userForEdit.roleIds : ""
-  const editFields = [
-    ...(getBaseUserFields(roles, roleDefaultValue) as unknown as ResourceFormField<UserEditData>[]),
-    ...(isSuperAdminUser ? [getPasswordEditField() as unknown as ResourceFormField<UserEditData>] : []),
-  ]
+  const userForEdit: UserEditClientProps["user"] = {
+    ...serializeUserDetail(user),
+    roles: user.roles,
+  }
 
   return (
-    <ResourceForm<UserEditData>
-      data={userForEdit}
-      fields={editFields}
-      onSubmit={handleSubmit}
+    <UserEditClient
+      user={userForEdit}
       open={open}
       onOpenChange={onOpenChange}
+      onSuccess={onSuccess}
       variant={variant}
-      title="Chỉnh sửa người dùng"
-      description="Cập nhật thông tin người dùng"
-      submitLabel="Lưu thay đổi"
-      cancelLabel="Hủy"
       backUrl={backUrl}
       backLabel={backLabel}
-      onSuccess={onSuccess}
-      showCard={false}
-      className="max-w-[100%]"
+      userId={userId}
+      roles={roles}
     />
   )
 }
-
