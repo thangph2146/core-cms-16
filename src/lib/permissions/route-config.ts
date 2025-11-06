@@ -100,11 +100,6 @@ export const ROUTE_CONFIG: RoutePermissionConfig[] = [
       delete: PERMISSIONS.USERS_DELETE,
       manage: PERMISSIONS.USERS_MANAGE,
     },
-    customApi: [
-      { path: "/bulk", method: "POST", permissions: [PERMISSIONS.USERS_MANAGE] },
-      { path: "/[id]/restore", method: "POST", permissions: [PERMISSIONS.USERS_UPDATE] },
-      { path: "/[id]/hard-delete", method: "DELETE", permissions: [PERMISSIONS.USERS_MANAGE] },
-    ],
     adminApi: [
       { path: "", method: "GET", permissions: [PERMISSIONS.USERS_VIEW] },
       { path: "", method: "POST", permissions: [PERMISSIONS.USERS_CREATE] },

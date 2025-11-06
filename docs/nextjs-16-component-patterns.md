@@ -66,25 +66,22 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 #### 2. Server Component (fetch data)
 ```typescript
 // src/features/admin/users/components/user-detail.tsx
-import { getUserDetailById } from "../server/queries"
+import { getUserDetailById } from "../server/cache"
+import { serializeUserDetail } from "../server/helpers"
 import { UserDetailClient } from "./user-detail.client"
 
 export async function UserDetail({ userId, backUrl }: UserDetailProps) {
-  // Fetch data trên server với cache
+  // Fetch data trên server với cached query
   const user = await getUserDetailById(userId)
   
   if (!user) {
     return <NotFound />
   }
   
-  // Transform và pass xuống client component
-  const userForDetail = {
-    ...user,
-    createdAt: user.createdAt.toISOString(),
-    // ... serialize dates
-  }
+  // Serialize data trước khi pass xuống client component
+  const serializedUser = serializeUserDetail(user)
   
-  return <UserDetailClient userId={userId} user={userForDetail} backUrl={backUrl} />
+  return <UserDetailClient userId={userId} user={serializedUser} backUrl={backUrl} />
 }
 ```
 
@@ -165,41 +162,117 @@ const getDashboardStatsCached = cache(async () => {
 
 ## 🔄 Data Fetching với Cache
 
-### Server Queries với React `cache()`
+### Tách biệt Queries và Cache
+
+Trong dự án, chúng ta tách biệt **non-cached queries** và **cached queries**:
+
+#### 1. Non-cached Queries (`queries.ts`)
+
+Sử dụng cho API routes hoặc khi cần fresh data:
 
 ```typescript
 // src/features/admin/users/server/queries.ts
-import { cache } from "react"
+import { prisma } from "@/lib/database"
 
-// Sử dụng cache() để tự động deduplicate requests và cache kết quả
+export async function listUsers(params: ListUsersInput): Promise<ListUsersResult> {
+  const where = buildWhereClause(params)
+  
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: { userRoles: { include: { role: true } } },
+    }),
+    prisma.user.count({ where }),
+  ])
+
+  return {
+    data: users.map(mapUserRecord),
+    pagination: buildPagination(page, limit, total),
+  }
+}
+```
+
+#### 2. Cached Queries (`cache.ts`)
+
+Sử dụng cho Server Components với React `cache()`:
+
+```typescript
+// src/features/admin/users/server/cache.ts
+import { cache } from "react"
+import { listUsers } from "./queries"
+
+/**
+ * Cache function: List users with pagination
+ * Sử dụng cache() để tự động deduplicate requests và cache kết quả
+ */
+export const listUsersCached = cache(
+  async (page: number, limit: number, search: string, filtersKey: string, status: string) => {
+    const filters = filtersKey ? (JSON.parse(filtersKey) as Record<string, string>) : undefined
+    return listUsers({
+      page,
+      limit,
+      search: search || undefined,
+      filters,
+      status: status === "deleted" || status === "all" ? status : "active",
+    })
+  },
+)
+
+/**
+ * Cache function: Get user detail by ID
+ */
 export const getUserDetailById = cache(async (id: string): Promise<UserDetail | null> => {
   const user = await prisma.user.findUnique({
     where: { id },
-    include: { /* ... */ }
+    include: { userRoles: { include: { role: true } } },
   })
-  
-  return user ? transformUser(user) : null
+
+  if (!user) return null
+
+  return {
+    ...mapUserRecord(user),
+    bio: user.bio,
+    phone: user.phone,
+    address: user.address,
+    emailVerified: user.emailVerified,
+    updatedAt: user.updatedAt,
+  }
 })
 ```
 
 **Lợi ích:**
 - ✅ Tự động deduplicate requests trong cùng một render pass
 - ✅ Cache kết quả để tái sử dụng
-- ✅ Không cần thêm thư viện caching
+- ✅ Tách biệt rõ ràng cached và non-cached queries
+- ✅ Dễ maintain và test
 
 ### Pattern cho List/Table
 
 ```typescript
 // Server Component
+// src/features/admin/users/components/users-table.tsx
+import { listUsersCached, getRolesCached } from "../server/cache"
+import { serializeUsersList } from "../server/helpers"
+import { UsersTableClient } from "./users-table.client"
+
 export async function UsersTable({ canDelete, canRestore }: UsersTableProps) {
-  // Fetch initial data với cache
-  const initial = await listUsersCached(1, 10, "", "", "active")
-  const initialData = serializeInitialData(initial)
+  // Fetch initial data và roles với cached queries
+  const [usersData, roles] = await Promise.all([
+    listUsersCached(1, 10, "", "", "active"),
+    getRolesCached(),
+  ])
   
-  // Pass xuống client component
+  // Serialize data trước khi pass xuống client component
   return (
     <UsersTableClient
-      initialData={initialData}
+      initialData={serializeUsersList(usersData)}
+      initialRolesOptions={roles.map((role) => ({
+        label: role.displayName,
+        value: role.name,
+      }))}
       canDelete={canDelete}
       canRestore={canRestore}
     />
@@ -295,17 +368,28 @@ import { useState } from "react"
 ```
 features/admin/
 ├── dashboard/
-│   ├── dashboard-stats-cached.tsx    # Cache Component (PPR)
-│   ├── dashboard-stats.client.tsx   # Client Component
-│   └── dashboard-stats.tsx          # Server Component (nếu cần)
+│   ├── dashboard-stats.tsx          # Server Component (with cache)
+│   └── dashboard-stats.client.tsx   # Client Component
 ├── users/
 │   ├── components/
 │   │   ├── user-detail.tsx          # Server Component
 │   │   ├── user-detail.client.tsx   # Client Component
 │   │   ├── users-table.tsx           # Server Component
-│   │   └── users-table.client.tsx   # Client Component
-│   └── server/
-│       └── queries.ts                # Server queries với cache()
+│   │   ├── users-table.client.tsx   # Client Component
+│   │   ├── user-create.tsx          # Server Component
+│   │   ├── user-create.client.tsx   # Client Component
+│   │   ├── user-edit.tsx            # Server Component
+│   │   └── user-edit.client.tsx     # Client Component
+│   ├── server/
+│   │   ├── queries.ts                # Non-cached database queries
+│   │   ├── cache.ts                  # Cached queries (React cache())
+│   │   ├── mutations.ts               # Create, update, delete operations
+│   │   └── helpers.ts                 # Helper functions (serialization, mapping)
+│   ├── hooks/
+│   │   └── use-roles.ts              # Custom hooks
+│   ├── types.ts                      # Type definitions
+│   ├── form-fields.ts                # Form field definitions
+│   └── utils.ts                      # Utility functions
 ```
 
 ## 🔍 Kiểm tra Component Type
@@ -394,14 +478,27 @@ export function UserDetailClient({ user }: { user: User }) {
 - `user-detail.tsx` (Server): Fetch user data với `getUserDetailById()`
 - `user-detail.client.tsx` (Client): Render UI với animations
 
-### 3. Forms (Client Component)
-- `user-create.tsx` (Client): Form submissions cần client-side
-- `user-edit.tsx` (Client): Form submissions cần client-side
+### 3. Forms (Server → Client Pattern)
+- `user-create.tsx` (Server): Fetch roles với `getRolesCached()`
+- `user-create.client.tsx` (Client): Form submissions cần client-side
+- `user-edit.tsx` (Server): Fetch user data và roles
+- `user-edit.client.tsx` (Client): Form submissions cần client-side
 
 ### 4. Dashboard Stats ✅ (Đã triển khai)
 - `dashboard-stats.tsx` (Server): Fetch stats với `getDashboardStatsCached()`
 - `dashboard-stats.client.tsx` (Client): Render charts và interactions
 - Pattern: Server Component (with cache) → Client Component
+
+### 5. Users Feature ✅ (Đã triển khai - Reference Implementation)
+- **Pages**: `src/app/admin/users/` - Server Components chỉ chứa layout
+- **Components**: `src/features/admin/users/components/` - Server → Client pattern
+- **Server Functions**:
+  - `queries.ts`: Non-cached queries (dùng trong API routes)
+  - `cache.ts`: Cached queries với React `cache()` (dùng trong Server Components)
+  - `mutations.ts`: Create, update, delete operations với permission checks
+  - `helpers.ts`: Serialization, mapping, transformation
+- **Types & Utils**: `types.ts`, `utils.ts`, `form-fields.ts`
+- Pattern: Page → Server Component (fetch với cache) → Client Component (UI/interactions)
 
 ## 🎓 So sánh 3 loại Components
 

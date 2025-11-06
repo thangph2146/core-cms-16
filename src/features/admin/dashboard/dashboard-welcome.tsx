@@ -17,8 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { useClientOnly } from "@/hooks/use-client-only"
 import { usePermissions } from "@/hooks/use-permissions"
-import { PERMISSIONS } from "@/lib/permissions"
-import { isSuperAdmin } from "@/lib/permissions/permissions-helpers"
+import { PERMISSIONS, isSuperAdmin } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
 const containerVariants = {
