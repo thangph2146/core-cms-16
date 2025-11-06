@@ -1,14 +1,14 @@
 /**
  * Client Component: Resource Detail Page
  * 
- * Generic detail page component với sections và edit form
+ * Generic detail page component với sections support
  * Pattern: Server Component → Client Component (UI/interactions)
  */
 
 "use client"
 
-import { useState, Suspense } from "react"
-import { Edit, ArrowLeft } from "lucide-react"
+import * as React from "react"
+import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,8 +21,7 @@ import {
 } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { ResourceForm, type ResourceFormField } from "./resource-form"
-import { ResourceFormSkeleton } from "@/components/skeletons"
+import { type ResourceFormSection } from "./resource-form"
 
 export interface ResourceDetailField<T = unknown> {
   name: keyof T | string
@@ -31,6 +30,13 @@ export interface ResourceDetailField<T = unknown> {
   render?: (value: unknown, data: T) => React.ReactNode
   format?: (value: unknown) => string
   type?: "text" | "date" | "boolean" | "number" | "custom"
+  section?: string // Section ID để group fields
+}
+
+export interface ResourceDetailSection<T = unknown> extends ResourceFormSection {
+  fieldHeader?: React.ReactNode // Custom node render trước fields trong section
+  fieldFooter?: React.ReactNode // Custom node render sau fields trong section
+  fieldsContent?: (fields: ResourceDetailField<T>[], data: T) => React.ReactNode // Custom render cho fields
 }
 
 export interface ResourceDetailPageProps<T extends Record<string, unknown>> {
@@ -45,62 +51,64 @@ export interface ResourceDetailPageProps<T extends Record<string, unknown>> {
     fields: ResourceDetailField<T>[]
   }
 
-  // Edit form config (optional)
-  editFields?: ResourceFormField<T>[]
-  onEditSubmit?: (data: Partial<T>) => Promise<{ success: boolean; error?: string }>
-
   // UI
   title?: string
   description?: string
   backUrl?: string
   backLabel?: string
-  editLabel?: string
 
   // Actions
   actions?: React.ReactNode
 
-  // Custom sections
+  // Custom sections (legacy - sẽ được thay thế bởi detailSections)
   sections?: Array<{
     title: string
     description?: string
     fields: ResourceDetailField<T>[]
   }>
+  
+  // Detail sections definitions (tương tự editSections)
+  detailSections?: ResourceDetailSection<T>[] // Section definitions với title/description cho detail view
+  
+  // Custom node render sau tất cả sections
+  afterSections?: React.ReactNode
 }
 
 export function ResourceDetailPage<T extends Record<string, unknown>>({
   data,
   isLoading = false,
   fields,
-  editFields,
-  onEditSubmit,
   title,
   description,
   backUrl,
   backLabel = "Quay lại",
-  editLabel = "Chỉnh sửa",
   actions,
   sections,
+  detailSections,
+  afterSections,
 }: ResourceDetailPageProps<T>) {
   const router = useRouter()
-  const [isEditOpen, setIsEditOpen] = useState(false)
 
-  // Normalize fields - có thể là mảng hoặc object
-  const defaultSection = Array.isArray(fields)
-    ? { fields, title: "Thông tin chi tiết", description: undefined }
-    : { fields: fields.fields, title: fields.title || "Thông tin chi tiết", description: fields.description }
+  const allFields = Array.isArray(fields) ? fields : fields.fields
+
+  const groupFieldsBySection = () => {
+    const grouped: Record<string, ResourceDetailField<T>[]> = {}
+    const ungrouped: ResourceDetailField<T>[] = []
+    allFields.forEach((field) => {
+      if (field.section) {
+        grouped[field.section] ??= []
+        grouped[field.section].push(field)
+      } else {
+        ungrouped.push(field)
+      }
+    })
+    return { grouped, ungrouped }
+  }
 
   const formatValue = (field: ResourceDetailField<T>, value: unknown): React.ReactNode => {
-    if (field.render) {
-      return field.render(value, data!)
-    }
-
-    if (value === null || value === undefined) {
-      return <span className="text-muted-foreground">—</span>
-    }
-
-    if (field.format) {
-      return field.format(value)
-    }
+    if (field.render) return field.render(value, data!)
+    if (value == null) return <span className="text-muted-foreground">—</span>
+    if (field.format) return field.format(value)
 
     switch (field.type) {
       case "boolean":
@@ -111,67 +119,79 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
             {value ? "Có" : "Không"}
           </span>
         )
-
       case "date":
         try {
-          const date = new Date(value as string | number)
-          return date.toLocaleDateString("vi-VN", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+          return new Date(value as string | number).toLocaleDateString("vi-VN", {
+            year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
           })
         } catch {
           return String(value)
         }
-
       case "number":
         return typeof value === "number" ? value.toLocaleString("vi-VN") : String(value)
-
       default:
-        // Wrap long text content
-        const stringValue = String(value)
-        return (
-          <span className="break-words break-all whitespace-pre-wrap">
-            {stringValue}
-          </span>
-        )
+        return <span className="break-words break-all whitespace-pre-wrap">{String(value)}</span>
     }
   }
 
-  const renderFields = (fieldsToRender: ResourceDetailField<T>[]) => {
-    if (fieldsToRender.length === 0) return null
+  const renderField = (field: ResourceDetailField<T>, inSection = false) => {
+    const value = data?.[field.name as keyof T]
+    return (
+      <Field orientation="vertical" className={cn("py-2.5", !inSection && "border-b border-border/50 last:border-0")}>
+        <FieldTitle className="text-muted-foreground text-xs font-medium mb-1">{field.label}</FieldTitle>
+        <FieldContent>
+          <div className="text-sm break-words break-all whitespace-pre-wrap">
+            {isLoading ? <Skeleton className="h-4 w-32" /> : formatValue(field, value)}
+          </div>
+          {field.description && <FieldDescription className="text-xs mt-1">{field.description}</FieldDescription>}
+        </FieldContent>
+      </Field>
+    )
+  }
+
+  const renderFields = (fieldsToRender: ResourceDetailField<T>[]) => 
+    fieldsToRender.length > 0 ? (
+      <FieldGroup className="gap-0">
+        {fieldsToRender.map((field) => (
+          <React.Fragment key={String(field.name)}>
+            {renderField(field, false)}
+          </React.Fragment>
+        ))}
+      </FieldGroup>
+    ) : null
+
+  const getGridClasses = (fieldCount: number) => 
+    fieldCount === 1 
+      ? { gridClass: "grid-cols-1", gridResponsiveAttr: "true" as const }
+      : fieldCount === 2
+      ? { gridClass: "grid-cols-1 @md:grid-cols-2", gridResponsiveAttr: "true" as const }
+      : { gridClass: "grid-cols-1", gridResponsiveAttr: "auto-fit" as const }
+
+  const renderSection = (sectionId: string, sectionFields: ResourceDetailField<T>[]) => {
+    const sectionInfo = detailSections?.find((s) => s.id === sectionId)
+    const { gridClass, gridResponsiveAttr } = getGridClasses(sectionFields.length)
+    const fieldsContent = sectionInfo?.fieldsContent && data 
+      ? sectionInfo.fieldsContent(sectionFields, data)
+      : (
+          <div className={cn("grid gap-6", gridClass)} data-grid-responsive={gridResponsiveAttr}>
+            {sectionFields.map((field) => (
+              <div key={String(field.name)} className="min-w-0">{renderField(field, true)}</div>
+            ))}
+          </div>
+        )
 
     return (
-      <FieldGroup className="gap-0">
-        {fieldsToRender.map((field) => {
-          const value = data?.[field.name as keyof T]
-          return (
-            <Field
-              key={field.name as string}
-              orientation="vertical"
-              className="py-2.5 border-b border-border/50 last:border-0"
-            >
-              <FieldTitle className="text-muted-foreground text-xs font-medium mb-1">
-                {field.label}
-              </FieldTitle>
-              <FieldContent>
-                <div className="text-sm break-words break-all whitespace-pre-wrap">
-                  {isLoading ? (
-                    <Skeleton className="h-4 w-32" />
-                  ) : (
-                    formatValue(field, value)
-                  )}
-                </div>
-                {field.description && (
-                  <FieldDescription className="text-xs mt-1">{field.description}</FieldDescription>
-                )}
-              </FieldContent>
-            </Field>
-          )
-        })}
-      </FieldGroup>
+      <Card key={sectionId} className="h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">{sectionInfo?.title || "Thông tin chi tiết"}</CardTitle>
+          {sectionInfo?.description && <CardDescription className="mt-0.5 text-xs">{sectionInfo.description}</CardDescription>}
+        </CardHeader>
+        <CardContent className="pt-0 pb-4">
+          {sectionInfo?.fieldHeader && <div className="mb-6">{sectionInfo.fieldHeader}</div>}
+          {fieldsContent}
+          {sectionInfo?.fieldFooter && <div className="mt-6">{sectionInfo.fieldFooter}</div>}
+        </CardContent>
+      </Card>
     )
   }
 
@@ -228,118 +248,75 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8 mx-auto w-full max-w-[100%]">
-      {/* Header */}
-      {(title || backUrl || (editFields && onEditSubmit) || actions) && (
+      {(title || backUrl || actions) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
           <div className="space-y-1.5 flex-1 min-w-0">
             {backUrl && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(backUrl)}
-                className="-ml-2"
-              >
+              <Button variant="ghost" size="sm" onClick={() => router.push(backUrl)} className="-ml-2">
                 <ArrowLeft className="mr-2 h-5 w-5" />
                 {backLabel}
               </Button>
             )}
-            {title && (
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
-            )}
-            {description && (
-              <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
-            )}
+            {title && <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>}
+            {description && <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {editFields && onEditSubmit && (
-              <Button
-                variant="outline"
-                onClick={() => setIsEditOpen(true)}
-                className="shadow-sm"
-              >
-                <Edit className="mr-2 h-5 w-5" />
-                {editLabel}
-              </Button>
-            )}
-            {actions}
-          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Default Section - Auto split into 2 columns based on field count */}
-        {defaultSection.fields.length > 0 && (
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">{defaultSection.title}</CardTitle>
-              {(defaultSection.description || description) && (
-                <CardDescription className="mt-0.5 text-xs">{defaultSection.description || description}</CardDescription>
+      <div className="space-y-6">
+        {(() => {
+          const { grouped, ungrouped } = groupFieldsBySection()
+          const fieldsTitle = Array.isArray(fields) ? "Thông tin chi tiết" : (fields.title || "Thông tin chi tiết")
+          const fieldsDesc = Array.isArray(fields) ? description : fields.description
+
+          return (
+            <>
+              {Object.entries(grouped).map(([sectionId, sectionFields]) =>
+                renderSection(sectionId, sectionFields)
               )}
-            </CardHeader>
-            <CardContent className="pt-0 pb-4">
-              {(() => {
-                // Tự động chia fields thành 2 cột
-                const midPoint = Math.ceil(defaultSection.fields.length / 2)
-                const leftFields = defaultSection.fields.slice(0, midPoint)
-                const rightFields = defaultSection.fields.slice(midPoint)
 
-                return (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <div>{renderFields(leftFields)}</div>
-                    {rightFields.length > 0 && <div>{renderFields(rightFields)}</div>}
-                  </div>
-                )
-              })()}
-            </CardContent>
-          </Card>
-        )}
+              {ungrouped.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold">{fieldsTitle}</CardTitle>
+                    {fieldsDesc && <CardDescription className="mt-0.5 text-xs">{fieldsDesc}</CardDescription>}
+                  </CardHeader>
+                  <CardContent className="pt-0 pb-4">
+                    {ungrouped.length > 4 ? (() => {
+                      const mid = Math.ceil(ungrouped.length / 2)
+                      return (
+                        <div className="grid gap-6 lg:grid-cols-2">
+                          <div>{renderFields(ungrouped.slice(0, mid))}</div>
+                          {ungrouped.slice(mid).length > 0 && <div>{renderFields(ungrouped.slice(mid))}</div>}
+                        </div>
+                      )
+                    })() : renderFields(ungrouped)}
+                  </CardContent>
+                </Card>
+              )}
 
-        {/* Custom Sections - Split into 2 columns on large screens */}
-        {sections && sections.length > 0 && (
-          <>
-            {sections.map((section, index) => (
-              <Card key={index} className="h-fit">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold">{section.title}</CardTitle>
-                  {section.description && (
-                    <CardDescription className="mt-0.5 text-xs">{section.description}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0 pb-4">
-                  {renderFields(section.fields)}
-                </CardContent>
-              </Card>
-            ))}
-            {/* If odd number of sections, add empty div to maintain grid balance */}
-            {sections.length % 2 === 1 && <div />}
-          </>
-        )}
+              {sections && sections.length > 0 && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {sections.map((section, i) => (
+                    <Card key={i} className="h-fit">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold">{section.title}</CardTitle>
+                        {section.description && <CardDescription className="mt-0.5 text-xs">{section.description}</CardDescription>}
+                      </CardHeader>
+                      <CardContent className="pt-0 pb-4">{renderFields(section.fields)}</CardContent>
+                    </Card>
+                  ))}
+                  {sections.length % 2 === 1 && <div />}
+                </div>
+              )}
+
+              {afterSections && <div>{afterSections}</div>}
+            </>
+          )
+        })()}
       </div>
 
-      {/* Edit Form */}
-      {editFields && onEditSubmit && (
-        <Suspense
-          fallback={
-            <ResourceFormSkeleton
-              variant="dialog"
-              fieldCount={editFields.length}
-              title={true}
-            />
-          }
-        >
-          <ResourceForm<T>
-            data={data}
-            fields={editFields}
-            onSubmit={onEditSubmit}
-            open={isEditOpen}
-            onOpenChange={setIsEditOpen}
-            variant="dialog"
-            title={`${editLabel} ${title || ""}`.trim()}
-            showCard={false}
-          />
-        </Suspense>
-      )}
     </div>
   )
 }

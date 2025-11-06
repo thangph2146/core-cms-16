@@ -44,7 +44,7 @@ export function RolesTableClient({
   canManage = false,
   canCreate = false,
   initialData,
-  initialPermissionsOptions = [],
+  initialPermissionsOptions: _initialPermissionsOptions = [],
 }: RolesTableClientProps) {
   const router = useRouter()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
@@ -449,19 +449,7 @@ export function RolesTableClient({
                     <Trash2 className="mr-2 h-5 w-5" />
                     Xóa đã chọn
                   </Button>
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBulkProcessing}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
@@ -540,7 +528,7 @@ export function RolesTableClient({
                       Xóa vĩnh viễn
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>

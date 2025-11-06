@@ -2,7 +2,7 @@
  * Shared form field definitions cho tag forms
  */
 
-import type { ResourceFormField } from "@/features/admin/resources/components"
+import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateName, validateSlug } from "./utils"
 import React from "react"
 import { Tag, Hash } from "lucide-react"
@@ -11,6 +11,19 @@ export interface TagFormData {
   name: string
   slug: string
   [key: string]: unknown
+}
+
+/**
+ * Sections cho tag form
+ */
+export function getTagFormSections(): ResourceFormSection[] {
+  return [
+    {
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính về thẻ tag",
+    },
+  ]
 }
 
 /**
@@ -27,6 +40,7 @@ export function getBaseTagFields(): ResourceFormField<TagFormData>[] {
       description: "Tên thẻ tag sẽ hiển thị trên website",
       validate: validateName,
       icon: React.createElement(Tag, { className: "h-4 w-4" }),
+      section: "basic",
     },
     {
       name: "slug",
@@ -37,6 +51,7 @@ export function getBaseTagFields(): ResourceFormField<TagFormData>[] {
       description: "URL-friendly identifier (tự động tạo từ tên nếu để trống)",
       validate: validateSlug,
       icon: React.createElement(Hash, { className: "h-4 w-4" }),
+      section: "basic",
     },
   ]
 }

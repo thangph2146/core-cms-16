@@ -18,7 +18,7 @@ export interface ContactRequestRow {
   deletedAt: string | null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+ 
 export interface ContactRequestsTableClientProps extends BaseResourceTableClientProps<ContactRequestRow> {
   canAssign?: boolean
   initialUsersOptions?: Array<{ label: string; value: string }>

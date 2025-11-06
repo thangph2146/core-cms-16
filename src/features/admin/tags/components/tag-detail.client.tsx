@@ -1,7 +1,7 @@
 "use client"
 
 import { Tag, Hash, Calendar, Clock, Edit } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField } from "@/features/admin/resources/components"
+import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { formatDateVi } from "../utils"
@@ -30,6 +30,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       name: "name",
       label: "Tên thẻ tag",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -43,6 +44,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       name: "slug",
       label: "Slug",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
@@ -56,6 +58,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       name: "createdAt",
       label: "Ngày tạo",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
@@ -71,6 +74,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       name: "updatedAt",
       label: "Cập nhật lần cuối",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
@@ -84,10 +88,20 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
     },
   ]
 
+  // Sections cho detail view - tất cả fields trong 1 section (4 fields >= 4 sẽ tự động tách 2 cột)
+  const detailSections: ResourceDetailSection<TagDetailData>[] = [
+    {
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính về thẻ tag và thời gian",
+    },
+  ]
+
   return (
     <ResourceDetailPage<TagDetailData>
       data={tag}
       fields={detailFields}
+      detailSections={detailSections}
       title={tag.name}
       description={`Chi tiết thẻ tag ${tag.slug}`}
       backUrl={backUrl}

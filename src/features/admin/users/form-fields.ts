@@ -2,7 +2,7 @@
  * Shared form field definitions cho user forms
  */
 
-import type { ResourceFormField } from "@/features/admin/resources/components"
+import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateEmail, validateName, validatePassword } from "./utils"
 import type { Role } from "./utils"
 import React from "react"
@@ -21,6 +21,34 @@ export interface UserFormData {
 }
 
 /**
+ * Sections cho user form
+ */
+export function getUserFormSections(): ResourceFormSection[] {
+  return [
+    {
+      id: "login",
+      title: "Thông tin đăng nhập",
+      description: "Thông tin dùng để đăng nhập vào hệ thống",
+    },
+    {
+      id: "personal",
+      title: "Thông tin cá nhân",
+      description: "Thông tin cá nhân của người dùng",
+    },
+    {
+      id: "additional",
+      title: "Thông tin bổ sung",
+      description: "Các thông tin bổ sung về người dùng",
+    },
+    {
+      id: "access",
+      title: "Vai trò & Trạng thái",
+      description: "Cấu hình quyền truy cập và trạng thái hoạt động",
+    },
+  ]
+}
+
+/**
  * Base fields cho user form (email, name, roles, isActive, bio, phone, address)
  */
 export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): ResourceFormField<UserFormData>[] {
@@ -33,6 +61,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       required: true,
       validate: validateEmail,
       icon: React.createElement(Mail, { className: "h-4 w-4" }),
+      section: "login",
     },
     {
       name: "name",
@@ -41,6 +70,31 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       placeholder: "Nhập tên",
       validate: validateName,
       icon: React.createElement(User, { className: "h-4 w-4" }),
+      section: "personal",
+    },
+    {
+      name: "phone",
+      label: "Số điện thoại",
+      type: "text",
+      placeholder: "Nhập số điện thoại",
+      icon: React.createElement(Phone, { className: "h-4 w-4" }),
+      section: "personal",
+    },
+    {
+      name: "bio",
+      label: "Giới thiệu",
+      type: "textarea",
+      placeholder: "Nhập giới thiệu về người dùng",
+      icon: React.createElement(AlignLeft, { className: "h-4 w-4" }),
+      section: "additional",
+    },
+    {
+      name: "address",
+      label: "Địa chỉ",
+      type: "textarea",
+      placeholder: "Nhập địa chỉ",
+      icon: React.createElement(MapPin, { className: "h-4 w-4" }),
+      section: "additional",
     },
     {
       name: "roleIds",
@@ -54,27 +108,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       })),
       defaultValue: roleDefaultValue,
       icon: React.createElement(Shield, { className: "h-4 w-4" }),
-    },
-    {
-      name: "bio",
-      label: "Giới thiệu",
-      type: "textarea",
-      placeholder: "Nhập giới thiệu về người dùng",
-      icon: React.createElement(AlignLeft, { className: "h-4 w-4" }),
-    },
-    {
-      name: "phone",
-      label: "Số điện thoại",
-      type: "text",
-      placeholder: "Nhập số điện thoại",
-      icon: React.createElement(Phone, { className: "h-4 w-4" }),
-    },
-    {
-      name: "address",
-      label: "Địa chỉ",
-      type: "textarea",
-      placeholder: "Nhập địa chỉ",
-      icon: React.createElement(MapPin, { className: "h-4 w-4" }),
+      section: "access",
     },
     {
       name: "isActive",
@@ -83,6 +117,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       type: "switch",
       defaultValue: true,
       icon: React.createElement(ToggleLeft, { className: "h-4 w-4" }),
+      section: "access",
     }
   ]
 }
@@ -100,6 +135,7 @@ export function getPasswordField(): ResourceFormField<UserFormData> {
     description: "Mật khẩu phải có ít nhất 6 ký tự",
     validate: (value) => validatePassword(value, false),
     icon: React.createElement(Lock, { className: "h-4 w-4" }),
+    section: "login",
   }
 }
 
@@ -116,6 +152,7 @@ export function getPasswordEditField(): ResourceFormField<UserFormData> {
     required: false,
     validate: (value) => validatePassword(value, true),
     icon: React.createElement(Lock, { className: "h-4 w-4" }),
+    section: "login",
   }
 }
 

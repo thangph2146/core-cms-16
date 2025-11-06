@@ -7,7 +7,6 @@ import { listRolesCached } from "@/features/admin/roles/server/cache"
 import {
   createRole,
   type AuthContext,
-  type CreateRoleInput,
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/roles/server/mutations"
@@ -70,7 +69,7 @@ async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
   }
 
   try {
-    const role = await createRole(ctx, body as unknown as CreateRoleInput)
+    const role = await createRole(ctx, body)
     return NextResponse.json({ data: role }, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {

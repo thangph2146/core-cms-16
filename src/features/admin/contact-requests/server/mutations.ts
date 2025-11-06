@@ -9,11 +9,6 @@ import {
   CreateContactRequestSchema,
   UpdateContactRequestSchema,
   AssignContactRequestSchema,
-  BulkContactRequestActionSchema,
-  type CreateContactRequestInput,
-  type UpdateContactRequestInput,
-  type AssignContactRequestInput,
-  type BulkContactRequestActionInput,
 } from "./schemas"
 import {
   notifySuperAdminsOfContactRequestAction,

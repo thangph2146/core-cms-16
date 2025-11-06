@@ -57,22 +57,45 @@ src/app/
 ```typescript
 // src/app/admin/users/page.tsx
 import { AdminHeader } from "@/components/headers"
+import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { getPermissions, getSession } from "@/lib/auth/auth-server"
 import { UsersTable } from "@/features/admin/users/components/users-table"
 
+interface SessionWithMeta {
+  roles?: Array<{ name: string }>
+  permissions?: Array<string>
+}
+
+/**
+ * Users Page
+ * 
+ * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
+ * Chỉ cần check permissions cho UI actions (canDelete, canRestore, canManage, canCreate)
+ */
 export default async function UsersPage() {
-  const session = await getSession()
+  const session = (await getSession()) as SessionWithMeta | null
   const permissions = await getPermissions()
-  
-  // Check permissions cho UI actions
+  const roles = session?.roles ?? []
+
+  // Check permissions cho UI actions (không phải page access)
   const canDelete = canPerformAnyAction(permissions, roles, [
     PERMISSIONS.USERS_DELETE,
     PERMISSIONS.USERS_MANAGE,
   ])
-  
+  const canRestore = canPerformAnyAction(permissions, roles, [
+    PERMISSIONS.USERS_UPDATE,
+    PERMISSIONS.USERS_MANAGE,
+  ])
+  const canManage = canPerformAction(permissions, roles, PERMISSIONS.USERS_MANAGE)
+  const canCreate = canPerformAction(permissions, roles, PERMISSIONS.USERS_CREATE)
+
   return (
     <>
-      <AdminHeader breadcrumbs={[{ label: "Users", isActive: true }]} />
+      <AdminHeader
+        breadcrumbs={[
+          { label: "Users", isActive: true },
+        ]}
+      />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <UsersTable
           canDelete={canDelete}
@@ -260,29 +283,39 @@ export default async function UserCreatePage() {
 
 ```typescript
 // src/app/api/admin/users/route.ts
+/**
+ * API Route: GET /api/admin/users - List users
+ * POST /api/admin/users - Create user
+ */
 import { NextRequest, NextResponse } from "next/server"
 import { listUsersCached } from "@/features/admin/users/server/cache"
-import { createUser, type AuthContext, type CreateUserInput, ApplicationError } from "@/features/admin/users/server/mutations"
+import {
+  createUser,
+  type AuthContext,
+  type CreateUserInput,
+  ApplicationError,
+  NotFoundError,
+} from "@/features/admin/users/server/mutations"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
 
 async function getUsersHandler(req: NextRequest, _context: ApiRouteContext) {
   const searchParams = req.nextUrl.searchParams
-  
+
   const paginationValidation = validatePagination({
     page: searchParams.get("page"),
     limit: searchParams.get("limit"),
   })
-  
+
   if (!paginationValidation.valid) {
     return NextResponse.json({ error: paginationValidation.error }, { status: 400 })
   }
-  
+
   const searchValidation = sanitizeSearchQuery(searchParams.get("search") || "", 200)
   const statusParam = searchParams.get("status") || "active"
   const status = statusParam === "deleted" || statusParam === "all" ? statusParam : "active"
-  
+
   const columnFilters: Record<string, string> = {}
   searchParams.forEach((value, key) => {
     if (key.startsWith("filter[")) {
@@ -293,7 +326,7 @@ async function getUsersHandler(req: NextRequest, _context: ApiRouteContext) {
       }
     }
   })
-  
+
   const activeFilters = Object.keys(columnFilters).length > 0 ? columnFilters : undefined
   const filtersKey = activeFilters ? JSON.stringify(activeFilters) : ""
   const result = await listUsersCached(
@@ -303,7 +336,7 @@ async function getUsersHandler(req: NextRequest, _context: ApiRouteContext) {
     filtersKey,
     status
   )
-  
+
   return NextResponse.json(result)
 }
 
@@ -314,19 +347,22 @@ async function postUsersHandler(req: NextRequest, context: ApiRouteContext) {
   } catch {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
-  
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
     roles: context.roles,
   }
-  
+
   try {
     const user = await createUser(ctx, body as unknown as CreateUserInput)
     return NextResponse.json({ data: user }, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {
       return NextResponse.json({ error: error.message || "Không thể tạo người dùng" }, { status: error.status || 400 })
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message || "Không tìm thấy" }, { status: 404 })
     }
     console.error("Error creating user:", error)
     return NextResponse.json({ error: "Đã xảy ra lỗi khi tạo người dùng" }, { status: 500 })
@@ -383,6 +419,12 @@ src/features/admin/users/
 
 ```typescript
 // src/features/admin/users/components/users-table.tsx
+/**
+ * Server Component: Users Table
+ * 
+ * Fetches initial data và roles, sau đó pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 import { listUsersCached, getRolesCached } from "../server/cache"
 import { serializeUsersList } from "../server/helpers"
 import { UsersTableClient } from "./users-table.client"
@@ -395,7 +437,7 @@ export interface UsersTableProps {
 }
 
 export async function UsersTable({ canDelete, canRestore, canManage, canCreate }: UsersTableProps) {
-  // Fetch data với cached queries (tự động deduplicate và cache)
+  // Fetch initial data và roles với cached queries (tự động deduplicate)
   const [usersData, roles] = await Promise.all([
     listUsersCached(1, 10, "", "", "active"),
     getRolesCached(),
@@ -424,14 +466,25 @@ export async function UsersTable({ canDelete, canRestore, canManage, canCreate }
 // src/features/admin/users/components/users-table.client.tsx
 "use client"
 
-import { useCallback } from "react"
-import { DataTable, type DataTableLoader } from "@/components/tables/data-table"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import { apiClient } from "@/lib/api/axios"
-import type { UserRow } from "../types"
+import { apiRoutes } from "@/lib/api/routes"
+import type { UserRow, UsersTableClientProps } from "../types"
 
-export function UsersTableClient({ initialData, canDelete }: UsersTableClientProps) {
+export function UsersTableClient({
+  canDelete = false,
+  canRestore = false,
+  canManage = false,
+  canCreate = false,
+  initialData,
+  initialRolesOptions = [],
+}: UsersTableClientProps) {
+  const router = useRouter()
+  
   // Loader function để fetch data khi user tương tác (pagination, filter, etc.)
-  const loader: DataTableLoader<UserRow> = useCallback(async (query) => {
+  const loader = useCallback(async (query) => {
     const params = new URLSearchParams({
       page: String(query.page),
       limit: String(query.limit),
@@ -445,13 +498,12 @@ export function UsersTableClient({ initialData, canDelete }: UsersTableClientPro
       if (value) params.set(`filter[${key}]`, value)
     })
 
-    const response = await apiClient.get(`/api/admin/users?${params}`)
+    const response = await apiClient.get(`${apiRoutes.users.list}?${params}`)
     return response.data
   }, [])
 
   return (
-    <DataTable
-      columns={columns}
+    <ResourceTableClient
       loader={loader}
       initialData={initialData} // Server-side bootstrap data
       // ... other props
@@ -473,18 +525,61 @@ export function UsersTableClient({ initialData, canDelete }: UsersTableClientPro
 
 ```typescript
 // src/features/admin/users/server/queries.ts
+/**
+ * Non-cached Database Queries for Users
+ * 
+ * Chứa các database queries không có cache wrapper
+ * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
+ */
 import { prisma } from "@/lib/database"
+import { validatePagination, buildPagination, type ResourcePagination } from "@/features/admin/resources/server"
+import { mapUserRecord, buildWhereClause } from "./helpers"
 
-export async function listUsers(params: ListUsersInput): Promise<ListUsersResult> {
+export interface ListUsersInput {
+  page?: number
+  limit?: number
+  search?: string
+  filters?: Record<string, string>
+  status?: "active" | "deleted" | "all"
+}
+
+export interface ListedUser {
+  id: string
+  email: string
+  name: string | null
+  avatar: string | null
+  isActive: boolean
+  createdAt: Date
+  deletedAt: Date | null
+  roles: Array<{
+    id: string
+    name: string
+    displayName: string
+  }>
+}
+
+export interface ListUsersResult {
+  data: ListedUser[]
+  pagination: ResourcePagination
+}
+
+export async function listUsers(params: ListUsersInput = {}): Promise<ListUsersResult> {
+  const { page, limit } = validatePagination(params.page, params.limit, 100)
   const where = buildWhereClause(params)
-  
+
   const [users, total] = await Promise.all([
     prisma.user.findMany({
       where,
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { createdAt: "desc" },
-      include: { userRoles: { include: { role: true } } },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     }),
     prisma.user.count({ where }),
   ])
@@ -500,25 +595,78 @@ export async function listUsers(params: ListUsersInput): Promise<ListUsersResult
 
 ```typescript
 // src/features/admin/users/server/cache.ts
+/**
+ * Cache Functions for Users
+ * 
+ * Sử dụng React cache() để:
+ * - Tự động deduplicate requests trong cùng một render pass
+ * - Cache kết quả để tái sử dụng
+ * - Cải thiện performance với request deduplication
+ * 
+ * Pattern: Server Component → Cache Function → Database Query
+ */
 import { cache } from "react"
-import { listUsers } from "./queries"
+import { listUsers, type UserDetail } from "./queries"
+import { mapUserRecord } from "./helpers"
+import { prisma } from "@/lib/database"
 
 /**
  * Cache function: List users with pagination
+ * 
  * Sử dụng cache() để tự động deduplicate requests và cache kết quả
  */
 export const listUsersCached = cache(
   async (page: number, limit: number, search: string, filtersKey: string, status: string) => {
     const filters = filtersKey ? (JSON.parse(filtersKey) as Record<string, string>) : undefined
+    const parsedStatus = status === "deleted" || status === "all" ? status : "active"
     return listUsers({
       page,
       limit,
       search: search || undefined,
       filters,
-      status: status === "deleted" || status === "all" ? status : "active",
+      status: parsedStatus,
     })
   },
 )
+
+/**
+ * Cache function: Get user detail by ID
+ * 
+ * Sử dụng cache() để tự động deduplicate requests và cache kết quả
+ */
+export const getUserDetailById = cache(async (id: string): Promise<UserDetail | null> => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: {
+      userRoles: {
+        include: {
+          role: true,
+        },
+      },
+    },
+  })
+
+  if (!user) return null
+
+  return {
+    ...mapUserRecord(user),
+    bio: user.bio,
+    phone: user.phone,
+    address: user.address,
+    emailVerified: user.emailVerified,
+    updatedAt: user.updatedAt,
+  }
+})
+
+/**
+ * Cache function: Get all roles
+ */
+export const getRolesCached = cache(async () => {
+  return prisma.role.findMany({
+    where: { isActive: true },
+    orderBy: { displayName: "asc" },
+  })
+})
 ```
 
 **Ví dụ mutations.ts:**
@@ -527,7 +675,7 @@ export const listUsersCached = cache(
 // src/features/admin/users/server/mutations.ts
 import bcrypt from "bcryptjs"
 import type { Permission } from "@/lib/permissions"
-import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
+import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { mapUserRecord, type ListedUser, type UserWithRoles } from "./queries"
 import { notifySuperAdminsOfUserAction } from "./notifications"
@@ -546,6 +694,12 @@ export class ApplicationError extends Error {
   }
 }
 
+export class ForbiddenError extends ApplicationError {
+  constructor(message = "Forbidden") {
+    super(message, 403)
+  }
+}
+
 export class NotFoundError extends ApplicationError {
   constructor(message = "Not found") {
     super(message, 404)
@@ -558,50 +712,41 @@ export interface CreateUserInput {
   name?: string | null
   roleIds?: string[]
   isActive?: boolean
+  bio?: string | null
+  phone?: string | null
+  address?: string | null
 }
 
-/**
- * Ensure user has permission to perform action
- */
 function ensurePermission(ctx: AuthContext, ...required: Permission[]) {
   const allowed = required.some((perm) => canPerformAction(ctx.permissions, ctx.roles, perm))
   if (!allowed) {
-    throw new ApplicationError("Bạn không có quyền thực hiện hành động này", 403)
+    throw new ForbiddenError()
   }
 }
 
 export async function createUser(ctx: AuthContext, input: CreateUserInput): Promise<ListedUser> {
-  // Check permissions
   ensurePermission(ctx, PERMISSIONS.USERS_CREATE, PERMISSIONS.USERS_MANAGE)
-  
-  // Validate input
+
   if (!input.email || !input.password) {
     throw new ApplicationError("Email và mật khẩu là bắt buộc", 400)
   }
-  
-  // Validate email format
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
-    throw new ApplicationError("Email không hợp lệ", 400)
-  }
-  
-  // Check email uniqueness
-  const existingUser = await prisma.user.findUnique({
-    where: { email: input.email.toLowerCase() },
-  })
-  
-  if (existingUser) {
+
+  const existing = await prisma.user.findUnique({ where: { email: input.email } })
+  if (existing) {
     throw new ApplicationError("Email đã tồn tại", 400)
   }
-  
-  // Business logic
+
   const passwordHash = await bcrypt.hash(input.password, 10)
-  
+
   const user = await prisma.user.create({
     data: {
       email: input.email.toLowerCase(),
       password: passwordHash,
       name: input.name || null,
       isActive: input.isActive ?? true,
+      bio: input.bio || null,
+      phone: input.phone || null,
+      address: input.address || null,
     },
     include: {
       userRoles: {
@@ -611,7 +756,7 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
       },
     },
   })
-  
+
   // Assign roles if provided
   if (input.roleIds && input.roleIds.length > 0) {
     await prisma.userRole.createMany({
@@ -621,7 +766,7 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
       })),
     })
   }
-  
+
   // Emit notification realtime
   await notifySuperAdminsOfUserAction(
     "create",
@@ -632,7 +777,7 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
       name: user.name,
     }
   )
-  
+
   return mapUserRecord(user)
 }
 ```
@@ -941,8 +1086,8 @@ export function serializeUsersList(data: ListUsersResult): DataTableResult<UserR
 
 ```typescript
 // src/features/admin/users/types.ts
-import type { ResourceResponse, BaseResourceTableClientProps } from "@/features/admin/resources/types"
 import type { Role } from "./utils"
+import type { ResourceResponse, BaseResourceTableClientProps } from "@/features/admin/resources/types"
 
 export type UserRole = Role
 
@@ -967,6 +1112,9 @@ export type UsersResponse = ResourceResponse<UserRow>
 
 ```typescript
 // src/features/admin/users/utils.ts
+/**
+ * Shared utility functions và validation cho user forms
+ */
 
 export interface Role {
   id: string
@@ -1058,7 +1206,10 @@ export function getUserInitials(name?: string | null, email?: string): string {
 
 ```typescript
 // src/features/admin/users/form-fields.ts
-import type { ResourceFormField } from "@/features/admin/resources/components"
+/**
+ * Shared form field definitions cho user forms
+ */
+import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateEmail, validateName, validatePassword } from "./utils"
 import type { Role } from "./utils"
 import React from "react"
@@ -1077,6 +1228,34 @@ export interface UserFormData {
 }
 
 /**
+ * Sections cho user form
+ */
+export function getUserFormSections(): ResourceFormSection[] {
+  return [
+    {
+      id: "login",
+      title: "Thông tin đăng nhập",
+      description: "Thông tin dùng để đăng nhập vào hệ thống",
+    },
+    {
+      id: "personal",
+      title: "Thông tin cá nhân",
+      description: "Thông tin cá nhân của người dùng",
+    },
+    {
+      id: "additional",
+      title: "Thông tin bổ sung",
+      description: "Các thông tin bổ sung về người dùng",
+    },
+    {
+      id: "access",
+      title: "Vai trò & Trạng thái",
+      description: "Cấu hình quyền truy cập và trạng thái hoạt động",
+    },
+  ]
+}
+
+/**
  * Base fields cho user form (email, name, roles, isActive, bio, phone, address)
  */
 export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): ResourceFormField<UserFormData>[] {
@@ -1089,6 +1268,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       required: true,
       validate: validateEmail,
       icon: React.createElement(Mail, { className: "h-4 w-4" }),
+      section: "login",
     },
     {
       name: "name",
@@ -1097,6 +1277,31 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       placeholder: "Nhập tên",
       validate: validateName,
       icon: React.createElement(User, { className: "h-4 w-4" }),
+      section: "personal",
+    },
+    {
+      name: "phone",
+      label: "Số điện thoại",
+      type: "text",
+      placeholder: "Nhập số điện thoại",
+      icon: React.createElement(Phone, { className: "h-4 w-4" }),
+      section: "personal",
+    },
+    {
+      name: "bio",
+      label: "Giới thiệu",
+      type: "textarea",
+      placeholder: "Nhập giới thiệu về người dùng",
+      icon: React.createElement(AlignLeft, { className: "h-4 w-4" }),
+      section: "additional",
+    },
+    {
+      name: "address",
+      label: "Địa chỉ",
+      type: "textarea",
+      placeholder: "Nhập địa chỉ",
+      icon: React.createElement(MapPin, { className: "h-4 w-4" }),
+      section: "additional",
     },
     {
       name: "roleIds",
@@ -1110,27 +1315,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       })),
       defaultValue: roleDefaultValue,
       icon: React.createElement(Shield, { className: "h-4 w-4" }),
-    },
-    {
-      name: "bio",
-      label: "Giới thiệu",
-      type: "textarea",
-      placeholder: "Nhập giới thiệu về người dùng",
-      icon: React.createElement(AlignLeft, { className: "h-4 w-4" }),
-    },
-    {
-      name: "phone",
-      label: "Số điện thoại",
-      type: "text",
-      placeholder: "Nhập số điện thoại",
-      icon: React.createElement(Phone, { className: "h-4 w-4" }),
-    },
-    {
-      name: "address",
-      label: "Địa chỉ",
-      type: "textarea",
-      placeholder: "Nhập địa chỉ",
-      icon: React.createElement(MapPin, { className: "h-4 w-4" }),
+      section: "access",
     },
     {
       name: "isActive",
@@ -1139,6 +1324,7 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
       type: "switch",
       defaultValue: true,
       icon: React.createElement(ToggleLeft, { className: "h-4 w-4" }),
+      section: "access",
     }
   ]
 }
@@ -1156,6 +1342,7 @@ export function getPasswordField(): ResourceFormField<UserFormData> {
     description: "Mật khẩu phải có ít nhất 6 ký tự",
     validate: (value) => validatePassword(value, false),
     icon: React.createElement(Lock, { className: "h-4 w-4" }),
+    section: "login",
   }
 }
 
@@ -1172,6 +1359,7 @@ export function getPasswordEditField(): ResourceFormField<UserFormData> {
     required: false,
     validate: (value) => validatePassword(value, true),
     icon: React.createElement(Lock, { className: "h-4 w-4" }),
+    section: "login",
   }
 }
 ```

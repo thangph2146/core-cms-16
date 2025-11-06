@@ -67,7 +67,7 @@ export const getRoleDetailById = cache(async (id: string): Promise<RoleDetail | 
  */
 export const getAllPermissionsCached = cache(async () => {
   // Import permissions from lib
-  const { PERMISSIONS, RESOURCES } = await import("@/lib/permissions")
+  const { PERMISSIONS } = await import("@/lib/permissions")
   
   // Map resource names to Vietnamese labels
   const resourceLabels: Record<string, string> = {
@@ -98,7 +98,7 @@ export const getAllPermissionsCached = cache(async () => {
   }
 
   return Object.entries(PERMISSIONS)
-    .map(([key, value]) => {
+    .map(([_key, value]) => {
       const [resource, action] = String(value).split(":")
       const resourceLabel = resourceLabels[resource] || resource
       const actionLabel = actionLabels[action] || action

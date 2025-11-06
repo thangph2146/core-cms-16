@@ -47,23 +47,6 @@ async function putRoleHandler(req: NextRequest, context: ApiRouteContext, ...arg
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
-  const allowedFields = ["name", "displayName", "description", "permissions", "isActive"]
-  const invalidFields = Object.keys(payload).filter((key) => !allowedFields.includes(key))
-
-  if (invalidFields.length > 0) {
-    return NextResponse.json({ error: `Các trường không hợp lệ: ${invalidFields.join(", ")}`, invalidFields }, { status: 400 })
-  }
-
-  if (payload.permissions !== undefined) {
-    if (!Array.isArray(payload.permissions)) {
-      return NextResponse.json({ error: "permissions phải là một mảng" }, { status: 400 })
-    }
-    const invalidPermissions = payload.permissions.filter((perm: unknown) => typeof perm !== "string" || perm.trim() === "")
-    if (invalidPermissions.length > 0) {
-      return NextResponse.json({ error: "Một số permissions không hợp lệ" }, { status: 400 })
-    }
-  }
-
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,

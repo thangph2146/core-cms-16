@@ -20,6 +20,6 @@ export { ResourceDetailPage } from "./resource-detail-page"
 export type { ResourceTableProps } from "./resource-table"
 export type { ResourceDetailProps } from "./resource-detail"
 export type { ResourceTableClientProps } from "./resource-table.client"
-export type { ResourceFormProps, ResourceFormField } from "./resource-form"
-export type { ResourceDetailPageProps, ResourceDetailField } from "./resource-detail-page"
+export type { ResourceFormProps, ResourceFormField, ResourceFormSection } from "./resource-form"
+export type { ResourceDetailPageProps, ResourceDetailField, ResourceDetailSection } from "./resource-detail-page"
 

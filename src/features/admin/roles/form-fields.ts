@@ -2,8 +2,8 @@
  * Shared form field definitions cho role forms
  */
 
-import type { ResourceFormField } from "@/features/admin/resources/components"
-import { validateRoleName, validateDisplayName, validatePermissions } from "./utils"
+import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
+import { validateRoleName, validateDisplayName, validateDescription } from "./utils"
 import { PERMISSIONS } from "@/lib/permissions"
 import React from "react"
 import { Shield, FileText, ToggleLeft, AlignLeft } from "lucide-react"
@@ -19,8 +19,9 @@ export interface RoleFormData {
 
 /**
  * Get all available permissions grouped by resource
+ * Exported để có thể sử dụng trong detail view
  */
-function getAllPermissionsOptionGroups(): Array<{ label: string; options: Array<{ label: string; value: string }> }> {
+export function getAllPermissionsOptionGroups(): Array<{ label: string; options: Array<{ label: string; value: string }> }> {
   
   // Map resource names to Vietnamese labels
   const resourceLabels: Record<string, string> = {
@@ -53,7 +54,7 @@ function getAllPermissionsOptionGroups(): Array<{ label: string; options: Array<
   // Group permissions by resource
   const grouped: Record<string, Array<{ label: string; value: string }>> = {}
 
-  Object.entries(PERMISSIONS).forEach(([key, value]) => {
+  Object.entries(PERMISSIONS).forEach(([_key, value]) => {
     const [resource, action] = String(value).split(":")
     if (!grouped[resource]) {
       grouped[resource] = []
@@ -89,6 +90,25 @@ function getAllPermissionsOptions(): Array<{ label: string; value: string }> {
 }
 
 /**
+ * Sections cho role form
+ */
+export function getRoleFormSections(): ResourceFormSection[] {
+  return [
+    {
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính về vai trò",
+    },
+    {
+      id: "permissions",
+      title: "Quyền truy cập",
+      description: "Cấu hình các quyền cho vai trò này",
+    },
+  
+  ]
+}
+
+/**
  * Base fields cho role form (name, displayName, description, permissions, isActive)
  */
 export function getBaseRoleFields(
@@ -109,6 +129,7 @@ export function getBaseRoleFields(
       description: "Tên vai trò (chỉ chữ thường, số, dấu gạch dưới và dấu gạch ngang)",
       validate: validateRoleName,
       icon: React.createElement(Shield, { className: "h-4 w-4" }),
+      section: "basic",
     },
     {
       name: "displayName",
@@ -118,13 +139,16 @@ export function getBaseRoleFields(
       required: true,
       validate: validateDisplayName,
       icon: React.createElement(FileText, { className: "h-4 w-4" }),
+      section: "basic",
     },
     {
       name: "description",
       label: "Mô tả",
       type: "textarea",
       placeholder: "Nhập mô tả về vai trò",
+      validate: validateDescription,
       icon: React.createElement(AlignLeft, { className: "h-4 w-4" }),
+      section: "basic",
     },
     {
       name: "permissions",
@@ -137,6 +161,7 @@ export function getBaseRoleFields(
         : { options: flatPermissionsOptions }),
       description: "Chọn các quyền cho vai trò này",
       icon: React.createElement(Shield, { className: "h-4 w-4" }),
+      section: "permissions",
     },
     {
       name: "isActive",
@@ -145,6 +170,7 @@ export function getBaseRoleFields(
       type: "switch",
       defaultValue: true,
       icon: React.createElement(ToggleLeft, { className: "h-4 w-4" }),
+      section: "permissions",
     },
   ]
 }

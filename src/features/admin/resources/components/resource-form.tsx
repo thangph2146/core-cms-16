@@ -51,12 +51,20 @@ export interface ResourceFormField<T = unknown> {
   icon?: React.ReactNode
   render?: (field: ResourceFormField<T>, value: unknown, onChange: (value: unknown) => void) => React.ReactNode
   validate?: (value: unknown) => { valid: boolean; error?: string }
+  section?: string // Section ID để group fields
+}
+
+export interface ResourceFormSection {
+  id: string
+  title?: string
+  description?: string
 }
 
 export interface ResourceFormProps<T extends Record<string, unknown>> {
   // Data
   data: T | null
   fields: ResourceFormField<T>[]
+  sections?: ResourceFormSection[] // Section definitions với title/description
   
   // Config
   title?: string
@@ -86,6 +94,7 @@ export interface ResourceFormProps<T extends Record<string, unknown>> {
 export function ResourceForm<T extends Record<string, unknown>>({
   data,
   fields,
+  sections,
   title,
   description,
   submitLabel = "Lưu",
@@ -196,6 +205,140 @@ export function ResourceForm<T extends Record<string, unknown>>({
   }
 
 
+  // Group fields by section
+  const groupFieldsBySection = () => {
+    const grouped: Record<string, ResourceFormField<T>[]> = {}
+    const ungrouped: ResourceFormField<T>[] = []
+
+    fields.forEach((field) => {
+      if (field.section) {
+        if (!grouped[field.section]) {
+          grouped[field.section] = []
+        }
+        grouped[field.section].push(field)
+      } else {
+        ungrouped.push(field)
+      }
+    })
+
+    return { grouped, ungrouped }
+  }
+
+  const renderField = (field: ResourceFormField<T>) => {
+    const fieldName = String(field.name)
+    const value = formData[field.name as keyof T]
+    const error = errors[fieldName]
+    const isFullWidth = field.type === "textarea" || field.type === "select" || field.render
+
+    if (field.type === "checkbox") {
+      return (
+        <div
+          key={fieldName}
+          className={cn(
+            "min-w-0",
+            isFullWidth && "@md:col-span-full"
+          )}
+          style={isFullWidth ? undefined : {
+            minWidth: "200px"
+          }}
+        >
+          <Field>
+            {field.icon && (
+              <FieldLabel htmlFor={fieldName}>
+                {field.icon}
+                {field.label}
+                {field.required && <span className="text-destructive">*</span>}
+              </FieldLabel>
+            )}
+            {renderFieldInput({
+              field,
+              value,
+              error,
+              onChange: (newValue) => handleFieldChange(field.name as string, newValue),
+              isPending,
+            })}
+            {field.description && (
+              <FieldDescription>{field.description}</FieldDescription>
+            )}
+          </Field>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        key={fieldName}
+        className={cn(
+          "min-w-0",
+          isFullWidth && "@md:col-span-full"
+        )}
+        style={isFullWidth ? undefined : {
+          minWidth: "200px"
+        }}
+      >
+        <Field orientation="responsive">
+          <FieldLabel htmlFor={fieldName}>
+            {field.icon}
+            {field.label}
+            {field.required && <span className="text-destructive">*</span>}
+          </FieldLabel>
+          {renderFieldInput({
+            field,
+            value,
+            error,
+            onChange: (newValue) => handleFieldChange(field.name as string, newValue),
+            isPending,
+          })}
+          {field.description && (
+            <FieldDescription>{field.description}</FieldDescription>
+          )}
+        </Field>
+      </div>
+    )
+  }
+
+  const renderSection = (sectionId: string, sectionFields: ResourceFormField<T>[]) => {
+    const sectionInfo = sections?.find((s) => s.id === sectionId)
+    const fieldCount = sectionFields.length
+
+    // Determine grid class based on field count
+    let gridClass = ""
+    let gridResponsiveAttr: string = "true"
+    
+    if (fieldCount === 1) {
+      gridClass = "grid-cols-1"
+    } else if (fieldCount === 2) {
+      gridClass = "grid-cols-1 @md:grid-cols-2"
+    } else {
+      // Hơn 2 fields: dùng auto-fit với minmax(400px, 1fr) qua CSS
+      gridClass = "grid-cols-1"
+      gridResponsiveAttr = "auto-fit"
+    }
+
+    return (
+      <div key={sectionId} className="space-y-4">
+        {(sectionInfo?.title || sectionInfo?.description) && (
+          <div className="space-y-1.5 pb-2 border-b border-border/50">
+            {sectionInfo.title && (
+              <h3 className="text-base font-semibold">{sectionInfo.title}</h3>
+            )}
+            {sectionInfo.description && (
+              <p className="text-sm text-muted-foreground">{sectionInfo.description}</p>
+            )}
+          </div>
+        )}
+        <div
+          className={cn("grid gap-6", gridClass)}
+          data-grid-responsive={gridResponsiveAttr}
+        >
+          {sectionFields.map(renderField)}
+        </div>
+      </div>
+    )
+  }
+
+  const { grouped, ungrouped } = groupFieldsBySection()
+
   const formContent = (
     <form id="resource-form" onSubmit={handleSubmit} className={cn("space-y-6", formClassName)}>
       {submitError && (
@@ -204,82 +347,21 @@ export function ResourceForm<T extends Record<string, unknown>>({
         </div>
       )}
 
-      <div 
-        className={cn("grid gap-6", contentClassName)}
-        data-grid-responsive="true"
-      >
-        {fields.map((field) => {
-          const fieldName = String(field.name)
-          const value = formData[field.name as keyof T]
-          const error = errors[fieldName]
-          const isFullWidth = field.type === "textarea" || field.type === "select" || field.render
-          
-          if (field.type === "checkbox") {
-            return (
-              <div 
-                key={fieldName} 
-                className={cn(
-                  "min-w-0",
-                  isFullWidth && "@md:col-span-full"
-                )}
-                style={isFullWidth ? undefined : {
-                  minWidth: "200px"
-                }}
-              >
-                <Field>
-                  {field.icon && (
-                    <FieldLabel htmlFor={fieldName}>
-                      {field.icon}
-                      {field.label}
-                      {field.required && <span className="text-destructive">*</span>}
-                    </FieldLabel>
-                  )}
-                  {renderFieldInput({
-                    field,
-                    value,
-                    error,
-                    onChange: (newValue) => handleFieldChange(field.name as string, newValue),
-                    isPending,
-                  })}
-                  {field.description && (
-                    <FieldDescription>{field.description}</FieldDescription>
-                  )}
-                </Field>
-              </div>
-            )
-          }
+      <div className={cn("space-y-6", contentClassName)}>
+        {/* Render sections */}
+        {Object.entries(grouped).map(([sectionId, sectionFields]) =>
+          renderSection(sectionId, sectionFields)
+        )}
 
-          return (
-            <div 
-              key={fieldName} 
-              className={cn(
-                "min-w-0",
-                isFullWidth && "@md:col-span-full"
-              )}
-              style={isFullWidth ? undefined : {
-                minWidth: "200px"
-              }}
-            >
-              <Field orientation="responsive">
-                <FieldLabel htmlFor={fieldName}>
-                  {field.icon}
-                  {field.label}
-                  {field.required && <span className="text-destructive">*</span>}
-                </FieldLabel>
-                {renderFieldInput({
-                  field,
-                  value,
-                  error,
-                  onChange: (newValue) => handleFieldChange(field.name as string, newValue),
-                  isPending,
-                })}
-                {field.description && (
-                  <FieldDescription>{field.description}</FieldDescription>
-                )}
-              </Field>
-            </div>
-          )
-        })}
+        {/* Render ungrouped fields */}
+        {ungrouped.length > 0 && (
+          <div
+            className={cn("grid gap-6", contentClassName)}
+            data-grid-responsive="true"
+          >
+            {ungrouped.map(renderField)}
+          </div>
+        )}
       </div>
     </form>
   )

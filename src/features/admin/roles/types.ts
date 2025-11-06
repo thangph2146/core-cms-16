@@ -17,3 +17,6 @@ export interface RolesTableClientProps extends BaseResourceTableClientProps<Role
 
 export type RolesResponse = ResourceResponse<RoleRow>
 
+// Types are now exported from schemas.ts
+export type { CreateRoleInput, UpdateRoleInput, BulkRoleActionInput } from "./server/schemas"
+

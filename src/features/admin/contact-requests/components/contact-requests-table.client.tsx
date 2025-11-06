@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Edit, UserCheck } from "lucide-react"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Edit } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -71,7 +71,7 @@ export function ContactRequestsTableClient({
   canRestore = false,
   canManage = false,
   canUpdate = false,
-  canAssign = false,
+  canAssign: _canAssign = false,
   initialData,
   initialUsersOptions = [],
 }: ContactRequestsTableClientProps) {

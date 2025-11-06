@@ -2,6 +2,11 @@
  * Shared utility functions và validation cho role forms
  */
 
+import { formatDateVi, validateDescription } from "@/features/admin/resources/utils"
+
+// Re-export common utilities from resources
+export { formatDateVi, validateDescription }
+
 /**
  * Validate role name (minimum 2 characters, alphanumeric and underscore only)
  */
@@ -53,18 +58,5 @@ export function validatePermissions(value: unknown): { valid: boolean; error?: s
     }
   }
   return { valid: true }
-}
-
-/**
- * Format date to Vietnamese locale
- */
-export function formatDateVi(date: string | Date): string {
-  return new Date(date).toLocaleDateString("vi-VN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
 }
 

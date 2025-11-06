@@ -42,7 +42,7 @@ export function CategoryEditClient({
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  categoryId,
+  categoryId: _categoryId,
 }: CategoryEditClientProps) {
   const router = useRouter()
   const { toast } = useToast()

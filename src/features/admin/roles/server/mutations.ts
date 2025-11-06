@@ -3,6 +3,11 @@ import type { Permission } from "@/lib/permissions"
 import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { mapRoleRecord, type ListedRole, type RoleWithRelations } from "./queries"
+import {
+  CreateRoleSchema,
+  UpdateRoleSchema,
+} from "./schemas"
+import { notifySuperAdminsOfRoleAction } from "./notifications"
 
 export interface AuthContext {
   actorId: string
@@ -30,24 +35,10 @@ export class NotFoundError extends ApplicationError {
   }
 }
 
-export interface CreateRoleInput {
-  name: string
-  displayName: string
-  description?: string | null
-  permissions?: string[]
-  isActive?: boolean
-}
-
-export interface UpdateRoleInput {
-  name?: string
-  displayName?: string
-  description?: string | null
-  permissions?: string[]
-  isActive?: boolean
-}
-
 export interface BulkActionResult {
-  count: number
+  success: boolean
+  message: string
+  affected: number
 }
 
 function ensurePermission(ctx: AuthContext, ...required: Permission[]) {
@@ -61,56 +52,65 @@ function sanitizeRole(role: RoleWithRelations): ListedRole {
   return mapRoleRecord(role)
 }
 
-export async function createRole(ctx: AuthContext, input: CreateRoleInput): Promise<ListedRole> {
+export async function createRole(ctx: AuthContext, input: unknown): Promise<ListedRole> {
   ensurePermission(ctx, PERMISSIONS.ROLES_CREATE, PERMISSIONS.ROLES_MANAGE)
 
-  if (!input.name || !input.displayName) {
-    throw new ApplicationError("Tên vai trò và tên hiển thị là bắt buộc", 400)
+  // Validate input với zod
+  const validationResult = CreateRoleSchema.safeParse(input)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
   }
 
-  // Validate name format
-  const nameRegex = /^[a-z0-9_-]+$/
-  if (!nameRegex.test(input.name.trim())) {
-    throw new ApplicationError(
-      "Tên vai trò chỉ được chứa chữ thường, số, dấu gạch dưới và dấu gạch ngang",
-      400
-    )
-  }
+  const validatedInput = validationResult.data
 
-  const existing = await prisma.role.findUnique({ where: { name: input.name.trim() } })
+  const existing = await prisma.role.findUnique({ where: { name: validatedInput.name.trim() } })
   if (existing) {
     throw new ApplicationError("Tên vai trò đã tồn tại", 400)
   }
 
-  // Validate permissions if provided
-  if (input.permissions && Array.isArray(input.permissions)) {
-    const allPermissions = Object.values(PERMISSIONS)
-    const invalidPermissions = input.permissions.filter((perm) => !allPermissions.includes(perm as Permission))
-    if (invalidPermissions.length > 0) {
-      throw new ApplicationError(`Các quyền không hợp lệ: ${invalidPermissions.join(", ")}`, 400)
-    }
-  }
-
   const role = await prisma.role.create({
     data: {
-      name: input.name.trim(),
-      displayName: input.displayName.trim(),
-      description: input.description?.trim() || null,
-      permissions: input.permissions || [],
-      isActive: input.isActive ?? true,
+      name: validatedInput.name.trim(),
+      displayName: validatedInput.displayName.trim(),
+      description: validatedInput.description?.trim() || null,
+      permissions: validatedInput.permissions || [],
+      isActive: validatedInput.isActive ?? true,
     },
   })
 
-  return sanitizeRole(role)
+  const sanitized = sanitizeRole(role)
+
+  // Emit notification realtime
+  await notifySuperAdminsOfRoleAction(
+    "create",
+    ctx.actorId,
+    {
+      id: sanitized.id,
+      name: sanitized.name,
+      displayName: sanitized.displayName,
+    }
+  )
+
+  return sanitized
 }
 
-export async function updateRole(ctx: AuthContext, id: string, input: UpdateRoleInput): Promise<ListedRole> {
+export async function updateRole(ctx: AuthContext, id: string, input: unknown): Promise<ListedRole> {
   ensurePermission(ctx, PERMISSIONS.ROLES_UPDATE, PERMISSIONS.ROLES_MANAGE)
 
   // Validate ID
   if (!id || typeof id !== "string" || id.trim() === "") {
     throw new ApplicationError("ID vai trò không hợp lệ", 400)
   }
+
+  // Validate input với zod
+  const validationResult = UpdateRoleSchema.safeParse(input)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
+  }
+
+  const validatedInput = validationResult.data
 
   const existing = await prisma.role.findUnique({
     where: { id },
@@ -120,65 +120,71 @@ export async function updateRole(ctx: AuthContext, id: string, input: UpdateRole
     throw new NotFoundError("Vai trò không tồn tại")
   }
 
-  // Validate name if provided
-  if (input.name !== undefined) {
-    if (typeof input.name !== "string" || input.name.trim() === "") {
-      throw new ApplicationError("Tên vai trò không được để trống", 400)
-    }
-
-    const nameRegex = /^[a-z0-9_-]+$/
-    if (!nameRegex.test(input.name.trim())) {
-      throw new ApplicationError(
-        "Tên vai trò chỉ được chứa chữ thường, số, dấu gạch dưới và dấu gạch ngang",
-        400
-      )
-    }
-
-    // Check if name is already used by another role
-    if (input.name.trim() !== existing.name) {
-      const nameExists = await prisma.role.findUnique({ where: { name: input.name.trim() } })
-      if (nameExists) {
-        throw new ApplicationError("Tên vai trò đã được sử dụng", 400)
-      }
+  // Check if name is already used by another role
+  if (validatedInput.name !== undefined && validatedInput.name.trim() !== existing.name) {
+    const nameExists = await prisma.role.findUnique({ where: { name: validatedInput.name.trim() } })
+    if (nameExists) {
+      throw new ApplicationError("Tên vai trò đã được sử dụng", 400)
     }
   }
 
-  // Validate displayName if provided
-  if (input.displayName !== undefined) {
-    if (typeof input.displayName !== "string" || input.displayName.trim() === "") {
-      throw new ApplicationError("Tên hiển thị không được để trống", 400)
-    }
-    if (input.displayName.trim().length < 2) {
-      throw new ApplicationError("Tên hiển thị phải có ít nhất 2 ký tự", 400)
+  // Track changes for notifications
+  const changes: {
+    name?: { old: string; new: string }
+    displayName?: { old: string; new: string }
+    description?: { old: string | null; new: string | null }
+    permissions?: { old: string[]; new: string[] }
+    isActive?: { old: boolean; new: boolean }
+  } = {}
+
+  if (validatedInput.name !== undefined && validatedInput.name.trim() !== existing.name) {
+    changes.name = { old: existing.name, new: validatedInput.name.trim() }
+  }
+  if (validatedInput.displayName !== undefined && validatedInput.displayName.trim() !== existing.displayName) {
+    changes.displayName = { old: existing.displayName, new: validatedInput.displayName.trim() }
+  }
+  if (validatedInput.description !== undefined && validatedInput.description?.trim() !== existing.description) {
+    changes.description = { old: existing.description, new: validatedInput.description?.trim() || null }
+  }
+  if (validatedInput.permissions !== undefined) {
+    const oldPerms = existing.permissions.sort()
+    const newPerms = validatedInput.permissions.sort()
+    if (JSON.stringify(oldPerms) !== JSON.stringify(newPerms)) {
+      changes.permissions = { old: existing.permissions, new: validatedInput.permissions }
     }
   }
-
-  // Validate permissions if provided
-  if (input.permissions !== undefined) {
-    if (!Array.isArray(input.permissions)) {
-      throw new ApplicationError("permissions phải là một mảng", 400)
-    }
-    const allPermissions = Object.values(PERMISSIONS)
-    const invalidPermissions = input.permissions.filter((perm) => !allPermissions.includes(perm as Permission))
-    if (invalidPermissions.length > 0) {
-      throw new ApplicationError(`Các quyền không hợp lệ: ${invalidPermissions.join(", ")}`, 400)
-    }
+  if (validatedInput.isActive !== undefined && validatedInput.isActive !== existing.isActive) {
+    changes.isActive = { old: existing.isActive, new: validatedInput.isActive }
   }
 
   const updateData: Prisma.RoleUpdateInput = {}
 
-  if (input.name !== undefined) updateData.name = input.name.trim()
-  if (input.displayName !== undefined) updateData.displayName = input.displayName.trim()
-  if (input.description !== undefined) updateData.description = input.description?.trim() || null
-  if (input.permissions !== undefined) updateData.permissions = input.permissions
-  if (input.isActive !== undefined) updateData.isActive = input.isActive
+  if (validatedInput.name !== undefined) updateData.name = validatedInput.name.trim()
+  if (validatedInput.displayName !== undefined) updateData.displayName = validatedInput.displayName.trim()
+  if (validatedInput.description !== undefined) updateData.description = validatedInput.description?.trim() || null
+  if (validatedInput.permissions !== undefined) updateData.permissions = validatedInput.permissions
+  if (validatedInput.isActive !== undefined) updateData.isActive = validatedInput.isActive
 
   const role = await prisma.role.update({
     where: { id },
     data: updateData,
   })
 
-  return sanitizeRole(role)
+  const sanitized = sanitizeRole(role)
+
+  // Emit notification realtime
+  await notifySuperAdminsOfRoleAction(
+    "update",
+    ctx.actorId,
+    {
+      id: sanitized.id,
+      name: sanitized.name,
+      displayName: sanitized.displayName,
+    },
+    Object.keys(changes).length > 0 ? changes : undefined
+  )
+
+  return sanitized
 }
 
 export async function softDeleteRole(ctx: AuthContext, id: string): Promise<void> {
@@ -201,6 +207,17 @@ export async function softDeleteRole(ctx: AuthContext, id: string): Promise<void
       isActive: false,
     },
   })
+
+  // Emit notification realtime
+  await notifySuperAdminsOfRoleAction(
+    "delete",
+    ctx.actorId,
+    {
+      id: role.id,
+      name: role.name,
+      displayName: role.displayName,
+    }
+  )
 }
 
 export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -216,7 +233,7 @@ export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Prom
       id: { in: ids },
       deletedAt: null,
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, displayName: true },
   })
 
   const superAdminRole = roles.find((r) => r.name === "super_admin")
@@ -235,7 +252,16 @@ export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  return { count: result.count }
+  // Emit notifications realtime cho từng role
+  for (const role of roles) {
+    await notifySuperAdminsOfRoleAction(
+      "delete",
+      ctx.actorId,
+      role
+    )
+  }
+
+  return { success: true, message: `Đã xóa ${result.count} vai trò`, affected: result.count }
 }
 
 export async function restoreRole(ctx: AuthContext, id: string): Promise<void> {
@@ -253,6 +279,17 @@ export async function restoreRole(ctx: AuthContext, id: string): Promise<void> {
       isActive: true,
     },
   })
+
+  // Emit notification realtime
+  await notifySuperAdminsOfRoleAction(
+    "restore",
+    ctx.actorId,
+    {
+      id: role.id,
+      name: role.name,
+      displayName: role.displayName,
+    }
+  )
 }
 
 export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -261,6 +298,15 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
   if (!ids || ids.length === 0) {
     throw new ApplicationError("Danh sách vai trò trống", 400)
   }
+
+  // Lấy thông tin roles trước khi restore để tạo notifications
+  const roles = await prisma.role.findMany({
+    where: {
+      id: { in: ids },
+      deletedAt: { not: null },
+    },
+    select: { id: true, name: true, displayName: true },
+  })
 
   const result = await prisma.role.updateMany({
     where: {
@@ -273,7 +319,16 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
     },
   })
 
-  return { count: result.count }
+  // Emit notifications realtime cho từng role
+  for (const role of roles) {
+    await notifySuperAdminsOfRoleAction(
+      "restore",
+      ctx.actorId,
+      role
+    )
+  }
+
+  return { success: true, message: `Đã khôi phục ${result.count} vai trò`, affected: result.count }
 }
 
 export async function hardDeleteRole(ctx: AuthContext, id: string): Promise<void> {
@@ -283,7 +338,7 @@ export async function hardDeleteRole(ctx: AuthContext, id: string): Promise<void
 
   const role = await prisma.role.findUnique({
     where: { id },
-    select: { id: true, name: true },
+    select: { id: true, name: true, displayName: true },
   })
 
   if (!role) {
@@ -298,6 +353,13 @@ export async function hardDeleteRole(ctx: AuthContext, id: string): Promise<void
   await prisma.role.delete({
     where: { id },
   })
+
+  // Emit notification realtime
+  await notifySuperAdminsOfRoleAction(
+    "hard-delete",
+    ctx.actorId,
+    role
+  )
 }
 
 export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -314,7 +376,7 @@ export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     where: {
       id: { in: ids },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, displayName: true },
   })
 
   const superAdminRole = roles.find((r) => r.name === "super_admin")
@@ -328,6 +390,15 @@ export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  return { count: result.count }
+  // Emit notifications realtime cho từng role
+  for (const role of roles) {
+    await notifySuperAdminsOfRoleAction(
+      "hard-delete",
+      ctx.actorId,
+      role
+    )
+  }
+
+  return { success: true, message: `Đã xóa vĩnh viễn ${result.count} vai trò`, affected: result.count }
 }
 

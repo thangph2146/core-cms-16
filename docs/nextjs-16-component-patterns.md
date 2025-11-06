@@ -274,6 +274,12 @@ export default async function UserDetailPage({
 
 ```typescript
 // src/features/admin/users/components/user-detail.tsx
+/**
+ * Server Component: User Detail
+ * 
+ * Fetches user data và pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 import { getUserDetailById } from "../server/cache"
 import { serializeUserDetail } from "../server/helpers"
 import { UserDetailClient } from "./user-detail.client"
@@ -315,40 +321,78 @@ export async function UserDetail({ userId, backUrl = "/admin/users" }: UserDetai
 // src/features/admin/users/components/user-detail.client.tsx
 "use client"
 
-import { motion } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { Mail, User, Shield, Phone, MapPin, Calendar, Clock, CheckCircle2, XCircle, FileText, Edit } from "lucide-react"
+import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { formatDateVi, getUserInitials } from "../utils"
 
 export interface UserDetailData {
   id: string
   email: string
   name: string | null
-  // ... other fields (dates are serialized to strings)
+  avatar?: string | null
+  bio?: string | null
+  phone?: string | null
+  address?: string | null
+  emailVerified?: string | null
+  updatedAt?: string
+  createdAt?: string
+  isActive: boolean
+  roles?: Array<{
+    id: string
+    name: string
+    displayName?: string
+  }>
+  [key: string]: unknown
 }
 
 export interface UserDetailClientProps {
   userId: string
   user: UserDetailData
-  backUrl: string
+  backUrl?: string
 }
 
-export function UserDetailClient({ userId, user, backUrl }: UserDetailClientProps) {
+export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: UserDetailClientProps) {
   const router = useRouter()
   
-  // Chỉ xử lý UI, animations, và interactions
+  // Define detail fields với sections
+  const detailFields: ResourceDetailField<UserDetailData>[] = [
+    // ... field definitions với section property
+  ]
+
+  // Define detail sections với fieldHeader, fieldFooter
+  const detailSections: ResourceDetailSection<UserDetailData>[] = [
+    {
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin đăng nhập và cá nhân",
+      fieldHeader: (
+        <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg border border-border/50">
+          {/* Avatar, name, email, roles */}
+        </div>
+      ),
+    },
+    // ... more sections
+  ]
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      {/* UI với animations */}
-      <div>
-        <h1>{user.name || user.email}</h1>
-        {/* ... more UI */}
-      </div>
-      <Button onClick={() => router.push(backUrl)}>Quay lại</Button>
-    </motion.div>
+    <ResourceDetailPage<UserDetailData>
+      data={user}
+      fields={detailFields}
+      detailSections={detailSections}
+      title={user.name || user.email}
+      description={`Chi tiết người dùng ${user.email}`}
+      backUrl={backUrl}
+      actions={
+        <Button variant="outline" onClick={() => router.push(`/admin/users/${userId}/edit`)}>
+          <Edit className="h-4 w-4" />
+          Chỉnh sửa
+        </Button>
+      }
+    />
   )
 }
 ```
@@ -359,6 +403,12 @@ export function UserDetailClient({ userId, user, backUrl }: UserDetailClientProp
 
 ```typescript
 // src/features/admin/users/components/users-table.tsx
+/**
+ * Server Component: Users Table
+ * 
+ * Fetches initial data và roles, sau đó pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 import { listUsersCached, getRolesCached } from "../server/cache"
 import { serializeUsersList } from "../server/helpers"
 import { UsersTableClient } from "./users-table.client"
@@ -400,13 +450,25 @@ export async function UsersTable({ canDelete, canRestore, canManage, canCreate }
 // src/features/admin/users/components/users-table.client.tsx
 "use client"
 
-import { useCallback } from "react"
-import { DataTable, type DataTableLoader } from "@/components/tables/data-table"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
+import type { UserRow, UsersTableClientProps } from "../types"
 
-export function UsersTableClient({ initialData, canDelete }: UsersTableClientProps) {
+export function UsersTableClient({
+  canDelete = false,
+  canRestore = false,
+  canManage = false,
+  canCreate = false,
+  initialData,
+  initialRolesOptions = [],
+}: UsersTableClientProps) {
+  const router = useRouter()
+  
   // Loader function để fetch data khi user tương tác (pagination, filter, etc.)
-  const loader: DataTableLoader<UserRow> = useCallback(async (query) => {
+  const loader = useCallback(async (query) => {
     const params = new URLSearchParams({
       page: String(query.page),
       limit: String(query.limit),
@@ -420,13 +482,12 @@ export function UsersTableClient({ initialData, canDelete }: UsersTableClientPro
       if (value) params.set(`filter[${key}]`, value)
     })
 
-    const response = await apiClient.get(`/api/admin/users?${params}`)
+    const response = await apiClient.get(`${apiRoutes.users.list}?${params}`)
     return response.data
   }, [])
 
   return (
-    <DataTable
-      columns={columns}
+    <ResourceTableClient
       loader={loader}
       initialData={initialData} // Server-side bootstrap data
       // ... other props
@@ -441,6 +502,12 @@ export function UsersTableClient({ initialData, canDelete }: UsersTableClientPro
 
 ```typescript
 // src/features/admin/users/components/user-create.tsx
+/**
+ * Server Component: User Create
+ * 
+ * Fetches roles và pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 import { getRolesCached } from "../server/cache"
 import { UserCreateClient } from "./user-create.client"
 
@@ -458,25 +525,98 @@ export async function UserCreate({ backUrl = "/admin/users" }: UserCreateProps) 
 
 ```typescript
 // src/features/admin/users/components/user-create.client.tsx
+/**
+ * Client Component: User Create Form
+ * 
+ * Handles form interactions, validation, và API calls
+ * Pattern: Server Component → Client Component (UI/interactions)
+ */
 "use client"
 
-import { useForm } from "react-hook-form"
 import { useRouter } from "next/navigation"
+import { ResourceForm } from "@/features/admin/resources/components"
 import { apiClient } from "@/lib/api/axios"
+import { apiRoutes } from "@/lib/api/routes"
+import { useToast } from "@/hooks/use-toast"
+import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
+import { useRoles } from "../hooks/use-roles"
+import { normalizeRoleIds, type Role } from "../utils"
+import { getBaseUserFields, getPasswordField, getUserFormSections, type UserFormData } from "../form-fields"
 
-export function UserCreateClient({ backUrl, roles }: UserCreateClientProps) {
+export interface UserCreateClientProps {
+  backUrl?: string
+  roles?: Role[]
+}
+
+export function UserCreateClient({ backUrl = "/admin/users", roles: rolesFromServer }: UserCreateClientProps) {
   const router = useRouter()
-  const form = useForm()
+  const { toast } = useToast()
+  const { roles } = useRoles({ initialRoles: rolesFromServer })
 
-  const onSubmit = async (data: FormData) => {
-    await apiClient.post("/api/admin/users", data)
-    router.push(backUrl)
+  const handleSubmit = async (data: Partial<UserFormData>) => {
+    try {
+      const submitData: Record<string, unknown> = {
+        ...data,
+        roleIds: normalizeRoleIds(data.roleIds),
+      }
+
+      if (!submitData.email || !submitData.password) {
+        toast({
+          variant: "destructive",
+          title: "Thiếu thông tin",
+          description: "Email và mật khẩu là bắt buộc.",
+        })
+        return { success: false, error: "Email và mật khẩu là bắt buộc" }
+      }
+
+      const response = await apiClient.post(apiRoutes.users.create, submitData)
+
+      if (response.status === 201) {
+        toast({
+          variant: "success",
+          title: "Tạo người dùng thành công",
+          description: "Người dùng mới đã được tạo thành công.",
+        })
+
+        if (response.data?.data?.id) {
+          router.push(`/admin/users/${response.data.data.id}`)
+        } else {
+          router.push("/admin/users")
+        }
+
+        return { success: true }
+      }
+
+      return { success: false, error: "Không thể tạo người dùng" }
+    } catch (error: unknown) {
+      const errorMessage = extractAxiosErrorMessage(error, "Đã xảy ra lỗi khi tạo người dùng")
+      toast({
+        variant: "destructive",
+        title: "Lỗi tạo người dùng",
+        description: errorMessage,
+      })
+      return { success: false, error: errorMessage }
+    }
   }
 
+  const createFields = [
+    getPasswordField(),
+    ...getBaseUserFields(roles),
+  ]
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
-      {/* Form fields */}
-    </form>
+    <ResourceForm<UserFormData>
+      data={null}
+      fields={createFields}
+      sections={getUserFormSections()}
+      onSubmit={handleSubmit}
+      title="Tạo người dùng mới"
+      description="Nhập thông tin để tạo người dùng mới"
+      submitLabel="Tạo người dùng"
+      variant="page"
+      showCard={false}
+      backUrl={backUrl}
+    />
   )
 }
 ```
@@ -485,12 +625,22 @@ export function UserCreateClient({ backUrl, roles }: UserCreateClientProps) {
 
 ```typescript
 // src/features/admin/users/components/user-edit.tsx
+/**
+ * Server Component: User Edit
+ * 
+ * Fetches user data và roles, sau đó pass xuống client component
+ * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
+ */
 import { getUserDetailById, getRolesCached } from "../server/cache"
 import { serializeUserDetail } from "../server/helpers"
 import { UserEditClient } from "./user-edit.client"
+import type { UserEditClientProps } from "./user-edit.client"
 
 export interface UserEditProps {
   userId: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  onSuccess?: () => void
   variant?: "dialog" | "sheet" | "page"
   backUrl?: string
   backLabel?: string
@@ -498,6 +648,9 @@ export interface UserEditProps {
 
 export async function UserEdit({
   userId,
+  open = true,
+  onOpenChange,
+  onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
@@ -512,7 +665,7 @@ export async function UserEdit({
     return null
   }
 
-  const userForEdit = {
+  const userForEdit: UserEditClientProps["user"] = {
     ...serializeUserDetail(user),
     roles: user.roles,
   }
@@ -520,6 +673,9 @@ export async function UserEdit({
   return (
     <UserEditClient
       user={userForEdit}
+      open={open}
+      onOpenChange={onOpenChange}
+      onSuccess={onSuccess}
       variant={variant}
       backUrl={backUrl}
       backLabel={backLabel}

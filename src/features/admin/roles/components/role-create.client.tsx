@@ -13,7 +13,7 @@ import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
-import { getBaseRoleFields, type RoleFormData } from "../form-fields"
+import { getBaseRoleFields, getRoleFormSections, type RoleFormData } from "../form-fields"
 
 export interface RoleCreateClientProps {
   backUrl?: string
@@ -31,15 +31,7 @@ export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permis
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
       }
 
-      if (!submitData.name || !submitData.displayName) {
-        toast({
-          variant: "destructive",
-          title: "Thiếu thông tin",
-          description: "Tên vai trò và tên hiển thị là bắt buộc.",
-        })
-        return { success: false, error: "Tên vai trò và tên hiển thị là bắt buộc" }
-      }
-
+      // Validation được xử lý bởi Zod ở server side
       const response = await apiClient.post(apiRoutes.roles.create, submitData)
 
       if (response.status === 201) {
@@ -78,11 +70,13 @@ export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permis
   }
 
   const createFields = getBaseRoleFields(permissionsFromServer)
+  const formSections = getRoleFormSections()
 
   return (
     <ResourceForm<RoleFormData>
       data={null}
       fields={createFields}
+      sections={formSections}
       onSubmit={handleSubmit}
       title="Tạo vai trò mới"
       description="Nhập thông tin để tạo vai trò mới"

@@ -9,10 +9,6 @@ import type { BulkActionResult } from "../types"
 import {
   CreateTagSchema,
   UpdateTagSchema,
-  BulkTagActionSchema,
-  type CreateTagInput,
-  type UpdateTagInput,
-  type BulkTagActionInput,
 } from "./schemas"
 import { notifySuperAdminsOfTagAction } from "./notifications"
 

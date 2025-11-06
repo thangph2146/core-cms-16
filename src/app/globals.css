@@ -231,4 +231,15 @@
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     }
   }
+
+  /* Section grid với auto-fit cho hơn 2 fields */
+  [data-grid-responsive="auto-fit"] {
+    grid-template-columns: 1fr;
+  }
+  
+  @media (min-width: 768px) {
+    [data-grid-responsive="auto-fit"] {
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    }
+  }
 }

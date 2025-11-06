@@ -1,6 +1,6 @@
 "use client"
 
-import { Tag, Hash, AlignLeft, Calendar, Clock, ArrowLeft, Edit } from "lucide-react"
+import { Tag, Hash, AlignLeft, Calendar, Clock, Edit } from "lucide-react"
 import { ResourceDetailPage, type ResourceDetailField } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
@@ -31,6 +31,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       name: "name",
       label: "Tên danh mục",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -44,6 +45,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       name: "slug",
       label: "Slug",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
@@ -57,6 +59,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       name: "description",
       label: "Mô tả",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
@@ -72,6 +75,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       name: "createdAt",
       label: "Ngày tạo",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
@@ -87,6 +91,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       name: "updatedAt",
       label: "Cập nhật lần cuối",
       type: "custom",
+      section: "basic",
       render: (value) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
@@ -100,10 +105,20 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
     },
   ]
 
+  // Sections cho detail view - tất cả fields trong 1 section (5 fields >= 4)
+  const detailSections = [
+    {
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính về danh mục và thời gian",
+    },
+  ]
+
   return (
     <ResourceDetailPage<CategoryDetailData>
       data={category}
       fields={detailFields}
+      detailSections={detailSections}
       title={category.name}
       description={`Chi tiết danh mục ${category.slug}`}
       backUrl={backUrl}

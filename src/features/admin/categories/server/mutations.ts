@@ -9,10 +9,6 @@ import type { BulkActionResult } from "../types"
 import {
   CreateCategorySchema,
   UpdateCategorySchema,
-  BulkCategoryActionSchema,
-  type CreateCategoryInput,
-  type UpdateCategoryInput,
-  type BulkCategoryActionInput,
 } from "./schemas"
 import { notifySuperAdminsOfCategoryAction } from "./notifications"
 

@@ -13,7 +13,7 @@ import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
-import { getBaseRoleFields, type RoleFormData } from "../form-fields"
+import { getBaseRoleFields, getRoleFormSections, type RoleFormData } from "../form-fields"
 import type { RoleRow } from "../types"
 
 interface RoleEditData extends RoleRow {
@@ -41,7 +41,7 @@ export function RoleEditClient({
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  roleId,
+  roleId: _roleId,
   permissions: permissionsFromServer = [],
 }: RoleEditClientProps) {
   const router = useRouter()
@@ -58,7 +58,7 @@ export function RoleEditClient({
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
       }
 
-      // Prevent editing super_admin name
+      // Prevent editing super_admin name (client-side check for UX)
       if (role.name === "super_admin" && submitData.name && submitData.name !== role.name) {
         toast({
           variant: "destructive",
@@ -68,6 +68,7 @@ export function RoleEditClient({
         return { success: false, error: "Không thể thay đổi tên vai trò super_admin" }
       }
 
+      // Validation được xử lý bởi Zod ở server side
       const response = await apiClient.put(apiRoutes.roles.update(role.id), submitData)
 
       if (response.status === 200) {
@@ -118,11 +119,17 @@ export function RoleEditClient({
     }
     return field
   })
+  const formSections = getRoleFormSections()
+
+  if (!role) {
+    return null
+  }
 
   return (
     <ResourceForm<RoleFormData>
       data={role}
       fields={editFields}
+      sections={formSections}
       onSubmit={handleSubmit}
       title="Chỉnh sửa vai trò"
       description="Cập nhật thông tin vai trò"
