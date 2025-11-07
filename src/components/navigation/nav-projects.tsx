@@ -5,24 +5,6 @@ import {
   MoreHorizontal,
   Share,
   Trash2,
-  type LucideIcon,
-} from "lucide-react"
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
 } from "lucide-react"
 
 import {
@@ -41,26 +23,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import type { IconName } from "@/lib/config"
 import { useClientOnly } from "@/hooks/use-client-only"
+import * as React from "react"
 
-const iconMap: Record<IconName, LucideIcon> = {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
-}
 
 export function NavProjects({
   projects,
@@ -68,7 +33,7 @@ export function NavProjects({
   projects: {
     name: string
     url: string
-    icon: IconName
+    icon: React.ReactElement
   }[]
 }) {
   const { isMobile } = useSidebar()
@@ -83,16 +48,14 @@ export function NavProjects({
         <SidebarGroupLabel>Projects</SidebarGroupLabel>
         <SidebarMenu>
           {projects.map((item) => {
-            const Icon = iconMap[item.icon]
-            if (!Icon) {
+            if (!React.isValidElement(item.icon)) {
               return null
             }
             return (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton asChild>
                   <a href={item.url}>
-                    <Icon />
-                    <span>{item.name}</span>
+                    {item.icon}
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -108,16 +71,16 @@ export function NavProjects({
       <SidebarGroupLabel>Projects</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => {
-          const Icon = iconMap[item.icon]
-          if (!Icon) {
-            console.warn(`Icon "${item.icon}" not found in iconMap`)
+          if (!React.isValidElement(item.icon)) {
+            console.warn(`Icon is not a valid React element for project "${item.name}"`)
             return null
           }
+          
           return (
             <SidebarMenuItem key={item.name}>
               <SidebarMenuButton asChild>
                 <a href={item.url}>
-                  <Icon />
+                  {item.icon}
                   <span>{item.name}</span>
                 </a>
               </SidebarMenuButton>

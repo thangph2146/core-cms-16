@@ -227,6 +227,34 @@ export const apiRoutes = {
     },
   },
 
+  // Sessions
+  sessions: {
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.page) searchParams.set("page", params.page.toString())
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.status) searchParams.set("status", params.status)
+      const queryString = searchParams.toString()
+      return `/admin/sessions${queryString ? `?${queryString}` : ""}`
+    },
+    detail: (id: string) => `/admin/sessions/${id}`,
+    create: "/admin/sessions",
+    update: (id: string) => `/admin/sessions/${id}`,
+    delete: (id: string) => `/admin/sessions/${id}`,
+    restore: (id: string) => `/admin/sessions/${id}/restore`,
+    hardDelete: (id: string) => `/admin/sessions/${id}/hard-delete`,
+    bulk: "/admin/sessions/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/sessions/options${queryString ? `?${queryString}` : ""}`
+    },
+  },
+
   // Socket
   socket: "/socket",
 } as const

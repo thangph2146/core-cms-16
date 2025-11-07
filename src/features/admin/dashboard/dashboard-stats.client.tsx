@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useSession } from "next-auth/react"
 import {
     TrendingUp,
     TrendingDown,
@@ -33,6 +34,8 @@ import {
 } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useClientOnly } from "@/hooks/use-client-only"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS, isSuperAdmin } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { DashboardStatsData } from "./server/queries"
 
@@ -102,6 +105,10 @@ export interface DashboardStatsClientProps {
 
 export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
     const isMounted = useClientOnly()
+    const { data: session } = useSession()
+    const { hasPermission } = usePermissions()
+    const userRoles = session?.roles || []
+    const isSuperAdminUser = isSuperAdmin(userRoles)
 
     // Get chart colors for categories
     const categoryDataWithColors = stats.categoryData.map((item, index) => ({
@@ -109,10 +116,36 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
         color: CHART_COLORS[index % CHART_COLORS.length]
     }))
 
+    // Permission checks
+    const canViewUsers = isSuperAdminUser || hasPermission(PERMISSIONS.USERS_VIEW)
+    const canViewPosts = isSuperAdminUser || hasPermission(PERMISSIONS.POSTS_VIEW)
+    const canViewComments = isSuperAdminUser || hasPermission(PERMISSIONS.COMMENTS_VIEW)
+    const canViewCategories = isSuperAdminUser || hasPermission(PERMISSIONS.CATEGORIES_VIEW)
+    const canViewDashboard = isSuperAdminUser || hasPermission(PERMISSIONS.DASHBOARD_VIEW)
+
+    // Check if user has any permission to view stats
+    const hasAnyStatsPermission = canViewUsers || canViewPosts || canViewComments || canViewCategories || canViewDashboard
+
     if (!isMounted) {
         return (
             <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
                 <div className="h-64 bg-muted/50 rounded-xl animate-pulse" />
+            </div>
+        )
+    }
+
+    // If user has no permissions, show empty state
+    if (!hasAnyStatsPermission) {
+        return (
+            <div className="flex flex-1 flex-col items-center justify-center p-4 md:p-6 lg:p-8">
+                <Card className="max-w-md w-full">
+                    <CardHeader>
+                        <CardTitle className="text-center">Không có quyền truy cập</CardTitle>
+                        <CardDescription className="text-center">
+                            Bạn không có quyền xem thống kê. Vui lòng liên hệ quản trị viên để được cấp quyền.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
             </div>
         )
     }
@@ -178,7 +211,8 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                             bgColor: "bg-chart-1/10", 
                             borderColor: "border-chart-1/20", 
                             iconColor: "text-chart-1", 
-                            barColor: "bg-chart-1" 
+                            barColor: "bg-chart-1",
+                            permission: canViewUsers
                         },
                         { 
                             title: "Tổng bài viết", 
@@ -189,7 +223,8 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                             bgColor: "bg-chart-2/10", 
                             borderColor: "border-chart-2/20", 
                             iconColor: "text-chart-2", 
-                            barColor: "bg-chart-2" 
+                            barColor: "bg-chart-2",
+                            permission: canViewPosts
                         },
                         { 
                             title: "Tổng bình luận", 
@@ -200,7 +235,8 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                             bgColor: "bg-chart-3/10", 
                             borderColor: "border-chart-3/20", 
                             iconColor: "text-chart-3", 
-                            barColor: "bg-chart-3" 
+                            barColor: "bg-chart-3",
+                            permission: canViewComments
                         },
                         { 
                             title: "Lượt xem", 
@@ -211,9 +247,12 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                             bgColor: "bg-chart-4/10", 
                             borderColor: "border-chart-4/20", 
                             iconColor: "text-chart-4", 
-                            barColor: "bg-chart-4" 
+                            barColor: "bg-chart-4",
+                            permission: canViewPosts // Views are related to posts
                         },
-                    ].map((stat, index) => {
+                    ]
+                    .filter((stat) => stat.permission) // Only show cards user has permission for
+                    .map((stat, index) => {
                         const Icon = stat.icon
                         return (
                             <motion.div
@@ -272,8 +311,10 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                 </motion.div>
 
                 {/* Main Charts Row */}
+                {(canViewUsers || canViewPosts || canViewComments) && (
                 <div className="grid gap-6 lg:grid-cols-2">
                     {/* Line Chart - Monthly Trends */}
+                    {(canViewUsers || canViewPosts || canViewComments) && (
                     <motion.div variants={itemVariants}>
                         <Card className="relative overflow-hidden backdrop-blur-md bg-card/80 border border-border shadow-lg">
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-background" />
@@ -307,50 +348,60 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                                                 wrapperStyle={{ fontSize: "12px", paddingTop: "20px" }}
                                                 iconType="circle"
                                             />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="views" 
-                                                fill={CHART_COLORS[3]}
-                                                fillOpacity={0.2}
-                                                stroke={CHART_COLORS[3]}
-                                                strokeWidth={2}
-                                                name="Lượt xem"
-                                            />
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="users" 
-                                                stroke={CHART_COLORS[0]}
-                                                strokeWidth={2}
-                                                dot={{ fill: CHART_COLORS[0], r: 4 }}
-                                                activeDot={{ r: 6 }}
-                                                name="Người dùng"
-                                            />
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="posts" 
-                                                stroke={CHART_COLORS[1]}
-                                                strokeWidth={2}
-                                                dot={{ fill: CHART_COLORS[1], r: 4 }}
-                                                activeDot={{ r: 6 }}
-                                                name="Bài viết"
-                                            />
-                                            <Line 
-                                                type="monotone" 
-                                                dataKey="comments" 
-                                                stroke={CHART_COLORS[2]}
-                                                strokeWidth={2}
-                                                dot={{ fill: CHART_COLORS[2], r: 4 }}
-                                                activeDot={{ r: 6 }}
-                                                name="Bình luận"
-                                            />
+                                            {canViewPosts && (
+                                                <Area 
+                                                    type="monotone" 
+                                                    dataKey="views" 
+                                                    fill={CHART_COLORS[3]}
+                                                    fillOpacity={0.2}
+                                                    stroke={CHART_COLORS[3]}
+                                                    strokeWidth={2}
+                                                    name="Lượt xem"
+                                                />
+                                            )}
+                                            {canViewUsers && (
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="users" 
+                                                    stroke={CHART_COLORS[0]}
+                                                    strokeWidth={2}
+                                                    dot={{ fill: CHART_COLORS[0], r: 4 }}
+                                                    activeDot={{ r: 6 }}
+                                                    name="Người dùng"
+                                                />
+                                            )}
+                                            {canViewPosts && (
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="posts" 
+                                                    stroke={CHART_COLORS[1]}
+                                                    strokeWidth={2}
+                                                    dot={{ fill: CHART_COLORS[1], r: 4 }}
+                                                    activeDot={{ r: 6 }}
+                                                    name="Bài viết"
+                                                />
+                                            )}
+                                            {canViewComments && (
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="comments" 
+                                                    stroke={CHART_COLORS[2]}
+                                                    strokeWidth={2}
+                                                    dot={{ fill: CHART_COLORS[2], r: 4 }}
+                                                    activeDot={{ r: 6 }}
+                                                    name="Bình luận"
+                                                />
+                                            )}
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
                             </CardContent>
                         </Card>
                     </motion.div>
+                    )}
 
                     {/* Pie Chart - Categories */}
+                    {canViewCategories && (
                     <motion.div variants={itemVariants}>
                         <Card className="relative overflow-hidden backdrop-blur-md bg-card/80 border border-border shadow-lg">
                             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-background" />
@@ -438,9 +489,12 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                             </CardContent>
                         </Card>
                     </motion.div>
+                    )}
                 </div>
+                )}
 
                 {/* Traffic Chart */}
+                {canViewDashboard && (
                 <motion.div variants={itemVariants}>
                     <Card className="relative overflow-hidden backdrop-blur-md bg-card/80 border border-border shadow-lg">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-background" />
@@ -504,8 +558,10 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                         </CardContent>
                     </Card>
                 </motion.div>
+                )}
 
                 {/* Top Posts Table */}
+                {canViewPosts && (
                 <motion.div variants={itemVariants}>
                     <Card className="relative overflow-hidden backdrop-blur-md bg-card/80 border border-border shadow-lg">
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-background" />
@@ -555,6 +611,7 @@ export function DashboardStatsClient({ stats }: DashboardStatsClientProps) {
                         </CardContent>
                     </Card>
                 </motion.div>
+                )}
             </motion.div>
         </div>
     )

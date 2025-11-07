@@ -1,22 +1,4 @@
 import * as React from "react"
-import { type LucideIcon } from "lucide-react"
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
-} from "lucide-react"
 
 import {
   SidebarGroup,
@@ -25,25 +7,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import type { IconName } from "@/lib/config"
-
-const iconMap: Record<IconName, LucideIcon> = {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
-}
 
 export function NavSecondary({
   items,
@@ -52,7 +15,7 @@ export function NavSecondary({
   items: {
     title: string
     url: string
-    icon: IconName
+    icon: React.ReactElement
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
@@ -60,16 +23,16 @@ export function NavSecondary({
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
-            const Icon = iconMap[item.icon]
-            if (!Icon) {
-              console.warn(`Icon "${item.icon}" not found in iconMap`)
+            if (!React.isValidElement(item.icon)) {
+              console.warn(`Icon is not a valid React element for "${item.title}"`)
               return null
             }
+            
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild size="sm">
                   <a href={item.url}>
-                    <Icon />
+                    {item.icon}
                     <span>{item.title}</span>
                   </a>
                 </SidebarMenuButton>

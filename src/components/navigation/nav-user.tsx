@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useMemo } from "react"
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
@@ -9,17 +10,6 @@ import {
   CreditCard,
   LogOut,
   LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
 } from "lucide-react"
 
 import {
@@ -49,20 +39,6 @@ import type { Permission } from "@/lib/permissions"
 import { canPerformAnyAction } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-}
 
 export function NavUser({ className }: { className?: string }) {
   const { data: session, status } = useSession()
@@ -166,11 +142,22 @@ export function NavUser({ className }: { className?: string }) {
             <DropdownMenuLabel>Admin</DropdownMenuLabel>
             <ScrollArea className="max-h-[200px] overflow-y-auto">
               {adminMenuItems.map((item) => {
-                const Icon = ICON_MAP[item.icon] || LayoutDashboard
+                if (!React.isValidElement(item.icon)) {
+                  console.warn(`Icon is not a valid React element for "${item.title}"`)
+                  return (
+                    <DropdownMenuItem key={item.url} asChild>
+                      <Link href={item.url} className="flex items-center">
+                        <LayoutDashboard className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
+                        <span>{item.title}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )
+                }
+                
                 return (
                   <DropdownMenuItem key={item.url} asChild>
                     <Link href={item.url} className="flex items-center">
-                      <Icon className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
+                      {item.icon}
                       <span>{item.title}</span>
                     </Link>
                   </DropdownMenuItem>

@@ -1,24 +1,6 @@
 "use client"
 
 import { ChevronRight } from "lucide-react"
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
-  type LucideIcon,
-} from "lucide-react"
 import Link from "next/link"
 import {
   Collapsible,
@@ -33,30 +15,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import type { IconName } from "@/lib/config"
-
-const iconMap: Record<IconName, LucideIcon> = {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FolderTree,
-  Tag,
-  MessageSquare,
-  Shield,
-  Send,
-  Bell,
-  Phone,
-  GraduationCap,
-  Settings2,
-  LifeBuoy,
-  Home,
-  Frame,
-}
+import * as React from "react"
 
 export interface NavMainItemProps {
   title: string
   url: string
-  icon: IconName
+  icon: React.ReactElement
   isActive?: boolean
   items?: {
     title: string
@@ -71,10 +35,8 @@ export function NavMainItem({
   isActive = false,
   items,
 }: NavMainItemProps) {
-  const Icon = iconMap[icon]
-  
-  if (!Icon) {
-    console.warn(`Icon "${icon}" not found in iconMap`)
+  if (!React.isValidElement(icon)) {
+    console.warn(`Icon is not a valid React element for "${title}"`)
     return null
   }
 
@@ -83,7 +45,7 @@ export function NavMainItem({
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={title}>
           <Link href={url}>
-            <Icon />
+            {icon}
             <span>{title}</span>
           </Link>
         </SidebarMenuButton>

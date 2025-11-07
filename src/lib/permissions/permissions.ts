@@ -16,6 +16,7 @@ export const RESOURCES = {
   NOTIFICATIONS: "notifications",
   CONTACT_REQUESTS: "contact_requests",
   STUDENTS: "students",
+  SESSIONS: "sessions",
   SETTINGS: "settings",
 } as const
 
@@ -103,6 +104,13 @@ export const PERMISSIONS = {
   STUDENTS_DELETE: `${RESOURCES.STUDENTS}:${ACTIONS.DELETE}` as Permission,
   STUDENTS_MANAGE: `${RESOURCES.STUDENTS}:${ACTIONS.MANAGE}` as Permission,
 
+  // Sessions
+  SESSIONS_VIEW: `${RESOURCES.SESSIONS}:${ACTIONS.VIEW}` as Permission,
+  SESSIONS_CREATE: `${RESOURCES.SESSIONS}:${ACTIONS.CREATE}` as Permission,
+  SESSIONS_UPDATE: `${RESOURCES.SESSIONS}:${ACTIONS.UPDATE}` as Permission,
+  SESSIONS_DELETE: `${RESOURCES.SESSIONS}:${ACTIONS.DELETE}` as Permission,
+  SESSIONS_MANAGE: `${RESOURCES.SESSIONS}:${ACTIONS.MANAGE}` as Permission,
+
   // Settings
   SETTINGS_VIEW: `${RESOURCES.SETTINGS}:${ACTIONS.VIEW}` as Permission,
   SETTINGS_UPDATE: `${RESOURCES.SETTINGS}:${ACTIONS.UPDATE}` as Permission,
@@ -122,6 +130,7 @@ export const MENU_PERMISSIONS = {
   notifications: [PERMISSIONS.NOTIFICATIONS_VIEW],
   contact_requests: [PERMISSIONS.CONTACT_REQUESTS_VIEW],
   students: [PERMISSIONS.STUDENTS_VIEW],
+  sessions: [PERMISSIONS.SESSIONS_VIEW],
   settings: [PERMISSIONS.SETTINGS_VIEW],
 } as const
 

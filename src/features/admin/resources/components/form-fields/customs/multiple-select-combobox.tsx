@@ -67,6 +67,9 @@ export function MultipleSelectCombobox<T>({
     selectedValues.includes(String(opt.value))
   )
 
+  // Check if all options are selected
+  const allSelected = allOptions.length > 0 && selectedValues.length === allOptions.length
+
   const handleToggle = (optionValue: string | number) => {
     const valueStr = String(optionValue)
     const currentValues = selectedValues
@@ -79,6 +82,15 @@ export function MultipleSelectCombobox<T>({
       // Add if not selected
       onChange([...currentValues, valueStr])
     }
+  }
+
+  const handleSelectAll = () => {
+    const allValues = allOptions.map(opt => String(opt.value))
+    onChange(allValues)
+  }
+
+  const handleDeselectAll = () => {
+    onChange([])
   }
 
   const handleClear = (e: React.MouseEvent) => {
@@ -148,31 +160,85 @@ export function MultipleSelectCombobox<T>({
             <CommandEmpty>Không tìm thấy.</CommandEmpty>
             {field.optionGroups ? (
               // Render grouped options
-              field.optionGroups.map((group) => (
-                <CommandGroup key={group.label} heading={group.label}>
-                  {group.options.map((option) => {
-                    const isSelected = selectedValues.includes(String(option.value))
-                    return (
-                      <CommandItem
-                        key={option.value}
-                        value={String(option.value)}
-                        onSelect={() => handleToggle(option.value)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-5 w-5",
-                            isSelected ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {option.label}
-                      </CommandItem>
-                    )
-                  })}
-                </CommandGroup>
-              ))
+              <>
+                {/* Select All option for grouped options */}
+                {allOptions.length > 0 && (
+                  <CommandGroup>
+                    <CommandItem
+                      value="select-all"
+                      onSelect={() => {
+                        if (allSelected) {
+                          handleDeselectAll()
+                        } else {
+                          handleSelectAll()
+                        }
+                      }}
+                      className={cn(
+                        "font-medium",
+                        allSelected && "text-primary"
+                      )}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-5 w-5",
+                          allSelected ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                    </CommandItem>
+                  </CommandGroup>
+                )}
+                {field.optionGroups.map((group) => (
+                  <CommandGroup key={group.label} heading={group.label}>
+                    {group.options.map((option) => {
+                      const isSelected = selectedValues.includes(String(option.value))
+                      return (
+                        <CommandItem
+                          key={option.value}
+                          value={String(option.value)}
+                          onSelect={() => handleToggle(option.value)}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-5 w-5",
+                              isSelected ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {option.label}
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                ))}
+              </>
             ) : (
               // Render flat options
               <CommandGroup>
+                {/* Select All option for flat options */}
+                {allOptions.length > 0 && (
+                  <CommandItem
+                    value="select-all"
+                    onSelect={() => {
+                      if (allSelected) {
+                        handleDeselectAll()
+                      } else {
+                        handleSelectAll()
+                      }
+                    }}
+                    className={cn(
+                      "font-medium",
+                      allSelected && "text-primary"
+                    )}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-5 w-5",
+                        allSelected ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  </CommandItem>
+                )}
                 {allOptions.map((option) => {
                   const isSelected = selectedValues.includes(String(option.value))
                   return (

@@ -11,7 +11,6 @@ export {
   type MenuItem,
   type MenuSubItem,
   type MenuProject,
-  type IconName,
 } from "./menu-data"
 
 export { appConfig } from "./app-config"

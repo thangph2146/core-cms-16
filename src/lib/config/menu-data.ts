@@ -1,30 +1,15 @@
 /**
  * Menu data với permissions mapping
  */
+import * as React from "react"
 import { MENU_PERMISSIONS, PERMISSIONS } from "@/lib/permissions"
 import type { Permission } from "@/lib/permissions"
-
-export type IconName =
-  | "LayoutDashboard"
-  | "Users"
-  | "FileText"
-  | "FolderTree"
-  | "Tag"
-  | "MessageSquare"
-  | "Shield"
-  | "Send"
-  | "Bell"
-  | "Phone"
-  | "GraduationCap"
-  | "Settings2"
-  | "LifeBuoy"
-  | "Home"
-  | "Frame"
+import { LayoutDashboard, Users, FileText, FolderTree, Tag, MessageSquare, Shield, Send, Bell, Phone, GraduationCap, LifeBuoy, Home } from "lucide-react"
 
 export interface MenuItem {
   title: string
   url: string
-  icon: IconName
+  icon: React.ReactElement
   isActive?: boolean
   items?: MenuSubItem[]
   permissions: ReadonlyArray<Permission>
@@ -39,7 +24,7 @@ export interface MenuSubItem {
 export interface MenuProject {
   name: string
   url: string
-  icon: IconName
+  icon: React.ReactElement
 }
 
 export function getMenuData(userPermissions: Permission[]): {
@@ -56,7 +41,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Dashboard",
       url: "/admin/dashboard",
-      icon: "LayoutDashboard",
+      icon: React.createElement(LayoutDashboard, { className: "h-4 w-4" }),
       isActive: true,
       permissions: MENU_PERMISSIONS.dashboard,
       items: [
@@ -74,7 +59,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Người dùng",
       url: "/admin/users",
-      icon: "Users",
+      icon: React.createElement(Users, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.users,
       items: [
         {
@@ -92,7 +77,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Bài viết",
       url: "/admin/posts",
-      icon: "FileText",
+      icon: React.createElement(FileText, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.posts,
       items: [
         {
@@ -120,7 +105,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Danh mục",
       url: "/admin/categories",
-      icon: "FolderTree",
+      icon: React.createElement(FolderTree, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.categories,
       items: [
         {
@@ -138,7 +123,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Thẻ",
       url: "/admin/tags",
-      icon: "Tag",
+      icon: React.createElement(Tag, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.tags,
       items: [
         {
@@ -156,7 +141,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Bình luận",
       url: "/admin/comments",
-      icon: "MessageSquare",
+      icon: React.createElement(MessageSquare, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.comments,
       items: [
         {
@@ -174,7 +159,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Vai trò",
       url: "/admin/roles",
-      icon: "Shield",
+      icon: React.createElement(Shield, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.roles,
       items: [
         {
@@ -192,7 +177,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Tin nhắn",
       url: "/admin/messages",
-      icon: "Send",
+      icon: React.createElement(Send, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.messages,
       items: [
         {
@@ -210,13 +195,13 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Thông báo",
       url: "/admin/notifications",
-      icon: "Bell",
+      icon: React.createElement(Bell, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.notifications,
     },
     {
       title: "Liên hệ",
       url: "/admin/contact-requests",
-      icon: "Phone",
+      icon: React.createElement(Phone, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.contact_requests,
       items: [
         {
@@ -234,7 +219,7 @@ export function getMenuData(userPermissions: Permission[]): {
     {
       title: "Học sinh",
       url: "/admin/students",
-      icon: "GraduationCap",
+      icon: React.createElement(GraduationCap, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.students,
       items: [
         {
@@ -250,50 +235,46 @@ export function getMenuData(userPermissions: Permission[]): {
       ],
     },
     {
-      title: "Cài đặt",
-      url: "/admin/settings",
-      icon: "Settings2",
-      permissions: MENU_PERMISSIONS.settings,
+      title: "Phiên đăng nhập",
+      url: "/admin/sessions",
+      icon: React.createElement(Tag, { className: "h-4 w-4" }),
+      permissions: MENU_PERMISSIONS.sessions,
       items: [
         {
-          title: "Chung",
-          url: "/admin/settings/general",
-          permissions: [PERMISSIONS.SETTINGS_VIEW],
+          title: "Danh sách",
+          url: "/admin/sessions",
+          permissions: [PERMISSIONS.SESSIONS_VIEW],
         },
         {
-          title: "Bảo mật",
-          url: "/admin/settings/security",
-          permissions: [PERMISSIONS.SETTINGS_MANAGE],
-        },
-        {
-          title: "Thông báo",
-          url: "/admin/settings/notifications",
-          permissions: [PERMISSIONS.SETTINGS_VIEW],
+          title: "Thêm mới",
+          url: "/admin/sessions/new",
+          permissions: [PERMISSIONS.SESSIONS_CREATE],
         },
       ],
-    },
+    }
   ]
 
   const navSecondary: MenuItem[] = [
     {
       title: "Hỗ trợ",
       url: "/admin/support",
-      icon: "LifeBuoy",
+      icon: React.createElement(LifeBuoy, { className: "h-4 w-4" }),
       permissions: [],
     },
     {
       title: "Phản hồi",
       url: "/admin/feedback",
-      icon: "Send",
+      icon: React.createElement(Send, { className: "h-4 w-4" }),
       permissions: [],
     },
+
   ]
 
   const projects: MenuProject[] = [
     {
       name: "Trang chính",
       url: "/",
-      icon: "Home",
+      icon: React.createElement(Home, { className: "h-4 w-4" }),
     }
   ]
 
@@ -305,8 +286,8 @@ export function getMenuData(userPermissions: Permission[]): {
         ...item,
         items: item.items
           ? item.items.filter((subItem) =>
-              !subItem.permissions || canShow(subItem.permissions)
-            )
+            !subItem.permissions || canShow(subItem.permissions)
+          )
           : undefined,
       }))
   }
