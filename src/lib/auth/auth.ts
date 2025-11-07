@@ -15,6 +15,7 @@ import { logger } from "@/lib/config"
 import {
   createNotificationForSuperAdmins,
   createNotificationForUser,
+  emitNotificationToSuperAdminsAfterCreate,
 } from "@/features/admin/notifications/server/mutations"
 
 type DbUser = Awaited<ReturnType<typeof getUserWithRoles>>
@@ -372,6 +373,33 @@ export const authConfig: NextAuthConfig = {
               }
             ),
           ])
+
+          // Emit socket event cho super admin notification sau khi tạo trong DB
+          if (adminNotificationResult.status === "fulfilled" && adminNotificationResult.value?.count > 0) {
+            try {
+              await emitNotificationToSuperAdminsAfterCreate(
+                "🔔 Hoạt động đăng nhập hệ thống",
+                `Người dùng ${userName} (${dbUser.email}) vừa đăng nhập vào hệ thống qua ${providerName}. Thời gian: ${new Date().toLocaleString("vi-VN")}.`,
+                `/admin/users/${dbUser.id}`,
+                NotificationKind.SYSTEM,
+                {
+                  type: "login_activity",
+                  userId: dbUser.id,
+                  userEmail: dbUser.email,
+                  userName: dbUser.name,
+                  provider,
+                  loginTime,
+                  purpose: "system_monitoring",
+                }
+              )
+              logger.success("Socket notification emitted for login activity", {
+                userId: dbUser.id,
+                email: dbUser.email,
+              })
+            } catch (emitError) {
+              logger.error("Error emitting socket notification for login", emitError instanceof Error ? emitError : new Error(String(emitError)))
+            }
+          }
           
           // Log kết quả chi tiết
           if (userNotificationResult.status === "fulfilled" && userNotificationResult.value) {
