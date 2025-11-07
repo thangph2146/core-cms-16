@@ -19,6 +19,8 @@ export type ColumnFilterConfig =
           placeholder?: string
           searchPlaceholder?: string
           emptyMessage?: string
+          onSearchChange?: (query: string) => void
+          isLoading?: boolean
       }
     | {
           type: "multi-select"
@@ -26,6 +28,8 @@ export type ColumnFilterConfig =
           placeholder?: string
           searchPlaceholder?: string
           emptyMessage?: string
+          onSearchChange?: (query: string) => void
+          isLoading?: boolean
       }
     | {
           type: "date"

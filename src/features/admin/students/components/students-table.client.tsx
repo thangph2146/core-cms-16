@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -114,21 +115,47 @@ export function StudentsTableClient({
     [],
   )
 
+  const studentCodeFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.students.options({ column: "studentCode" }),
+  })
+
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.students.options({ column: "name" }),
+  })
+
+  const emailFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.students.options({ column: "email" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<StudentRow>[]>(
     () => [
       {
         accessorKey: "studentCode",
         header: "Mã học sinh",
-        filter: { placeholder: "Lọc mã học sinh..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn mã học sinh...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: studentCodeFilter.options,
+          onSearchChange: studentCodeFilter.onSearchChange,
+          isLoading: studentCodeFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[200px]",
         headerClassName: "min-w-[150px] max-w-[200px]",
       },
       {
         accessorKey: "name",
         header: "Tên học sinh",
-        filter: { placeholder: "Lọc tên học sinh..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên học sinh...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
         cell: (row) => row.name ?? <span className="text-muted-foreground">-</span>,
@@ -136,8 +163,15 @@ export function StudentsTableClient({
       {
         accessorKey: "email",
         header: "Email",
-        filter: { placeholder: "Lọc email..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn email...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: emailFilter.options,
+          onSearchChange: emailFilter.onSearchChange,
+          isLoading: emailFilter.isLoading,
+        },
         className: "min-w-[180px] max-w-[250px]",
         headerClassName: "min-w-[180px] max-w-[250px]",
         cell: (row) => row.email ?? <span className="text-muted-foreground">-</span>,
@@ -199,7 +233,7 @@ export function StudentsTableClient({
         },
       },
     ],
-    [dateFormatter, togglingStudents, canManage, handleToggleStatus],
+    [dateFormatter, studentCodeFilter.options, studentCodeFilter.onSearchChange, studentCodeFilter.isLoading, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, togglingStudents, canManage, handleToggleStatus],
   )
 
   const deletedColumns = useMemo<DataTableColumn<StudentRow>[]>(

@@ -10,7 +10,7 @@
  */
 
 import { cache } from "react"
-import { listUsers, type UserDetail } from "./queries"
+import { listUsers, getUserColumnOptions, type UserDetail } from "./queries"
 import { mapUserRecord } from "./helpers"
 import { prisma } from "@/lib/database"
 
@@ -100,4 +100,17 @@ export const getRolesCached = cache(async () => {
 
   return roles
 })
+
+/**
+ * Cache function: Get user column options for filters
+ */
+export const getUserColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getUserColumnOptions(column, search, limit)
+  }
+)
 

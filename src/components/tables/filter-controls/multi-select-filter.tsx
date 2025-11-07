@@ -25,6 +25,8 @@ export function MultiSelectFilter<T extends object = object>({
             placeholder: column.filter.placeholder,
             searchPlaceholder: column.filter.searchPlaceholder ?? "Tìm kiếm...",
             emptyMessage: column.filter.emptyMessage ?? "Không tìm thấy.",
+            onSearchChange: column.filter.onSearchChange,
+            isLoading: column.filter.isLoading,
         },
     } as unknown as DataTableColumn<T>
 

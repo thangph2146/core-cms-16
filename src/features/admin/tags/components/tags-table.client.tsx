@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -72,21 +73,43 @@ export function TagsTableClient({
     [],
   )
 
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.tags.options({ column: "name" }),
+  })
+
+  const slugFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.tags.options({ column: "slug" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<TagRow>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Tên thẻ tag",
-        filter: { placeholder: "Lọc tên thẻ tag..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên thẻ tag...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
       {
         accessorKey: "slug",
         header: "Slug",
-        filter: { placeholder: "Lọc slug..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn slug...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: slugFilter.options,
+          onSearchChange: slugFilter.onSearchChange,
+          isLoading: slugFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
@@ -109,7 +132,7 @@ export function TagsTableClient({
         },
       },
     ],
-    [dateFormatter],
+    [dateFormatter, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, slugFilter.options, slugFilter.onSearchChange, slugFilter.isLoading],
   )
 
   const deletedColumns = useMemo<DataTableColumn<TagRow>[]>(

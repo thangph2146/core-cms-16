@@ -213,12 +213,39 @@ export function DataTable<T extends object>({
     }, [])
     const debouncedApplyFilters = useDebouncedCallback(applyFilters, 300)
 
+    // Track previous query và refreshKey để tránh gọi API khi không thực sự thay đổi
+    const prevQueryRef = useRef<DataTableQueryState>(query)
+    const prevRefreshKeyRef = useRef(refreshKey)
+
     useEffect(() => {
+        // Kiểm tra refreshKey thay đổi (force refresh)
+        const refreshKeyChanged = prevRefreshKeyRef.current !== refreshKey
+        if (refreshKeyChanged) {
+            prevRefreshKeyRef.current = refreshKey
+        }
+
+        // Kiểm tra xem query có thực sự thay đổi không (so sánh giá trị, không phải reference)
+        const queryChanged = !areQueriesEqual(query, prevQueryRef.current)
+        
+        // Chỉ gọi API nếu:
+        // 1. Query thực sự thay đổi (giá trị khác nhau), HOẶC
+        // 2. RefreshKey thay đổi (force refresh)
+        if (!queryChanged && !refreshKeyChanged) {
+            // Query object reference có thể thay đổi nhưng giá trị không đổi
+            // Cập nhật ref nhưng không gọi API để tránh duplicate requests
+            prevQueryRef.current = query
+            return
+        }
+
+        // Query thực sự thay đổi hoặc refreshKey thay đổi, cập nhật ref và gọi API
+        prevQueryRef.current = query
+
         startTransition(() => {
             const shouldUseInitial =
                 Boolean(initialData) &&
                 !hasConsumedInitialRef.current &&
-                areQueriesEqual(query, initialQueryRef.current)
+                areQueriesEqual(query, initialQueryRef.current) &&
+                !refreshKeyChanged
 
             if (shouldUseInitial && initialData) {
                 setDataPromise(Promise.resolve(initialData))

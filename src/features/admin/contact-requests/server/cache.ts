@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react"
-import { listContactRequests, getContactRequestById } from "./queries"
+import { listContactRequests, getContactRequestById, getContactRequestColumnOptions } from "./queries"
 import type { ListContactRequestsInput, ListContactRequestsResult, ContactRequestDetail } from "../types"
 
 /**
@@ -34,4 +34,17 @@ export const listContactRequestsCached = cache(async (params: ListContactRequest
 export const getContactRequestDetailById = cache(async (id: string): Promise<ContactRequestDetail | null> => {
   return getContactRequestById(id)
 })
+
+/**
+ * Cache function: Get contact request column options for filters
+ */
+export const getContactRequestColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getContactRequestColumnOptions(column, search, limit)
+  }
+)
 

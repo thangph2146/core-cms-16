@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react"
-import { listCategories, getCategoryById } from "./queries"
+import { listCategories, getCategoryById, getCategoryColumnOptions } from "./queries"
 import type { ListCategoriesInput, ListCategoriesResult, CategoryDetail } from "../types"
 
 /**
@@ -34,4 +34,25 @@ export const listCategoriesCached = cache(async (params: ListCategoriesInput = {
 export const getCategoryDetailById = cache(async (id: string): Promise<CategoryDetail | null> => {
   return getCategoryById(id)
 })
+
+/**
+ * Cache function: Get category column options for filters
+ * 
+ * Sử dụng cache() để tự động deduplicate requests và cache kết quả
+ * Dùng cho Server Components
+ * 
+ * @param column - Column name
+ * @param search - Optional search query
+ * @param limit - Maximum number of options
+ * @returns Array of { label, value } options
+ */
+export const getCategoryColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getCategoryColumnOptions(column, search, limit)
+  }
+)
 

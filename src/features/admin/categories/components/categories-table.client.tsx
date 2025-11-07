@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -72,28 +73,49 @@ export function CategoriesTableClient({
     [],
   )
 
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.categories.options({ column: "name" }),
+  })
+
+  const slugFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.categories.options({ column: "slug" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<CategoryRow>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Tên danh mục",
-        filter: { placeholder: "Lọc tên danh mục..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên danh mục...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
       {
         accessorKey: "slug",
         header: "Slug",
-        filter: { placeholder: "Lọc slug..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn slug...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: slugFilter.options,
+          onSearchChange: slugFilter.onSearchChange,
+          isLoading: slugFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
       {
         accessorKey: "description",
         header: "Mô tả",
-        searchable: true,
         className: "min-w-[200px] max-w-[400px]",
         headerClassName: "min-w-[200px] max-w-[400px]",
         cell: (row) => row.description ?? <span className="text-muted-foreground">-</span>,
@@ -117,7 +139,7 @@ export function CategoriesTableClient({
         },
       },
     ],
-    [dateFormatter],
+    [dateFormatter, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, slugFilter.options, slugFilter.onSearchChange, slugFilter.isLoading],
   )
 
   const deletedColumns = useMemo<DataTableColumn<CategoryRow>[]>(

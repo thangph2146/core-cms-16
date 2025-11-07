@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -103,26 +104,66 @@ export function ContactRequestsTableClient({
     [],
   )
 
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.contactRequests.options({ column: "name" }),
+  })
+
+  const emailFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.contactRequests.options({ column: "email" }),
+  })
+
+  const phoneFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.contactRequests.options({ column: "phone" }),
+  })
+
+  const subjectFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.contactRequests.options({ column: "subject" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<ContactRequestRow>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Tên người liên hệ",
-        filter: { placeholder: "Lọc tên..." },
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[200px]",
         headerClassName: "min-w-[150px] max-w-[200px]",
       },
       {
         accessorKey: "email",
         header: "Email",
-        filter: { placeholder: "Lọc email..." },
+        filter: {
+          type: "select",
+          placeholder: "Chọn email...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: emailFilter.options,
+          onSearchChange: emailFilter.onSearchChange,
+          isLoading: emailFilter.isLoading,
+        },
         className: "min-w-[180px] max-w-[250px]",
         headerClassName: "min-w-[180px] max-w-[250px]",
       },
       {
         accessorKey: "phone",
         header: "Số điện thoại",
-        filter: { placeholder: "Lọc số điện thoại..." },
+        filter: {
+          type: "select",
+          placeholder: "Chọn số điện thoại...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: phoneFilter.options,
+          onSearchChange: phoneFilter.onSearchChange,
+          isLoading: phoneFilter.isLoading,
+        },
         className: "min-w-[120px] max-w-[150px]",
         headerClassName: "min-w-[120px] max-w-[150px]",
         cell: (row) => row.phone || <span className="text-muted-foreground">-</span>,
@@ -130,7 +171,15 @@ export function ContactRequestsTableClient({
       {
         accessorKey: "subject",
         header: "Tiêu đề",
-        filter: { placeholder: "Lọc tiêu đề..." },
+        filter: {
+          type: "select",
+          placeholder: "Chọn tiêu đề...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: subjectFilter.options,
+          onSearchChange: subjectFilter.onSearchChange,
+          isLoading: subjectFilter.isLoading,
+        },
         className: "min-w-[200px] max-w-[300px]",
         headerClassName: "min-w-[200px] max-w-[300px]",
       },
@@ -216,7 +265,7 @@ export function ContactRequestsTableClient({
         },
       },
     ],
-    [dateFormatter, initialUsersOptions],
+    [dateFormatter, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, phoneFilter.options, phoneFilter.onSearchChange, phoneFilter.isLoading, subjectFilter.options, subjectFilter.onSearchChange, subjectFilter.isLoading, initialUsersOptions],
   )
 
   const deletedColumns = useMemo<DataTableColumn<ContactRequestRow>[]>(

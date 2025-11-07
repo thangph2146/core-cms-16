@@ -15,8 +15,6 @@ export function SelectFilter<T extends object = object>({
 }: ColumnFilterControlProps<T>) {
     if (column.filter?.type !== "select") return null
 
-    // Sử dụng CommandCombobox thay vì native select
-    // Chuyển đổi filter config từ "select" sang "command" format
     const commandFilter = {
         ...column,
         filter: {
@@ -25,6 +23,8 @@ export function SelectFilter<T extends object = object>({
             placeholder: column.filter.placeholder,
             searchPlaceholder: column.filter.searchPlaceholder ?? "Tìm kiếm...",
             emptyMessage: column.filter.emptyMessage ?? "Không tìm thấy.",
+            onSearchChange: column.filter.onSearchChange,
+            isLoading: column.filter.isLoading,
         },
     } as unknown as DataTableColumn<T>
 

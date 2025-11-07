@@ -49,6 +49,14 @@ export const apiRoutes = {
       const queryString = searchParams.toString()
       return `/admin/notifications${queryString ? `?${queryString}` : ""}`
     },
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/notifications/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Users
@@ -69,6 +77,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/users/${id}/restore`,
     hardDelete: (id: string) => `/admin/users/${id}/hard-delete`,
     bulk: "/admin/users/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/users/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Roles
@@ -89,6 +105,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/roles/${id}/restore`,
     hardDelete: (id: string) => `/admin/roles/${id}/hard-delete`,
     bulk: "/admin/roles/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/roles/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Categories
@@ -109,6 +133,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/categories/${id}/restore`,
     hardDelete: (id: string) => `/admin/categories/${id}/hard-delete`,
     bulk: "/admin/categories/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/categories/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Tags
@@ -129,6 +161,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/tags/${id}/restore`,
     hardDelete: (id: string) => `/admin/tags/${id}/hard-delete`,
     bulk: "/admin/tags/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/tags/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Contact Requests
@@ -149,6 +189,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/contact-requests/${id}/restore`,
     hardDelete: (id: string) => `/admin/contact-requests/${id}/hard-delete`,
     bulk: "/admin/contact-requests/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/contact-requests/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Students
@@ -169,6 +217,14 @@ export const apiRoutes = {
     restore: (id: string) => `/admin/students/${id}/restore`,
     hardDelete: (id: string) => `/admin/students/${id}/hard-delete`,
     bulk: "/admin/students/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/students/options${queryString ? `?${queryString}` : ""}`
+    },
   },
 
   // Socket

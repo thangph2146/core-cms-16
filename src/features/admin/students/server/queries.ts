@@ -5,6 +5,7 @@
  * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
  */
 
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { validatePagination } from "@/features/admin/resources/server"
 import { mapStudentRecord, buildWhereClause } from "./helpers"
@@ -42,6 +43,74 @@ export async function listStudents(params: ListStudentsInput = {}): Promise<List
     limit,
     totalPages,
   }
+}
+
+/**
+ * Get unique values for a specific column (for filter options)
+ */
+export async function getStudentColumnOptions(
+  column: string,
+  search?: string,
+  limit: number = 50
+): Promise<Array<{ label: string; value: string }>> {
+  const where: Prisma.StudentWhereInput = {
+    deletedAt: null, // Only active students
+  }
+
+  // Add search filter if provided
+  if (search && search.trim()) {
+    const searchValue = search.trim()
+    switch (column) {
+      case "studentCode":
+        where.studentCode = { contains: searchValue, mode: "insensitive" }
+        break
+      case "name":
+        where.name = { contains: searchValue, mode: "insensitive" }
+        break
+      case "email":
+        where.email = { contains: searchValue, mode: "insensitive" }
+        break
+      default:
+        where.studentCode = { contains: searchValue, mode: "insensitive" }
+    }
+  }
+
+  // Build select based on column
+  let selectField: Prisma.StudentSelect
+  switch (column) {
+    case "studentCode":
+      selectField = { studentCode: true }
+      break
+    case "name":
+      selectField = { name: true }
+      break
+    case "email":
+      selectField = { email: true }
+      break
+    default:
+      selectField = { studentCode: true }
+  }
+
+  const results = await prisma.student.findMany({
+    where,
+    select: selectField,
+    orderBy: { [column]: "asc" },
+    take: limit,
+  })
+
+  // Map results to options format
+  return results
+    .map((item) => {
+      const value = item[column as keyof typeof item]
+      if (typeof value === "string" && value.trim()) {
+        return {
+          label: value,
+          value: value,
+        }
+      }
+      return null
+    })
+    .filter((item): item is { label: string; value: string } => item !== null)
 }
 
 export async function getStudentById(id: string): Promise<StudentDetail | null> {

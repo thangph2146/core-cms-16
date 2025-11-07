@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { useAdminNotificationsSocketBridge } from "@/hooks/use-notifications"
 import { logger } from "@/lib/config"
@@ -342,13 +343,24 @@ export function NotificationsTableClient({
   )
 
 
+  const userEmailFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.adminNotifications.options({ column: "userEmail" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<NotificationRow>[]>(
     () => [
       {
         accessorKey: "userEmail",
         header: "Người dùng",
-        filter: { placeholder: "Lọc email..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn email...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: userEmailFilter.options,
+          onSearchChange: userEmailFilter.onSearchChange,
+          isLoading: userEmailFilter.isLoading,
+        },
         className: "min-w-[200px]",
         headerClassName: "min-w-[200px]",
         cell: (row) => {
@@ -390,7 +402,6 @@ export function NotificationsTableClient({
       {
         accessorKey: "title",
         header: "Tiêu đề",
-        searchable: true,
         className: "min-w-[250px]",
         headerClassName: "min-w-[250px]",
         cell: (row) => (
@@ -405,7 +416,6 @@ export function NotificationsTableClient({
       {
         accessorKey: "description",
         header: "Mô tả",
-        searchable: true,
         className: "min-w-[300px]",
         headerClassName: "min-w-[300px]",
         cell: (row) => row.description || "-",
@@ -437,7 +447,7 @@ export function NotificationsTableClient({
         cell: (row) => dateFormatter.format(new Date(row.createdAt)),
       },
     ],
-    [dateFormatter, session?.user?.id]
+    [dateFormatter, userEmailFilter.options, userEmailFilter.onSearchChange, userEmailFilter.isLoading, session?.user?.id]
   )
 
   const viewModes: ResourceViewMode<NotificationRow>[] = [

@@ -79,6 +79,14 @@ function generateResourceRoutes(config: ResourceConfig): RoutePermissionConfig[]
     )
   }
 
+  // Generate options API route for filter options
+  routes.push({
+    path: `/api/admin/${name}/options`,
+    method: "GET",
+    permissions: [permissions.view],
+    type: "api",
+  })
+
   return routes
 }
 

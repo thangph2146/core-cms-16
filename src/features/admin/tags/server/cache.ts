@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react"
-import { listTags, getTagById } from "./queries"
+import { listTags, getTagById, getTagColumnOptions } from "./queries"
 import type { ListTagsInput, ListTagsResult, TagDetail } from "../types"
 
 /**
@@ -34,4 +34,17 @@ export const listTagsCached = cache(async (params: ListTagsInput = {}): Promise<
 export const getTagDetailById = cache(async (id: string): Promise<TagDetail | null> => {
   return getTagById(id)
 })
+
+/**
+ * Cache function: Get tag column options for filters
+ */
+export const getTagColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getTagColumnOptions(column, search, limit)
+  }
+)
 

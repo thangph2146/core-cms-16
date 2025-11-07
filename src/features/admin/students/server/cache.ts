@@ -6,7 +6,7 @@
  */
 
 import { cache } from "react"
-import { listStudents, getStudentById } from "./queries"
+import { listStudents, getStudentById, getStudentColumnOptions } from "./queries"
 import type { ListStudentsInput, ListStudentsResult, StudentDetail } from "../types"
 
 /**
@@ -34,4 +34,17 @@ export const listStudentsCached = cache(async (params: ListStudentsInput = {}): 
 export const getStudentDetailById = cache(async (id: string): Promise<StudentDetail | null> => {
   return getStudentById(id)
 })
+
+/**
+ * Cache function: Get student column options for filters
+ */
+export const getStudentColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getStudentColumnOptions(column, search, limit)
+  }
+)
 

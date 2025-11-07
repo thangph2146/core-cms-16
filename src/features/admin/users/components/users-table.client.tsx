@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -121,21 +122,43 @@ export function UsersTableClient({
     [],
   )
 
+  const emailFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.users.options({ column: "email" }),
+  })
+
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.users.options({ column: "name" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<UserRow>[]>(
     () => [
       {
         accessorKey: "email",
         header: "Email",
-        filter: { placeholder: "Lọc email..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn email...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: emailFilter.options,
+          onSearchChange: emailFilter.onSearchChange,
+          isLoading: emailFilter.isLoading,
+        },
         className: "min-w-[200px] max-w-[300px]",
         headerClassName: "min-w-[200px] max-w-[300px]",
       },
       {
         accessorKey: "name",
         header: "Tên",
-        filter: { placeholder: "Lọc tên..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
         cell: (row) => row.name ?? "-",
@@ -225,7 +248,7 @@ export function UsersTableClient({
         },
       },
     ],
-    [dateFormatter, rolesOptions, togglingUsers, canManage, handleToggleStatus],
+    [dateFormatter, rolesOptions, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, togglingUsers, canManage, handleToggleStatus],
   )
 
   const deletedColumns = useMemo<DataTableColumn<UserRow>[]>(

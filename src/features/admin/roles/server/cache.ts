@@ -10,7 +10,7 @@
  */
 
 import { cache } from "react"
-import { listRoles, type RoleDetail } from "./queries"
+import { listRoles, getRoleColumnOptions, type RoleDetail } from "./queries"
 import { mapRoleRecord } from "./helpers"
 import { prisma } from "@/lib/database"
 
@@ -111,4 +111,17 @@ export const getAllPermissionsCached = cache(async () => {
     })
     .sort((a, b) => a.label.localeCompare(b.label))
 })
+
+/**
+ * Cache function: Get role column options for filters
+ */
+export const getRoleColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getRoleColumnOptions(column, search, limit)
+  }
+)
 

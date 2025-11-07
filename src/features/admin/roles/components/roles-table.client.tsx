@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
@@ -120,28 +121,49 @@ export function RolesTableClient({
     [],
   )
 
+  const nameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.roles.options({ column: "name" }),
+  })
+
+  const displayNameFilter = useDynamicFilterOptions({
+    optionsEndpoint: apiRoutes.roles.options({ column: "displayName" }),
+  })
+
   const baseColumns = useMemo<DataTableColumn<RoleRow>[]>(
     () => [
       {
         accessorKey: "name",
         header: "Tên vai trò",
-        filter: { placeholder: "Lọc tên vai trò..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên vai trò...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: nameFilter.options,
+          onSearchChange: nameFilter.onSearchChange,
+          isLoading: nameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
       {
         accessorKey: "displayName",
         header: "Tên hiển thị",
-        filter: { placeholder: "Lọc tên hiển thị..." },
-        searchable: true,
+        filter: {
+          type: "select",
+          placeholder: "Chọn tên hiển thị...",
+          searchPlaceholder: "Tìm kiếm...",
+          emptyMessage: "Không tìm thấy.",
+          options: displayNameFilter.options,
+          onSearchChange: displayNameFilter.onSearchChange,
+          isLoading: displayNameFilter.isLoading,
+        },
         className: "min-w-[150px] max-w-[250px]",
         headerClassName: "min-w-[150px] max-w-[250px]",
       },
       {
         accessorKey: "description",
         header: "Mô tả",
-        searchable: true,
         className: "min-w-[200px] max-w-[400px]",
         headerClassName: "min-w-[200px] max-w-[400px]",
         cell: (row) => row.description ?? <span className="text-muted-foreground">-</span>,
@@ -229,7 +251,7 @@ export function RolesTableClient({
         },
       },
     ],
-    [dateFormatter, togglingRoles, canManage, handleToggleStatus],
+    [dateFormatter, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, displayNameFilter.options, displayNameFilter.onSearchChange, displayNameFilter.isLoading, togglingRoles, canManage, handleToggleStatus],
   )
 
   const deletedColumns = useMemo<DataTableColumn<RoleRow>[]>(

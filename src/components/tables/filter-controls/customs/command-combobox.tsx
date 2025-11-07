@@ -3,8 +3,8 @@
  */
 "use client"
 
-import { useState, useId } from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { useState, useId, useCallback } from "react"
+import { Check, ChevronsUpDown, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -26,12 +26,37 @@ export function CommandCombobox<T extends object = object>({
     onChange,
 }: ColumnFilterControlProps<T>) {
     const [open, setOpen] = useState(false)
+    const [searchValue, setSearchValue] = useState("")
+    const [isSearching, setIsSearching] = useState(false)
     const mounted = useClientOnly()
     const filterId = useId()
 
+    const onSearchChange = column.filter && "onSearchChange" in column.filter ? column.filter.onSearchChange : undefined
+    const isLoading = column.filter && "isLoading" in column.filter ? column.filter.isLoading : false
+
+    const handleSearchChange = useCallback(
+        (query: string) => {
+            setSearchValue(query)
+            setIsSearching(query.length > 0)
+            onSearchChange?.(query)
+        },
+        [onSearchChange]
+    )
+
+    const handleClearSearch = useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation()
+            setSearchValue("")
+            setIsSearching(false)
+            onSearchChange?.("")
+        },
+        [onSearchChange]
+    )
+
     if (!column.filter || !("options" in column.filter)) return null
 
-    const selectedOption = column.filter.options.find((opt) => opt.value === value)
+    const options = column.filter.options
+    const selectedOption = options.find((opt) => opt.value === value)
 
     if (!mounted) {
         return (
@@ -67,14 +92,55 @@ export function CommandCombobox<T extends object = object>({
                 </Button>
             </PopoverTrigger>
             <PopoverContent id={filterId} className="w-[200px] p-0" align="start">
-                <Command>
-                    <CommandInput placeholder={column.filter.searchPlaceholder ?? "Tìm kiếm..."} className="h-9" />
+                <Command 
+                    shouldFilter={!onSearchChange}
+                    // Ngăn chặn tự động select option khi nhấn Enter trong search
+                    // Chỉ cho phép select khi user click vào option
+                    onKeyDown={(e) => {
+                        // Ngăn chặn Enter key khi đang search để tránh tự động select option đầu tiên
+                        if (e.key === "Enter" && isSearching && searchValue.trim().length > 0) {
+                            e.preventDefault()
+                            e.stopPropagation()
+                        }
+                    }}
+                >
+                    <div className="relative">
+                        <CommandInput
+                            placeholder={column.filter.searchPlaceholder ?? "Tìm kiếm..."}
+                            className="h-9 pr-8"
+                            value={searchValue}
+                            onValueChange={handleSearchChange}
+                        />
+                        {searchValue && (
+                            <button
+                                type="button"
+                                onClick={handleClearSearch}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        )}
+                        {isLoading && searchValue && (
+                            <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
+                    </div>
                     <CommandList>
-                        <CommandEmpty>{column.filter.emptyMessage ?? "Không tìm thấy."}</CommandEmpty>
+                        {isLoading && options.length === 0 ? (
+                            <div className="flex items-center justify-center py-6">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <CommandEmpty>{column.filter.emptyMessage ?? "Không tìm thấy."}</CommandEmpty>
+                        )}
                         <CommandGroup>
                             <CommandItem
                                 value=""
                                 onSelect={() => {
+                                    setIsSearching(false)
+                                    setSearchValue("")
+                                    onSearchChange?.("")
                                     onChange("", true)
                                     setOpen(false)
                                 }}
@@ -82,11 +148,14 @@ export function CommandCombobox<T extends object = object>({
                                 <Check className={cn("mr-2 h-3 w-3", value === "" ? "opacity-100" : "opacity-0")} />
                                 {column.filter.placeholder ?? "Tất cả"}
                             </CommandItem>
-                            {column.filter.options.map((option) => (
+                            {options.map((option) => (
                                 <CommandItem
                                     key={option.value}
                                     value={option.value}
                                     onSelect={() => {
+                                        setIsSearching(false)
+                                        setSearchValue("")
+                                        onSearchChange?.("")
                                         onChange(option.value === value ? "" : option.value, true)
                                         setOpen(false)
                                     }}

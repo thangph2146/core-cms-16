@@ -177,3 +177,68 @@ export const getNotificationByIdCached = cache(async (id: string): Promise<Liste
 export async function getNotificationById(id: string) {
   return getNotificationByIdCached(id)
 }
+
+/**
+ * Get unique values for a specific column (for filter options)
+ * For notifications, we only support userEmail (from user relation)
+ */
+export async function getNotificationColumnOptions(
+  column: string,
+  search?: string,
+  limit: number = 50
+): Promise<Array<{ label: string; value: string }>> {
+  if (column !== "userEmail") {
+    return []
+  }
+
+  const where: Prisma.UserWhereInput = {
+    deletedAt: null, // Only active users
+  }
+
+  // Add search filter if provided
+  if (search && search.trim()) {
+    where.email = { contains: search.trim(), mode: "insensitive" }
+  }
+
+  // Get users that have notifications
+  const usersWithNotifications = await prisma.user.findMany({
+    where: {
+      ...where,
+      notifications: {
+        some: {},
+      },
+    },
+    select: {
+      email: true,
+    },
+    distinct: ["email"],
+    orderBy: { email: "asc" },
+    take: limit,
+  })
+
+  // Map results to options format
+  return usersWithNotifications
+    .map((user) => {
+      if (user.email && user.email.trim()) {
+        return {
+          label: user.email,
+          value: user.email,
+        }
+      }
+      return null
+    })
+    .filter((item): item is { label: string; value: string } => item !== null)
+}
+
+/**
+ * Cache function: Get notification column options for filters
+ */
+export const getNotificationColumnOptionsCached = cache(
+  async (
+    column: string,
+    search?: string,
+    limit: number = 50
+  ): Promise<Array<{ label: string; value: string }>> => {
+    return getNotificationColumnOptions(column, search, limit)
+  }
+)
