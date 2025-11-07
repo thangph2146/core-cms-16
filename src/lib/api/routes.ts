@@ -255,6 +255,35 @@ export const apiRoutes = {
     },
   },
 
+  // Comments
+  comments: {
+    list: (params?: { page?: number; limit?: number; search?: string; status?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.page) searchParams.set("page", params.page.toString())
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.status) searchParams.set("status", params.status)
+      const queryString = searchParams.toString()
+      return `/admin/comments${queryString ? `?${queryString}` : ""}`
+    },
+    detail: (id: string) => `/admin/comments/${id}`,
+    update: (id: string) => `/admin/comments/${id}`,
+    approve: (id: string) => `/admin/comments/${id}/approve`,
+    unapprove: (id: string) => `/admin/comments/${id}/unapprove`,
+    delete: (id: string) => `/admin/comments/${id}`,
+    restore: (id: string) => `/admin/comments/${id}/restore`,
+    hardDelete: (id: string) => `/admin/comments/${id}/hard-delete`,
+    bulk: "/admin/comments/bulk",
+    options: (params?: { column: string; search?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.column) searchParams.set("column", params.column)
+      if (params?.search) searchParams.set("search", params.search)
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      const queryString = searchParams.toString()
+      return `/admin/comments/options${queryString ? `?${queryString}` : ""}`
+    },
+  },
+
   // Socket
   socket: "/socket",
 } as const

@@ -1,12 +1,16 @@
 "use client"
 
+import * as React from "react"
 import { Mail, User, Shield, Phone, MapPin, Calendar, Clock, CheckCircle2, XCircle, FileText, Edit } from "lucide-react"
 import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { formatDateVi, getUserInitials } from "../utils"
+import { cn } from "@/lib/utils"
 
 export interface UserDetailData {
   id: string
@@ -34,105 +38,30 @@ export interface UserDetailClientProps {
   backUrl?: string
 }
 
-type IconComponent = React.ComponentType<{ className?: string }>
+// Reusable field item component
+interface FieldItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+  iconColor?: string
+}
 
-const FieldWithIcon = ({ icon: Icon, iconColor, children }: { icon: IconComponent; iconColor: string; children: React.ReactNode }) => (
-  <div className="flex items-center gap-3">
-    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconColor}`}>
-      <Icon className="h-5 w-5" />
-    </div>
-    {children}
-  </div>
-)
-
-const FieldWithIconStart = ({ icon: Icon, iconColor, children }: { icon: IconComponent; iconColor: string; children: React.ReactNode }) => (
+const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
   <div className="flex items-start gap-3">
-    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconColor}`}>
-      <Icon className="h-5 w-5" />
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
     </div>
-    {children}
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
   </div>
 )
-
-const createField = (name: string, label: string, section: string, icon: IconComponent, iconColor: string, render?: (value: unknown) => React.ReactNode): ResourceDetailField<UserDetailData> => ({
-  name, label, type: "custom", section,
-  render: render || ((value) => (
-    <FieldWithIcon icon={icon} iconColor={iconColor}>
-      <div className="font-medium">{String(value || "—")}</div>
-    </FieldWithIcon>
-  )),
-})
-
-const createDateField = (name: string, label: string, section: string, icon: IconComponent, iconColor: string) =>
-  createField(name, label, section, icon, iconColor, (value) => (
-    <FieldWithIcon icon={icon} iconColor={iconColor}>
-      <div className="font-medium">{value ? formatDateVi(value as string) : "—"}</div>
-    </FieldWithIcon>
-  ))
 
 export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: UserDetailClientProps) {
   const router = useRouter()
 
-  const detailFields: ResourceDetailField<UserDetailData>[] = [
-    createField("email", "Email", "basic", Mail, "bg-primary/10 text-primary", (value) => (
-      <FieldWithIcon icon={Mail} iconColor="bg-primary/10 text-primary">
-        <div>
-          <div className="font-medium">{String(value || "—")}</div>
-          {user?.emailVerified && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <CheckCircle2 className="h-3 w-3 text-green-500" />
-              Đã xác thực
-            </div>
-          )}
-        </div>
-      </FieldWithIcon>
-    )),
-    createDateField("emailVerified", "Email đã xác thực", "basic", Clock, "bg-muted text-muted-foreground"),
-    createField("name", "Tên", "basic", User, "bg-chart-1/10 text-chart-1"),
-    createField("phone", "Số điện thoại", "basic", Phone, "bg-chart-3/10 text-chart-3"),
-    {
-      name: "bio", label: "Giới thiệu", type: "custom", section: "additional",
-      render: (value) => (
-        <FieldWithIconStart icon={FileText} iconColor="bg-chart-2/10 text-chart-2">
-          <div className="flex-1 text-sm leading-relaxed">{String(value || "—")}</div>
-        </FieldWithIconStart>
-      ),
-    },
-    {
-      name: "address", label: "Địa chỉ", type: "custom", section: "additional",
-      render: (value) => (
-        <FieldWithIconStart icon={MapPin} iconColor="bg-chart-5/10 text-chart-4">
-          <div className="flex-1 font-medium">{String(value || "—")}</div>
-        </FieldWithIconStart>
-      ),
-    },
-    {
-      name: "roles", label: "Vai trò", type: "custom", section: "additional",
-      render: (value) => !value || !Array.isArray(value) ? (
-        <span className="text-muted-foreground">—</span>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {value.map((role: { name: string; displayName?: string }) => (
-            <Badge key={role.name} variant="outline" className="inline-flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary border-primary/20 hover:bg-primary/20 transition-colors">
-              <Shield className="h-3.5 w-3.5" />
-              {role.displayName || role.name}
-            </Badge>
-          ))}
-        </div>
-      ),
-    },
-    {
-      name: "isActive", label: "Trạng thái", type: "custom", section: "additional",
-      render: (value) => (
-        <Badge className={value ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 hover:bg-green-500/20" : "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20"} variant={value ? undefined : "outline"}>
-          {value ? <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> : <XCircle className="mr-1.5 h-3.5 w-3.5" />}
-          {value ? "Đang hoạt động" : "Đã vô hiệu hóa"}
-        </Badge>
-      ),
-    },
-    createDateField("createdAt", "Ngày tạo", "additional", Calendar, "bg-chart-5/10 text-chart-5"),
-    createDateField("updatedAt", "Cập nhật lần cuối", "additional", Clock, "bg-muted text-muted-foreground"),
-  ]
+  const detailFields: ResourceDetailField<UserDetailData>[] = []
 
   const detailSections: ResourceDetailSection<UserDetailData>[] = [
     {
@@ -182,11 +111,186 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
           </div>
         </div>
       ),
+      fieldsContent: (_fields, data) => {
+        const userData = data as UserDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Email & Verification */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Mail} label="Email">
+                <div className="space-y-1">
+                  <a
+                    href={`mailto:${userData.email}`}
+                    className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
+                  >
+                    {userData.email || "—"}
+                  </a>
+                  {userData.emailVerified && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-500" />
+                      <span>Đã xác thực</span>
+                    </div>
+                  )}
+                </div>
+              </FieldItem>
+
+              {userData.emailVerified && (
+                <FieldItem icon={Clock} label="Email đã xác thực">
+                  <div className="text-sm font-medium text-foreground">
+                    {userData.emailVerified ? formatDateVi(userData.emailVerified) : "—"}
+                  </div>
+                </FieldItem>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Name & Phone */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={User} label="Tên">
+                <div className="text-sm font-medium text-foreground">
+                  {userData.name || "—"}
+                </div>
+              </FieldItem>
+
+              {userData.phone && (
+                <FieldItem icon={Phone} label="Số điện thoại">
+                  <a
+                    href={`tel:${userData.phone}`}
+                    className="text-sm font-medium text-primary hover:underline transition-colors"
+                  >
+                    {userData.phone}
+                  </a>
+                </FieldItem>
+              )}
+            </div>
+          </div>
+        )
+      },
     },
     {
       id: "additional",
       title: "Thông tin bổ sung & Hệ thống",
       description: "Thông tin bổ sung, vai trò, trạng thái và thời gian",
+      fieldsContent: (_fields, data) => {
+        const userData = data as UserDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Bio */}
+            {userData.bio && (
+              <>
+                <Card className="border border-border/50 bg-card p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground mb-2">Giới thiệu</h3>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                        {userData.bio || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <Separator />
+              </>
+            )}
+
+            {/* Address */}
+            {userData.address && (
+              <>
+                <FieldItem icon={MapPin} label="Địa chỉ">
+                  <div className="text-sm font-medium text-foreground">
+                    {userData.address}
+                  </div>
+                </FieldItem>
+                <Separator />
+              </>
+            )}
+
+            {/* Roles */}
+            {userData.roles && userData.roles.length > 0 && (
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Vai trò</div>
+                    <div className="flex flex-wrap gap-2">
+                      {userData.roles.map((role) => (
+                        <Badge
+                          key={role.name}
+                          variant="outline"
+                          className="inline-flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary border-primary/20"
+                        >
+                          <Shield className="h-3 w-3" />
+                          {role.displayName || role.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
+            {/* Status */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                {userData.isActive ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái</div>
+                <Badge
+                  className={cn(
+                    "text-sm font-medium px-2.5 py-1",
+                    userData.isActive
+                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                  )}
+                  variant={userData.isActive ? "default" : "secondary"}
+                >
+                  {userData.isActive ? (
+                    <>
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      Đang hoạt động
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Đã vô hiệu hóa
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Timestamps */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {userData.createdAt ? formatDateVi(userData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {userData.updatedAt ? formatDateVi(userData.updatedAt) : "—"}
+                </div>
+              </FieldItem>
+            </div>
+          </div>
+        )
+      },
     },
   ]
 

@@ -1,8 +1,10 @@
 "use client"
 
+import * as React from "react"
 import { Tag, Hash, Calendar, Clock, Edit } from "lucide-react"
 import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { formatDateVi } from "../utils"
 
@@ -22,78 +24,75 @@ export interface TagDetailClientProps {
   backUrl?: string
 }
 
+// Reusable field item component
+interface FieldItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+  iconColor?: string
+}
+
+const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
+  <div className="flex items-start gap-3">
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
+  </div>
+)
+
 export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDetailClientProps) {
   const router = useRouter()
 
-  const detailFields: ResourceDetailField<TagDetailData>[] = [
-    {
-      name: "name",
-      label: "Tên thẻ tag",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Tag className="h-5 w-5 text-primary" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "slug",
-      label: "Slug",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-            <Hash className="h-5 w-5 text-chart-1" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "createdAt",
-      label: "Ngày tạo",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-            <Calendar className="h-5 w-5 text-chart-4" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "updatedAt",
-      label: "Cập nhật lần cuối",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Clock className="h-5 w-5 text-chart-5" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-  ]
+  const detailFields: ResourceDetailField<TagDetailData>[] = []
 
-  // Sections cho detail view - tất cả fields trong 1 section (4 fields >= 4 sẽ tự động tách 2 cột)
   const detailSections: ResourceDetailSection<TagDetailData>[] = [
     {
       id: "basic",
       title: "Thông tin cơ bản",
       description: "Thông tin chính về thẻ tag và thời gian",
+      fieldsContent: (_fields, data) => {
+        const tagData = data as TagDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Name & Slug */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Tag} label="Tên thẻ tag">
+                <div className="text-sm font-medium text-foreground">
+                  {tagData.name || "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Hash} label="Slug">
+                <div className="text-sm font-medium text-foreground font-mono">
+                  {tagData.slug || "—"}
+                </div>
+              </FieldItem>
+            </div>
+
+            <Separator />
+
+            {/* Timestamps */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {tagData.createdAt ? formatDateVi(tagData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {tagData.updatedAt ? formatDateVi(tagData.updatedAt) : "—"}
+                </div>
+              </FieldItem>
+            </div>
+          </div>
+        )
+      },
     },
   ]
 

@@ -9,6 +9,7 @@ import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/co
 import { FeedbackDialog, type FeedbackVariant } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,7 @@ export function ContactRequestsTableClient({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const [togglingRequests, setTogglingRequests] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
 
   const showFeedback = useCallback(
@@ -119,6 +121,42 @@ export function ContactRequestsTableClient({
   const subjectFilter = useDynamicFilterOptions({
     optionsEndpoint: apiRoutes.contactRequests.options({ column: "subject" }),
   })
+
+  // Handler để toggle read status
+  const handleToggleRead = useCallback(
+    async (row: ContactRequestRow, newStatus: boolean, refresh: () => void) => {
+      if (!canUpdate) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền thay đổi trạng thái đọc của yêu cầu liên hệ")
+        return
+      }
+
+      setTogglingRequests((prev) => new Set(prev).add(row.id))
+
+      try {
+        await apiClient.put(apiRoutes.contactRequests.update(row.id), { isRead: newStatus })
+        showFeedback(
+          "success",
+          newStatus ? "Đã đánh dấu đã đọc" : "Đã đánh dấu chưa đọc",
+          newStatus 
+            ? `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là đã đọc.`
+            : `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là chưa đọc.`
+        )
+        refresh()
+      } catch (error: unknown) {
+        const errorMessage = 
+          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          (newStatus ? "Không thể đánh dấu đã đọc yêu cầu liên hệ." : "Không thể đánh dấu chưa đọc yêu cầu liên hệ.")
+        showFeedback("error", newStatus ? "Đánh dấu đã đọc thất bại" : "Đánh dấu chưa đọc thất bại", errorMessage)
+      } finally {
+        setTogglingRequests((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
+      }
+    },
+    [canUpdate, showFeedback],
+  )
 
   const baseColumns = useMemo<DataTableColumn<ContactRequestRow>[]>(
     () => [
@@ -226,10 +264,24 @@ export function ContactRequestsTableClient({
             { label: "Chưa đọc", value: "false" },
           ],
         },
-        className: "min-w-[100px] max-w-[120px]",
-        headerClassName: "min-w-[100px] max-w-[120px]",
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
         cell: (row) => (
-          <Badge variant={row.isRead ? "outline" : "default"}>{row.isRead ? "Đã đọc" : "Chưa đọc"}</Badge>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={row.isRead}
+              disabled={togglingRequests.has(row.id) || !canUpdate}
+              onCheckedChange={(checked) => {
+                if (tableRefreshRef.current) {
+                  handleToggleRead(row, checked, tableRefreshRef.current)
+                }
+              }}
+              aria-label={row.isRead ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}
+            />
+            <span className="text-xs text-muted-foreground">
+              {row.isRead ? "Đã đọc" : "Chưa đọc"}
+            </span>
+          </div>
         ),
       },
       {
@@ -265,7 +317,25 @@ export function ContactRequestsTableClient({
         },
       },
     ],
-    [dateFormatter, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, phoneFilter.options, phoneFilter.onSearchChange, phoneFilter.isLoading, subjectFilter.options, subjectFilter.onSearchChange, subjectFilter.isLoading, initialUsersOptions],
+    [
+      dateFormatter,
+      nameFilter.options,
+      nameFilter.onSearchChange,
+      nameFilter.isLoading,
+      emailFilter.options,
+      emailFilter.onSearchChange,
+      emailFilter.isLoading,
+      phoneFilter.options,
+      phoneFilter.onSearchChange,
+      phoneFilter.isLoading,
+      subjectFilter.options,
+      subjectFilter.onSearchChange,
+      subjectFilter.isLoading,
+      initialUsersOptions,
+      togglingRequests,
+      canUpdate,
+      handleToggleRead,
+    ],
   )
 
   const deletedColumns = useMemo<DataTableColumn<ContactRequestRow>[]>(

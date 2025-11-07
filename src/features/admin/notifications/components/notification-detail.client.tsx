@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { 
   Bell, 
   User, 
@@ -12,9 +13,12 @@ import {
   CheckCircle,
   XCircle as XCircleIcon
 } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField } from "@/features/admin/resources/components"
+import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { formatDateVi } from "@/features/admin/users/utils"
+import { cn } from "@/lib/utils"
 
 const NOTIFICATION_KINDS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   MESSAGE: { label: "Tin nhắn", variant: "default" },
@@ -50,164 +54,209 @@ export interface NotificationDetailClientProps {
   backUrl?: string
 }
 
+// Reusable field item component
+interface FieldItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+  iconColor?: string
+}
+
+const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
+  <div className="flex items-start gap-3">
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
+  </div>
+)
+
 export function NotificationDetailClient({ notification, backUrl = "/admin/notifications" }: NotificationDetailClientProps) {
+  const detailFields: ResourceDetailField<NotificationDetailData>[] = []
 
-  const kindConfig = NOTIFICATION_KINDS[notification.kind] || { label: notification.kind, variant: "secondary" as const }
-
-  const detailFields: ResourceDetailField<NotificationDetailData>[] = [
+  const detailSections: ResourceDetailSection<NotificationDetailData>[] = [
     {
-      name: "kind",
-      label: "Loại thông báo",
-      type: "custom",
-      render: () => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
-            <Bell className="h-4 w-4 text-primary" />
-          </div>
-          <Badge variant={kindConfig.variant} className="text-xs">{kindConfig.label}</Badge>
-        </div>
-      ),
-    },
-    {
-      name: "title",
-      label: "Tiêu đề",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-1/10">
-            <FileText className="h-4 w-4 text-chart-1" />
-          </div>
-          <div className="text-sm">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "description",
-      label: "Mô tả",
-      type: "custom",
-      render: (value) => (
-        <div>
-          {value ? (
-            <p className="text-sm leading-normal">{String(value)}</p>
-          ) : (
-            <span className="text-muted-foreground text-sm">—</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      name: "user",
-      label: "Người dùng",
-      type: "custom",
-      render: (value) => {
-        const user = value as NotificationDetailData["user"]
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính của thông báo",
+      fieldsContent: (_fields, data) => {
+        const notificationData = data as NotificationDetailData
+        const kindConfigData = NOTIFICATION_KINDS[notificationData.kind] || { label: notificationData.kind, variant: "secondary" as const }
+        
         return (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-2/10">
-              <User className="h-4 w-4 text-chart-2" />
+          <div className="space-y-6">
+            {/* Kind & Title */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">Loại thông báo</div>
+                  <Badge variant={kindConfigData.variant} className="text-xs">
+                    {kindConfigData.label}
+                  </Badge>
+                </div>
+              </div>
+
+              <FieldItem icon={FileText} label="Tiêu đề">
+                <div className="text-sm font-medium text-foreground">
+                  {notificationData.title || "—"}
+                </div>
+              </FieldItem>
             </div>
-            <div>
-              <div className="text-sm">{user?.email || "—"}</div>
-              {user?.name && <div className="text-xs text-muted-foreground">{user.name}</div>}
-            </div>
+
+            {/* Description */}
+            {notificationData.description && (
+              <>
+                <Separator />
+                <Card className="border border-border/50 bg-card p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                        {notificationData.description || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
+
+            <Separator />
+
+            {/* User */}
+            <FieldItem icon={User} label="Người dùng">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium text-foreground">
+                  {notificationData.user?.email || "—"}
+                </div>
+                {notificationData.user?.name && (
+                  <div className="text-xs text-muted-foreground">
+                    {notificationData.user.name}
+                  </div>
+                )}
+              </div>
+            </FieldItem>
           </div>
         )
       },
     },
     {
-      name: "isRead",
-      label: "Trạng thái đọc",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-3/10">
-            {value ? (
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            ) : (
-              <XCircleIcon className="h-4 w-4 text-orange-500" />
+      id: "status",
+      title: "Trạng thái",
+      description: "Thông tin trạng thái của thông báo",
+      fieldsContent: (_fields, data) => {
+        const notificationData = data as NotificationDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Read Status */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                {notificationData.isRead ? (
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500" />
+                ) : (
+                  <XCircleIcon className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái đọc</div>
+                <Badge
+                  className={cn(
+                    "text-sm font-medium px-2.5 py-1",
+                    notificationData.isRead
+                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                  )}
+                  variant={notificationData.isRead ? "default" : "secondary"}
+                >
+                  {notificationData.isRead ? (
+                    <>
+                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Đã đọc
+                    </>
+                  ) : (
+                    <>
+                      <XCircleIcon className="mr-1.5 h-3.5 w-3.5" />
+                      Chưa đọc
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+
+            {notificationData.readAt && (
+              <>
+                <Separator />
+                <FieldItem icon={Clock} label="Ngày đọc">
+                  <div className="text-sm font-medium text-foreground">
+                    {formatDateVi(notificationData.readAt)}
+                  </div>
+                </FieldItem>
+              </>
             )}
           </div>
-          <Badge variant={value ? "default" : "secondary"} className="text-xs">
-            {value ? "Đã đọc" : "Chưa đọc"}
-          </Badge>
-        </div>
-      ),
-    },
-    {
-      name: "actionUrl",
-      label: "URL hành động",
-      type: "custom",
-      render: (value) => {
-        const url = value as string | null
-        if (!url) return <span className="text-muted-foreground">—</span>
-        return (
-          <div className="flex items-center gap-2">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-1"
-            >
-              {url}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
         )
       },
     },
     {
-      name: "createdAt",
-      label: "Ngày tạo",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-4/10">
-            <Calendar className="h-4 w-4 text-chart-4" />
-          </div>
-          <div className="text-sm">
-            {value ? formatDateVi(value as string) : "—"}
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "readAt",
-      label: "Ngày đọc",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-5/10">
-            <Clock className="h-4 w-4 text-chart-5" />
-          </div>
-          <div className="text-sm">
-            {value ? formatDateVi(value as string) : <span className="text-muted-foreground">Chưa đọc</span>}
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "expiresAt",
-      label: "Ngày hết hạn",
-      type: "custom",
-      render: (value) => {
-        const expiresAt = value as string | null
-        if (!expiresAt) return <span className="text-muted-foreground text-sm">Không có hạn</span>
-        const isExpired = new Date(expiresAt) < new Date()
+      id: "additional",
+      title: "Thông tin bổ sung",
+      description: "Thông tin chi tiết về thông báo",
+      fieldsContent: (_fields, data) => {
+        const notificationData = data as NotificationDetailData
+        
         return (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-chart-1/10">
-              {isExpired ? (
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              ) : (
-                <Info className="h-4 w-4 text-chart-1" />
-              )}
-            </div>
-            <div>
-              <div className="text-sm">{formatDateVi(expiresAt)}</div>
-              {isExpired && (
-                <Badge variant="destructive" className="mt-1 text-xs">
-                  Đã hết hạn
-                </Badge>
+          <div className="space-y-6">
+            {/* Action URL */}
+            {notificationData.actionUrl && (
+              <>
+                <FieldItem icon={ExternalLink} label="URL hành động">
+                  <a
+                    href={notificationData.actionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 hover:underline transition-colors truncate"
+                  >
+                    <span className="truncate">{notificationData.actionUrl}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                </FieldItem>
+                <Separator />
+              </>
+            )}
+
+            {/* Timestamps */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {notificationData.createdAt ? formatDateVi(notificationData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+
+              {notificationData.expiresAt && (
+                <FieldItem 
+                  icon={notificationData.expiresAt && new Date(notificationData.expiresAt) < new Date() ? AlertCircle : Info} 
+                  label="Ngày hết hạn"
+                >
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-foreground">
+                      {formatDateVi(notificationData.expiresAt)}
+                    </div>
+                    {new Date(notificationData.expiresAt) < new Date() && (
+                      <Badge variant="destructive" className="text-xs">
+                        Đã hết hạn
+                      </Badge>
+                    )}
+                  </div>
+                </FieldItem>
               )}
             </div>
           </div>
@@ -216,43 +265,16 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
     },
   ]
 
-  // Split fields into sections
-  const mainFields = detailFields.filter(f => 
-    ["kind", "title", "description", "user"].includes(String(f.name))
-  )
-  const statusFields = detailFields.filter(f => 
-    ["isRead", "readAt"].includes(String(f.name))
-  )
-  const metadataFields = detailFields.filter(f => 
-    ["createdAt", "expiresAt", "actionUrl"].includes(String(f.name))
-  )
-
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      {/* Detail Sections */}
-      <ResourceDetailPage
-        data={notification}
-        fields={{
-          title: "Thông tin cơ bản",
-          description: "Thông tin chính của thông báo",
-          fields: mainFields,
-        }}
-        sections={[
-          {
-            title: "Trạng thái",
-            description: "Thông tin trạng thái của thông báo",
-            fields: statusFields,
-          },
-          {
-            title: "Thông tin bổ sung",
-            description: "Thông tin chi tiết về thông báo",
-            fields: metadataFields,
-          },
-        ]}
-        backUrl={backUrl}
-        backLabel="Quay lại danh sách"
-      />
-    </div>
+    <ResourceDetailPage<NotificationDetailData>
+      data={notification}
+      fields={detailFields}
+      detailSections={detailSections}
+      title={notification.title}
+      description={`Thông báo ${(NOTIFICATION_KINDS[notification.kind] || { label: notification.kind }).label.toLowerCase()} cho ${notification.user?.email || "người dùng"}`}
+      backUrl={backUrl}
+      backLabel="Quay lại danh sách"
+    />
   )
 }
 

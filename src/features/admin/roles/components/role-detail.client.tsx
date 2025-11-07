@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import * as React from "react"
 import { Shield, FileText, Calendar, Clock, CheckCircle2, XCircle, Edit, ChevronsUpDown, Check } from "lucide-react"
 import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { formatDateVi } from "../utils"
 import { getAllPermissionsOptionGroups } from "../form-fields"
@@ -42,9 +44,29 @@ export interface RoleDetailClientProps {
   backUrl?: string
 }
 
+// Reusable field item component
+interface FieldItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+  iconColor?: string
+}
+
+const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
+  <div className="flex items-start gap-3">
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
+  </div>
+)
+
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
   const router = useRouter()
-  const [permissionsOpen, setPermissionsOpen] = useState(false)
+  const [permissionsOpen, setPermissionsOpen] = React.useState(false)
 
   // Get grouped permissions
   const permissionsGroups = getAllPermissionsOptionGroups()
@@ -52,65 +74,82 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
   // Get all options from groups
   const allPermissionsOptions = permissionsGroups.flatMap((group) => group.options)
 
-  const detailFields: ResourceDetailField<RoleDetailData>[] = [
+  const detailFields: ResourceDetailField<RoleDetailData>[] = []
+
+  // Sections cho detail view - tách fields thành các sections
+  const detailSections: ResourceDetailSection<RoleDetailData>[] = [
     {
-      name: "name",
-      label: "Tên vai trò",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Shield className="h-5 w-5 text-primary" />
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin chính về vai trò",
+      fieldsContent: (_fields, data) => {
+        const roleData = data as RoleDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Name & Display Name */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Shield} label="Tên vai trò">
+                <div className="text-sm font-medium text-foreground">
+                  {roleData.name || "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={FileText} label="Tên hiển thị">
+                <div className="text-sm font-medium text-foreground">
+                  {roleData.displayName || "—"}
+                </div>
+              </FieldItem>
+            </div>
+
+            {/* Description */}
+            {roleData.description && (
+              <>
+                <Separator />
+                <Card className="border border-border/50 bg-card p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                        {roleData.description || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </>
+            )}
           </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
+        )
+      },
     },
     {
-      name: "displayName",
-      label: "Tên hiển thị",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-            <FileText className="h-5 w-5 text-chart-1" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "description",
-      label: "Mô tả",
-      type: "custom",
-      section: "basic",
-      render: (value) => (
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-            <FileText className="h-5 w-5 text-chart-2" />
-          </div>
-          <div className="flex-1">
-            <div className="text-sm text-muted-foreground">{String(value || "—")}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "permissions",
-      label: "Quyền",
-      type: "custom",
-      section: "permissions",
-      render: (value) => {
-        if (!value || !Array.isArray(value) || value.length === 0) {
-          return <span className="text-muted-foreground">—</span>
+      id: "permissions",
+      title: "Quyền truy cập",
+      description: "Danh sách quyền được gán cho vai trò",
+      fieldsContent: (_fields, data) => {
+        const roleData = data as RoleDetailData
+        
+        if (!roleData.permissions || !Array.isArray(roleData.permissions) || roleData.permissions.length === 0) {
+          return (
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">Quyền</div>
+                <div className="text-sm text-muted-foreground">—</div>
+              </div>
+            </div>
+          )
         }
 
-        const selectedValues = value.map((v) => String(v))
+        const selectedValues = roleData.permissions.map((v) => String(v))
         
         // Get selected permissions with labels
-        const selectedPermissions = value
+        const selectedPermissions = roleData.permissions
           .map((perm) => {
             const option = allPermissionsOptions.find((opt) => opt.value === perm)
             return option ? { value: perm, label: option.label } : null
@@ -119,74 +158,79 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
 
         const displayText = selectedPermissions.length > 0
           ? `${selectedPermissions.length} quyền đã chọn`
-          : `${value.length} quyền đã chọn`
+          : `${roleData.permissions.length} quyền đã chọn`
 
         return (
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-              <Shield className="h-5 w-5 text-chart-2" />
-            </div>
-            <div className="flex-1 space-y-2">
-              <Popover open={permissionsOpen} onOpenChange={setPermissionsOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={permissionsOpen}
-                    className="w-full justify-between"
-                  >
-                    <span className="truncate">{displayText}</span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Tìm kiếm quyền..." className="h-9" />
-                    <CommandList>
-                      <CommandEmpty>Không tìm thấy quyền.</CommandEmpty>
-                      {permissionsGroups.map((group) => {
-                        const groupSelectedCount = group.options.filter((opt) =>
-                          selectedValues.includes(String(opt.value))
-                        ).length
-                        
-                        if (groupSelectedCount === 0) return null
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-3">
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">Quyền</div>
+                  <Popover open={permissionsOpen} onOpenChange={setPermissionsOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={permissionsOpen}
+                        className="w-full justify-between"
+                      >
+                        <span className="truncate">{displayText}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Tìm kiếm quyền..." className="h-9" />
+                        <CommandList>
+                          <CommandEmpty>Không tìm thấy quyền.</CommandEmpty>
+                          {permissionsGroups.map((group) => {
+                            const groupSelectedCount = group.options.filter((opt) =>
+                              selectedValues.includes(String(opt.value))
+                            ).length
+                            
+                            if (groupSelectedCount === 0) return null
 
-                        return (
-                          <CommandGroup key={group.label} heading={group.label}>
-                            {group.options.map((option) => {
-                              const isSelected = selectedValues.includes(String(option.value))
-                              if (!isSelected) return null
-                              
-                              return (
-                                <CommandItem
-                                  key={option.value}
-                                  value={String(option.value)}
-                                  disabled
-                                  className="cursor-default"
-                                >
-                                  <Check className={cn("mr-2 h-4 w-4", "opacity-100")} />
-                                  {option.label}
-                                </CommandItem>
-                              )
-                            })}
-                          </CommandGroup>
-                        )
-                      })}
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <div className="flex flex-wrap gap-2">
-                {selectedPermissions.slice(0, 5).map((perm) => (
-                  <Badge key={perm.value} variant="outline" className="text-xs">
-                    {perm.label}
-                  </Badge>
-                ))}
-                {selectedPermissions.length > 5 && (
-                  <Badge variant="outline" className="text-xs">
-                    +{selectedPermissions.length - 5} quyền khác
-                  </Badge>
-                )}
+                            return (
+                              <CommandGroup key={group.label} heading={group.label}>
+                                {group.options.map((option) => {
+                                  const isSelected = selectedValues.includes(String(option.value))
+                                  if (!isSelected) return null
+                                  
+                                  return (
+                                    <CommandItem
+                                      key={option.value}
+                                      value={String(option.value)}
+                                      disabled
+                                      className="cursor-default"
+                                    >
+                                      <Check className={cn("mr-2 h-4 w-4", "opacity-100")} />
+                                      {option.label}
+                                    </CommandItem>
+                                  )
+                                })}
+                              </CommandGroup>
+                            )
+                          })}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedPermissions.slice(0, 5).map((perm) => (
+                    <Badge key={perm.value} variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      {perm.label}
+                    </Badge>
+                  ))}
+                  {selectedPermissions.length > 5 && (
+                    <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                      +{selectedPermissions.length - 5} quyền khác
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -194,75 +238,68 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       },
     },
     {
-      name: "isActive",
-      label: "Trạng thái",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-3/10">
-            {value ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
-            )}
-          </div>
-          <div>
-            <div className="font-medium">{value ? "Hoạt động" : "Tạm khóa"}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "createdAt",
-      label: "Ngày tạo",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-            <Calendar className="h-5 w-5 text-chart-4" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "updatedAt",
-      label: "Cập nhật lần cuối",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Clock className="h-5 w-5 text-chart-5" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-  ]
-
-  // Sections cho detail view - tách fields thành các sections
-  const detailSections: ResourceDetailSection<RoleDetailData>[] = [
-    {
-      id: "basic",
-      title: "Thông tin cơ bản",
-      description: "Thông tin chính về vai trò",
-    },
-    {
-      id: "permissions",
-      title: "Quyền truy cập",
-      description: "Danh sách quyền được gán cho vai trò",
-    },
-    {
       id: "status",
       title: "Trạng thái và thời gian",
       description: "Trạng thái hoạt động và thông tin thời gian",
+      fieldsContent: (_fields, data) => {
+        const roleData = data as RoleDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Status */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                {roleData.isActive ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái</div>
+                <Badge
+                  className={cn(
+                    "text-sm font-medium px-2.5 py-1",
+                    roleData.isActive
+                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                  )}
+                  variant={roleData.isActive ? "default" : "secondary"}
+                >
+                  {roleData.isActive ? (
+                    <>
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      Hoạt động
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Tạm khóa
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Timestamps */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {roleData.createdAt ? formatDateVi(roleData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {roleData.updatedAt ? formatDateVi(roleData.updatedAt) : "—"}
+                </div>
+              </FieldItem>
+            </div>
+          </div>
+        )
+      },
     },
   ]
 

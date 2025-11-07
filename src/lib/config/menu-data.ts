@@ -193,30 +193,6 @@ export function getMenuData(userPermissions: Permission[]): {
       ],
     },
     {
-      title: "Thông báo",
-      url: "/admin/notifications",
-      icon: React.createElement(Bell, { className: "h-4 w-4" }),
-      permissions: MENU_PERMISSIONS.notifications,
-    },
-    {
-      title: "Liên hệ",
-      url: "/admin/contact-requests",
-      icon: React.createElement(Phone, { className: "h-4 w-4" }),
-      permissions: MENU_PERMISSIONS.contact_requests,
-      items: [
-        {
-          title: "Mới",
-          url: "/admin/contact-requests",
-          permissions: [PERMISSIONS.CONTACT_REQUESTS_VIEW],
-        },
-        {
-          title: "Đã xử lý",
-          url: "/admin/contact-requests/resolved",
-          permissions: [PERMISSIONS.CONTACT_REQUESTS_VIEW],
-        },
-      ],
-    },
-    {
       title: "Học sinh",
       url: "/admin/students",
       icon: React.createElement(GraduationCap, { className: "h-4 w-4" }),
@@ -235,22 +211,22 @@ export function getMenuData(userPermissions: Permission[]): {
       ],
     },
     {
+      title: "Thông báo",
+      url: "/admin/notifications",
+      icon: React.createElement(Bell, { className: "h-4 w-4" }),
+      permissions: MENU_PERMISSIONS.notifications,
+    },
+    {
+      title: "Liên hệ",
+      url: "/admin/contact-requests",
+      icon: React.createElement(Phone, { className: "h-4 w-4" }),
+      permissions: MENU_PERMISSIONS.contact_requests,
+    },
+    {
       title: "Phiên đăng nhập",
       url: "/admin/sessions",
       icon: React.createElement(Tag, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.sessions,
-      items: [
-        {
-          title: "Danh sách",
-          url: "/admin/sessions",
-          permissions: [PERMISSIONS.SESSIONS_VIEW],
-        },
-        {
-          title: "Thêm mới",
-          url: "/admin/sessions/new",
-          permissions: [PERMISSIONS.SESSIONS_CREATE],
-        },
-      ],
     }
   ]
 

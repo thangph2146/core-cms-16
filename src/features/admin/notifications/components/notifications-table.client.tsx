@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react"
-import { Eye, CheckCircle2, MoreHorizontal, Circle } from "lucide-react"
+import { Eye, CheckCircle2, MoreHorizontal } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
@@ -61,6 +62,7 @@ export function NotificationsTableClient({
   
   const [isProcessing, setIsProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
+  const [togglingNotifications, setTogglingNotifications] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
 
   // Function để trigger refresh của table
@@ -235,58 +237,43 @@ export function NotificationsTableClient({
     []
   )
 
-  const handleMarkAsRead = useCallback(
-    async (row: NotificationRow) => {
+  // Handler để toggle read status
+  const handleToggleRead = useCallback(
+    async (row: NotificationRow, newStatus: boolean, refresh: () => void) => {
       // Kiểm tra quyền: chỉ cho phép đánh dấu notification của chính mình
       const isOwner = session?.user?.id === row.userId
       
       if (!isOwner) {
-        showFeedback("error", "Không có quyền", "Bạn chỉ có thể đánh dấu đã đọc thông báo của chính mình.")
+        showFeedback("error", "Không có quyền", "Bạn chỉ có thể đánh dấu đã đọc/chưa đọc thông báo của chính mình.")
         return
       }
 
+      setTogglingNotifications((prev) => new Set(prev).add(row.id))
+
       try {
-        setIsProcessing(true)
-        await apiClient.patch(apiRoutes.notifications.markRead(row.id), { isRead: true })
-        showFeedback("success", "Đã đánh dấu đã đọc", "Thông báo đã được đánh dấu là đã đọc.")
-        triggerTableRefresh()
+        await apiClient.patch(apiRoutes.notifications.markRead(row.id), { isRead: newStatus })
+        showFeedback(
+          "success",
+          newStatus ? "Đã đánh dấu đã đọc" : "Đã đánh dấu chưa đọc",
+          newStatus 
+            ? "Thông báo đã được đánh dấu là đã đọc."
+            : "Thông báo đã được đánh dấu là chưa đọc."
+        )
+        refresh()
       } catch (error: unknown) {
         const errorMessage = 
           (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể đánh dấu đã đọc thông báo."
-        showFeedback("error", "Lỗi", errorMessage)
+          (newStatus ? "Không thể đánh dấu đã đọc thông báo." : "Không thể đánh dấu chưa đọc thông báo.")
+        showFeedback("error", newStatus ? "Đánh dấu đã đọc thất bại" : "Đánh dấu chưa đọc thất bại", errorMessage)
       } finally {
-        setIsProcessing(false)
+        setTogglingNotifications((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
       }
     },
-    [showFeedback, triggerTableRefresh, session?.user?.id]
-  )
-
-  const handleMarkAsUnread = useCallback(
-    async (row: NotificationRow) => {
-      // Kiểm tra quyền: chỉ cho phép đánh dấu notification của chính mình
-      const isOwner = session?.user?.id === row.userId
-      
-      if (!isOwner) {
-        showFeedback("error", "Không có quyền", "Bạn chỉ có thể đánh dấu chưa đọc thông báo của chính mình.")
-        return
-      }
-
-      try {
-        setIsProcessing(true)
-        await apiClient.patch(apiRoutes.notifications.markRead(row.id), { isRead: false })
-        showFeedback("success", "Đã đánh dấu chưa đọc", "Thông báo đã được đánh dấu là chưa đọc.")
-        triggerTableRefresh()
-      } catch (error: unknown) {
-        const errorMessage = 
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể đánh dấu chưa đọc thông báo."
-        showFeedback("error", "Lỗi", errorMessage)
-      } finally {
-        setIsProcessing(false)
-      }
-    },
-    [showFeedback, triggerTableRefresh, session?.user?.id]
+    [showFeedback, session?.user?.id],
   )
 
   const handleBulkMarkAsRead = useCallback(
@@ -431,13 +418,29 @@ export function NotificationsTableClient({
             { label: "Chưa đọc", value: "false" },
           ],
         },
-        className: "min-w-[100px]",
-        headerClassName: "min-w-[100px]",
-        cell: (row) => (
-          <Badge variant={row.isRead ? "secondary" : "default"}>
-            {row.isRead ? "Đã đọc" : "Chưa đọc"}
-          </Badge>
-        ),
+        className: "min-w-[140px] max-w-[180px]",
+        headerClassName: "min-w-[140px] max-w-[180px]",
+        cell: (row) => {
+          const isOwner = session?.user?.id === row.userId
+          
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={row.isRead}
+                disabled={togglingNotifications.has(row.id) || !isOwner}
+                onCheckedChange={(checked) => {
+                  if (tableRefreshRef.current && isOwner) {
+                    handleToggleRead(row, checked, tableRefreshRef.current)
+                  }
+                }}
+                aria-label={row.isRead ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}
+              />
+              <span className="text-xs text-muted-foreground">
+                {row.isRead ? "Đã đọc" : "Chưa đọc"}
+              </span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: "createdAt",
@@ -447,7 +450,15 @@ export function NotificationsTableClient({
         cell: (row) => dateFormatter.format(new Date(row.createdAt)),
       },
     ],
-    [dateFormatter, userEmailFilter.options, userEmailFilter.onSearchChange, userEmailFilter.isLoading, session?.user?.id]
+    [
+      dateFormatter,
+      userEmailFilter.options,
+      userEmailFilter.onSearchChange,
+      userEmailFilter.isLoading,
+      session?.user?.id,
+      togglingNotifications,
+      handleToggleRead,
+    ]
   )
 
   const viewModes: ResourceViewMode<NotificationRow>[] = [
@@ -491,56 +502,22 @@ export function NotificationsTableClient({
           }
         : undefined,
       rowActions: canManage
-        ? (row, context) => {
-            // Chỉ chủ sở hữu mới được đánh dấu đã đọc/chưa đọc notification
-            // Chỉ cho phép owner đánh dấu đã đọc
-            const isOwner = session?.user?.id === row.userId
-            const canMarkRead = isOwner
-            
-            // Wrap handlers với refresh function từ context
-            const handleMarkAsReadWithRefresh = async () => {
-              await handleMarkAsRead(row)
-              context?.refresh?.() // Trigger table refresh
-            }
-
-            const handleMarkAsUnreadWithRefresh = async () => {
-              await handleMarkAsUnread(row)
-              context?.refresh?.() // Trigger table refresh
-            }
-            
-            return (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <span className="sr-only">Mở menu</span>
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/admin/notifications/${row.id}`)}>
-                    <Eye className="mr-2 h-5 w-5" />
-                    Xem chi tiết
-                  </DropdownMenuItem>
-                  {/* Hiển thị option đánh dấu đã đọc/chưa đọc nếu user là chủ sở hữu hoặc super admin với notification SYSTEM */}
-                  {canMarkRead && (
-                    <>
-                      {row.isRead ? (
-                        <DropdownMenuItem onClick={handleMarkAsUnreadWithRefresh}>
-                          <Circle className="mr-2 h-5 w-5" />
-                          Đánh dấu chưa đọc
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem onClick={handleMarkAsReadWithRefresh}>
-                          <CheckCircle2 className="mr-2 h-5 w-5" />
-                          Đánh dấu đã đọc
-                        </DropdownMenuItem>
-                      )}
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )
-          }
+        ? (row) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <span className="sr-only">Mở menu</span>
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push(`/admin/notifications/${row.id}`)}>
+                  <Eye className="mr-2 h-5 w-5" />
+                  Xem chi tiết
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
         : (row) => (
             <Button
               variant="ghost"

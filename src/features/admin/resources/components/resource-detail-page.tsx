@@ -89,11 +89,15 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
 }: ResourceDetailPageProps<T>) {
   const router = useRouter()
 
-  const allFields = Array.isArray(fields) ? fields : fields.fields
+  const allFields = React.useMemo(
+    () => Array.isArray(fields) ? fields : fields.fields,
+    [fields]
+  )
 
-  const groupFieldsBySection = () => {
+  const groupFieldsBySection = React.useMemo(() => {
     const grouped: Record<string, ResourceDetailField<T>[]> = {}
     const ungrouped: ResourceDetailField<T>[] = []
+    
     allFields.forEach((field) => {
       if (field.section) {
         grouped[field.section] ??= []
@@ -102,27 +106,37 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
         ungrouped.push(field)
       }
     })
+    
     return { grouped, ungrouped }
-  }
+  }, [allFields])
 
-  const formatValue = (field: ResourceDetailField<T>, value: unknown): React.ReactNode => {
+  const formatValue = React.useCallback((field: ResourceDetailField<T>, value: unknown): React.ReactNode => {
     if (field.render) return field.render(value, data!)
     if (value == null) return <span className="text-muted-foreground">—</span>
     if (field.format) return field.format(value)
 
     switch (field.type) {
-      case "boolean":
+      case "boolean": {
+        const boolValue = Boolean(value)
         return (
-          <span className={cn("inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-            value ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+          <span className={cn(
+            "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
+            boolValue 
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" 
+              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
           )}>
-            {value ? "Có" : "Không"}
+            {boolValue ? "Có" : "Không"}
           </span>
         )
+      }
       case "date":
         try {
           return new Date(value as string | number).toLocaleDateString("vi-VN", {
-            year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
           })
         } catch {
           return String(value)
@@ -132,25 +146,56 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
       default:
         return <span className="break-words break-all whitespace-pre-wrap">{String(value)}</span>
     }
+  }, [data])
+
+  // Kiểm tra xem content có phải là React element phức tạp không
+  const isComplexReactNode = (node: React.ReactNode): boolean => {
+    if (!node) return false
+    if (typeof node === "string" || typeof node === "number") return false
+    if (React.isValidElement(node)) {
+      // Kiểm tra nếu là Card, div với className phức tạp, hoặc các component layout
+      const element = node as React.ReactElement<{ className?: string }>
+      if (element.type === Card || 
+          (typeof element.type === "string" && ["div", "section", "article"].includes(element.type))) {
+        return true
+      }
+      // Kiểm tra props className có chứa layout classes
+      const className = element.props?.className
+      if (className && typeof className === "string") {
+        const layoutClasses = ["flex", "grid", "card", "border", "p-", "gap-", "shadow"]
+        return layoutClasses.some(lc => className.includes(lc))
+      }
+    }
+    return false
   }
 
-  const renderField = (field: ResourceDetailField<T>, inSection = false) => {
+  const renderField = React.useCallback((field: ResourceDetailField<T>, inSection = false) => {
     const value = data?.[field.name as keyof T]
+    const formattedValue = isLoading ? <Skeleton className="h-4 w-32" /> : formatValue(field, value)
+    const isCustomRender = !!field.render
+    const isComplexNode = isComplexReactNode(formattedValue)
+
     return (
       <Field orientation="vertical" className={cn("py-2.5", !inSection && "border-b border-border/50 last:border-0")}>
         <FieldTitle className="text-muted-foreground text-xs font-medium mb-1">{field.label}</FieldTitle>
         <FieldContent>
-          <div className="text-sm break-words break-all whitespace-pre-wrap">
-            {isLoading ? <Skeleton className="h-4 w-32" /> : formatValue(field, value)}
-          </div>
+          {isCustomRender || isComplexNode ? (
+            formattedValue
+          ) : (
+            <div className="text-sm break-words break-all whitespace-pre-wrap">
+              {formattedValue}
+            </div>
+          )}
           {field.description && <FieldDescription className="text-xs mt-1">{field.description}</FieldDescription>}
         </FieldContent>
       </Field>
     )
-  }
+  }, [data, isLoading, formatValue])
 
-  const renderFields = (fieldsToRender: ResourceDetailField<T>[]) => 
-    fieldsToRender.length > 0 ? (
+  const renderFields = React.useCallback((fieldsToRender: ResourceDetailField<T>[]) => {
+    if (fieldsToRender.length === 0) return null
+    
+    return (
       <FieldGroup className="gap-0">
         {fieldsToRender.map((field) => (
           <React.Fragment key={String(field.name)}>
@@ -158,24 +203,31 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
           </React.Fragment>
         ))}
       </FieldGroup>
-    ) : null
+    )
+  }, [renderField])
 
-  const getGridClasses = (fieldCount: number) => 
-    fieldCount === 1 
-      ? { gridClass: "grid-cols-1", gridResponsiveAttr: "true" as const }
-      : fieldCount === 2
-      ? { gridClass: "grid-cols-1 @md:grid-cols-2", gridResponsiveAttr: "true" as const }
-      : { gridClass: "grid-cols-1", gridResponsiveAttr: "auto-fit" as const }
+  const getGridClasses = React.useCallback((fieldCount: number) => {
+    if (fieldCount === 1) {
+      return { gridClass: "grid-cols-1", gridResponsiveAttr: "true" as const }
+    }
+    if (fieldCount === 2) {
+      return { gridClass: "grid-cols-1 @md:grid-cols-2", gridResponsiveAttr: "true" as const }
+    }
+    return { gridClass: "grid-cols-1", gridResponsiveAttr: "auto-fit" as const }
+  }, [])
 
-  const renderSection = (sectionId: string, sectionFields: ResourceDetailField<T>[]) => {
+  const renderSection = React.useCallback((sectionId: string, sectionFields: ResourceDetailField<T>[]) => {
     const sectionInfo = detailSections?.find((s) => s.id === sectionId)
     const { gridClass, gridResponsiveAttr } = getGridClasses(sectionFields.length)
+    
     const fieldsContent = sectionInfo?.fieldsContent && data 
       ? sectionInfo.fieldsContent(sectionFields, data)
       : (
           <div className={cn("grid gap-6", gridClass)} data-grid-responsive={gridResponsiveAttr}>
             {sectionFields.map((field) => (
-              <div key={String(field.name)} className="min-w-0">{renderField(field, true)}</div>
+              <div key={String(field.name)} className="min-w-0">
+                {renderField(field, true)}
+              </div>
             ))}
           </div>
         )
@@ -183,8 +235,14 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
     return (
       <Card key={sectionId} className="h-fit">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">{sectionInfo?.title || "Thông tin chi tiết"}</CardTitle>
-          {sectionInfo?.description && <CardDescription className="mt-0.5 text-xs">{sectionInfo.description}</CardDescription>}
+          <CardTitle className="text-base font-semibold">
+            {sectionInfo?.title || "Thông tin chi tiết"}
+          </CardTitle>
+          {sectionInfo?.description && (
+            <CardDescription className="mt-0.5 text-xs">
+              {sectionInfo.description}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent className="pt-0 pb-4">
           {sectionInfo?.fieldHeader && <div className="mb-6">{sectionInfo.fieldHeader}</div>}
@@ -193,7 +251,7 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
         </CardContent>
       </Card>
     )
-  }
+  }, [detailSections, data, getGridClasses, renderField])
 
   if (isLoading) {
     return (
@@ -266,15 +324,29 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
 
       <div className="space-y-6">
         {(() => {
-          const { grouped, ungrouped } = groupFieldsBySection()
+          const { grouped, ungrouped } = groupFieldsBySection
           const fieldsTitle = Array.isArray(fields) ? "Thông tin chi tiết" : (fields.title || "Thông tin chi tiết")
           const fieldsDesc = Array.isArray(fields) ? description : fields.description
+          const detailSectionIds = new Set(detailSections?.map(s => s.id) || [])
 
           return (
             <>
-              {Object.entries(grouped).map(([sectionId, sectionFields]) =>
-                renderSection(sectionId, sectionFields)
-              )}
+              {/* Render sections từ detailSections - bao gồm cả sections có fieldsContent nhưng không có fields */}
+              {detailSections?.map((section) => {
+                const sectionFields = grouped[section.id] || []
+                // Render section nếu có fields hoặc có fieldsContent
+                if (sectionFields.length > 0 || section.fieldsContent) {
+                  return <React.Fragment key={section.id}>{renderSection(section.id, sectionFields)}</React.Fragment>
+                }
+                return null
+              })}
+              
+              {/* Render sections từ grouped (legacy - cho backward compatibility) */}
+              {Object.entries(grouped)
+                .filter(([sectionId]) => !detailSectionIds.has(sectionId))
+                .map(([sectionId, sectionFields]) => (
+                  <React.Fragment key={sectionId}>{renderSection(sectionId, sectionFields)}</React.Fragment>
+                ))}
 
               {ungrouped.length > 0 && (
                 <Card>

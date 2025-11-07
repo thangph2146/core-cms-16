@@ -1,11 +1,15 @@
 "use client"
 
-import { User, Mail, Phone, FileText, MessageSquare, AlertCircle, UserCheck, Calendar, Clock, Edit } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField } from "@/features/admin/resources/components"
+import * as React from "react"
+import { User, Mail, Phone, FileText, MessageSquare, AlertCircle, UserCheck, Calendar, Clock, Edit, CheckCircle2, XCircle } from "lucide-react"
+import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { formatDateVi } from "../utils"
+import { cn } from "@/lib/utils"
 
 const statusLabels: Record<string, string> = {
   NEW: "Mới",
@@ -63,159 +67,203 @@ export interface ContactRequestDetailClientProps {
   backUrl?: string
 }
 
+// Reusable field item component
+interface FieldItemProps {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  children: React.ReactNode
+  iconColor?: string
+}
+
+const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
+  <div className="flex items-start gap-3">
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+      {children}
+    </div>
+  </div>
+)
+
 export function ContactRequestDetailClient({ contactRequestId, contactRequest, backUrl = "/admin/contact-requests" }: ContactRequestDetailClientProps) {
   const router = useRouter()
 
-  const detailFields: ResourceDetailField<ContactRequestDetailData>[] = [
+  const detailFields: ResourceDetailField<ContactRequestDetailData>[] = []
+
+  const detailSections: ResourceDetailSection<ContactRequestDetailData>[] = [
     {
-      name: "name",
-      label: "Tên người liên hệ",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <User className="h-5 w-5 text-primary" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "email",
-      label: "Email",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-            <Mail className="h-5 w-5 text-chart-1" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "phone",
-      label: "Số điện thoại",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-            <Phone className="h-5 w-5 text-chart-2" />
-          </div>
-          <div className="font-medium">{value ? String(value) : "—"}</div>
-        </div>
-      ),
-    },
-    {
-      name: "subject",
-      label: "Tiêu đề",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-3/10">
-            <FileText className="h-5 w-5 text-chart-3" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "content",
-      label: "Nội dung",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-            <MessageSquare className="h-5 w-5 text-chart-4" />
-          </div>
-          <div className="flex-1 whitespace-pre-wrap rounded-md border p-3">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "status",
-      label: "Trạng thái",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <AlertCircle className="h-5 w-5 text-chart-5" />
-          </div>
-          <Badge variant={statusColors[String(value)] || "default"}>{statusLabels[String(value)] || String(value)}</Badge>
-        </div>
-      ),
-    },
-    {
-      name: "priority",
-      label: "Độ ưu tiên",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-6/10">
-            <AlertCircle className="h-5 w-5 text-chart-6" />
-          </div>
-          <Badge variant={priorityColors[String(value)] || "default"}>{priorityLabels[String(value)] || String(value)}</Badge>
-        </div>
-      ),
-    },
-    {
-      name: "isRead",
-      label: "Đã đọc",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-7/10">
-            <MessageSquare className="h-5 w-5 text-chart-7" />
-          </div>
-          <Badge variant={value ? "outline" : "default"}>{value ? "Đã đọc" : "Chưa đọc"}</Badge>
-        </div>
-      ),
-    },
-    {
-      name: "assignedTo",
-      label: "Người được giao",
-      type: "custom",
-      render: (value) => {
-        const assignedTo = value as ContactRequestDetailData["assignedTo"]
+      id: "basic",
+      title: "Thông tin cơ bản",
+      description: "Thông tin liên hệ và nội dung yêu cầu",
+      fieldsContent: (_fields, data) => {
+        const requestData = data as ContactRequestDetailData
+        
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-8/10">
-              <UserCheck className="h-5 w-5 text-chart-8" />
+          <div className="space-y-6">
+            {/* Contact Info */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={User} label="Tên người liên hệ">
+                <div className="text-sm font-medium text-foreground">
+                  {requestData.name || "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Mail} label="Email">
+                <a
+                  href={`mailto:${requestData.email}`}
+                  className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
+                >
+                  {requestData.email || "—"}
+                </a>
+              </FieldItem>
             </div>
-            <div className="font-medium">{assignedTo?.name || assignedTo?.email || "—"}</div>
+
+            {requestData.phone && (
+              <>
+                <Separator />
+                <FieldItem icon={Phone} label="Số điện thoại">
+                  <a
+                    href={`tel:${requestData.phone}`}
+                    className="text-sm font-medium text-primary hover:underline transition-colors"
+                  >
+                    {requestData.phone}
+                  </a>
+                </FieldItem>
+              </>
+            )}
+
+            <Separator />
+
+            {/* Subject */}
+            <FieldItem icon={FileText} label="Tiêu đề">
+              <div className="text-sm font-medium text-foreground">
+                {requestData.subject || "—"}
+              </div>
+            </FieldItem>
+
+            <Separator />
+
+            {/* Content */}
+            <Card className="border border-border/50 bg-card p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-foreground mb-2">Nội dung</h3>
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                    {requestData.content || "—"}
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
         )
       },
     },
     {
-      name: "createdAt",
-      label: "Ngày tạo",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-9/10">
-            <Calendar className="h-5 w-5 text-chart-9" />
+      id: "status",
+      title: "Trạng thái và phân công",
+      description: "Trạng thái xử lý, độ ưu tiên và người được giao",
+      fieldsContent: (_fields, data) => {
+        const requestData = data as ContactRequestDetailData
+        
+        return (
+          <div className="space-y-6">
+            {/* Status & Priority */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={AlertCircle} label="Trạng thái">
+                <Badge variant={statusColors[requestData.status] || "default"}>
+                  {statusLabels[requestData.status] || requestData.status}
+                </Badge>
+              </FieldItem>
+
+              <FieldItem icon={AlertCircle} label="Độ ưu tiên">
+                <Badge variant={priorityColors[requestData.priority] || "default"}>
+                  {priorityLabels[requestData.priority] || requestData.priority}
+                </Badge>
+              </FieldItem>
+            </div>
+
+            <Separator />
+
+            {/* Read Status */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                {requestData.isRead ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">Đã đọc</div>
+                <Badge
+                  className={cn(
+                    "text-sm font-medium px-2.5 py-1",
+                    requestData.isRead
+                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                  )}
+                  variant={requestData.isRead ? "default" : "secondary"}
+                >
+                  {requestData.isRead ? (
+                    <>
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                      Đã đọc
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                      Chưa đọc
+                    </>
+                  )}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Assigned To */}
+            {requestData.assignedTo && (
+              <>
+                <Separator />
+                <FieldItem icon={UserCheck} label="Người được giao">
+                  <div className="text-sm font-medium text-foreground">
+                    {requestData.assignedTo.name || requestData.assignedTo.email || "—"}
+                  </div>
+                </FieldItem>
+              </>
+            )}
           </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
-      name: "updatedAt",
-      label: "Cập nhật lần cuối",
-      type: "custom",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-10/10">
-            <Clock className="h-5 w-5 text-chart-10" />
+      id: "timestamps",
+      title: "Thông tin thời gian",
+      description: "Ngày tạo và cập nhật lần cuối",
+      fieldsContent: (_fields, data) => {
+        const requestData = data as ContactRequestDetailData
+        
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {requestData.createdAt ? formatDateVi(requestData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {requestData.updatedAt ? formatDateVi(requestData.updatedAt) : "—"}
+                </div>
+              </FieldItem>
+            </div>
           </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
+        )
+      },
     },
   ]
 
@@ -223,6 +271,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
     <ResourceDetailPage<ContactRequestDetailData>
       data={contactRequest}
       fields={detailFields}
+      detailSections={detailSections}
       title={contactRequest.subject}
       description={`Yêu cầu liên hệ từ ${contactRequest.name}`}
       backUrl={backUrl}
