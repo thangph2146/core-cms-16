@@ -1,6 +1,24 @@
+import type { Metadata } from "next"
 import { getSession } from "@/lib/auth/auth-server"
 import { PublicHeader } from "@/components/headers"
 import { PermissionGate } from "@/components/shared"
+
+/**
+ * Auth Layout Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với root layout
+ * - Title sử dụng template từ root để có format nhất quán
+ * - Auth pages không nên được index
+ */
+export const metadata: Metadata = {
+  title: "Xác thực",
+  description: "Đăng nhập hoặc đăng ký tài khoản",
+  robots: {
+    index: false, // Auth pages không nên được index
+    follow: false,
+  },
+}
 
 /**
  * Auth Layout
@@ -46,4 +64,3 @@ export default async function AuthLayout({
     </>
   )
 }
-

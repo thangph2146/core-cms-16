@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { UserDetail } from "@/features/admin/users/components/user-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getUserDetailById } from "@/features/admin/users/server/cache"
+
+/**
+ * User Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên user data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "{User Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const user = await getUserDetailById(id)
+
+  if (!user) {
+    return {
+      title: "Không tìm thấy",
+      description: "Người dùng không tồn tại",
+    }
+  }
+
+  return {
+    title: user.name || user.email || "Chi tiết người dùng",
+    description: `Chi tiết người dùng: ${user.name || user.email}`,
+  }
+}
 
 /**
  * User Detail Page với Suspense cho streaming

@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import type { Metadata } from "next"
 import { getSession } from "@/lib/auth/auth-server"
 import { getMenuData } from "@/lib/config"
 import { AppSidebar, NavMain } from "@/components/navigation"
@@ -6,6 +7,22 @@ import { NavMainSkeleton } from "@/components/skeletons"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { PermissionGate } from "@/components/shared"
 import type { Permission } from "@/lib/permissions"
+
+/**
+ * Admin Layout Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với root layout
+ * - Title sử dụng template từ root để có format nhất quán
+ */
+export const metadata: Metadata = {
+  title: "Quản trị",
+  description: "Trang quản trị hệ thống CMS",
+  robots: {
+    index: false, // Admin pages không nên được index
+    follow: false,
+  },
+}
 
 /**
  * Admin Layout với Suspense tối ưu
@@ -65,4 +82,3 @@ export default async function AdminLayout({
     </SidebarProvider>
   )
 }
-

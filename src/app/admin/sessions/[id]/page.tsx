@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { SessionDetail } from "@/features/admin/sessions/components/session-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getSessionDetailById } from "@/features/admin/sessions/server/cache"
+
+/**
+ * Session Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên session data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Session {User Email} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const session = await getSessionDetailById(id)
+
+  if (!session) {
+    return {
+      title: "Không tìm thấy",
+      description: "Session không tồn tại",
+    }
+  }
+
+  return {
+    title: `Session ${session.userEmail || session.userId || ""}`.trim() || "Chi tiết session",
+    description: `Chi tiết session: ${session.userEmail || session.userId || ""}`,
+  }
+}
 
 interface SessionDetailPageProps {
   params: Promise<{ id: string }>

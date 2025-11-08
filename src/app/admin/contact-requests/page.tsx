@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { ContactRequestsTable } from "@/features/admin/contact-requests/components/contact-requests-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Contact Requests Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Yêu cầu liên hệ | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Yêu cầu liên hệ",
+  description: "Quản lý yêu cầu liên hệ",
+}
 
 /**
  * Contact Requests Page với Suspense cho streaming

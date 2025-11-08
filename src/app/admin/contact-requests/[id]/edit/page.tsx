@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { ContactRequestEdit } from "@/features/admin/contact-requests/components/contact-request-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getContactRequestDetailById } from "@/features/admin/contact-requests/server/cache"
+
+/**
+ * Contact Request Edit Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên contact request data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Chỉnh sửa Yêu cầu liên hệ {Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const contactRequest = await getContactRequestDetailById(id)
+
+  if (!contactRequest) {
+    return {
+      title: "Không tìm thấy",
+      description: "Yêu cầu liên hệ không tồn tại",
+    }
+  }
+
+  return {
+    title: `Chỉnh sửa Yêu cầu liên hệ ${contactRequest.name || contactRequest.email || ""}`.trim() || "Chỉnh sửa yêu cầu liên hệ",
+    description: `Chỉnh sửa thông tin yêu cầu liên hệ: ${contactRequest.name || contactRequest.email || ""}`,
+  }
+}
 
 /**
  * Contact Request Edit Page với Suspense cho streaming

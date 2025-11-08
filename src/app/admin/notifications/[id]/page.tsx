@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { NotificationDetail } from "@/features/admin/notifications/components/notification-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getNotificationByIdCached } from "@/features/admin/notifications/server/cache"
+
+/**
+ * Notification Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên notification data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "{Notification Title} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const notification = await getNotificationByIdCached(id)
+
+  if (!notification) {
+    return {
+      title: "Không tìm thấy",
+      description: "Thông báo không tồn tại",
+    }
+  }
+
+  return {
+    title: notification.title || "Chi tiết thông báo",
+    description: notification.description || notification.title || "Chi tiết thông báo",
+  }
+}
 
 /**
  * Notification Detail Page với Suspense cho streaming

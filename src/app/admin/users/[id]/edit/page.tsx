@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { UserEdit } from "@/features/admin/users/components/user-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getUserDetailById } from "@/features/admin/users/server/cache"
+
+/**
+ * User Edit Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên user data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Chỉnh sửa {User Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const user = await getUserDetailById(id)
+
+  if (!user) {
+    return {
+      title: "Không tìm thấy",
+      description: "Người dùng không tồn tại",
+    }
+  }
+
+  return {
+    title: `Chỉnh sửa ${user.name || user.email || "người dùng"}`,
+    description: `Chỉnh sửa thông tin người dùng: ${user.name || user.email}`,
+  }
+}
 
 /**
  * User Edit Page với Suspense cho streaming

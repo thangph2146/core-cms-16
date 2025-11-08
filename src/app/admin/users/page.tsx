@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { UsersTable } from "@/features/admin/users/components/users-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Users Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Người dùng | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Người dùng",
+  description: "Quản lý người dùng hệ thống",
+}
 
 /**
  * Users Page với Suspense cho streaming

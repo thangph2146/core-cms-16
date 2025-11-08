@@ -1,7 +1,40 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { StudentDetail } from "@/features/admin/students/components/student-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getStudentDetailById } from "@/features/admin/students/server/cache"
+import { getAuthInfo } from "@/features/admin/resources/server"
+
+/**
+ * Student Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên student data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "{Student Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const { actorId, isSuperAdminUser } = await getAuthInfo()
+  const student = await getStudentDetailById(id, actorId, isSuperAdminUser)
+
+  if (!student) {
+    return {
+      title: "Không tìm thấy",
+      description: "Học sinh không tồn tại",
+    }
+  }
+
+  return {
+    title: student.name || student.studentCode || "Chi tiết học sinh",
+    description: `Chi tiết học sinh: ${student.name || student.studentCode}`,
+  }
+}
 
 interface StudentDetailPageProps {
   params: Promise<{ id: string }>

@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { TagsTable } from "@/features/admin/tags/components/tags-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Tags Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Thẻ tag | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Thẻ tag",
+  description: "Quản lý thẻ tag nội dung",
+}
 
 /**
  * Tags Page với Suspense cho streaming

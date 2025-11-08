@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { CategoryDetail } from "@/features/admin/categories/components/category-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getCategoryDetailById } from "@/features/admin/categories/server/cache"
+
+/**
+ * Category Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên category data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "{Category Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const category = await getCategoryDetailById(id)
+
+  if (!category) {
+    return {
+      title: "Không tìm thấy",
+      description: "Danh mục không tồn tại",
+    }
+  }
+
+  return {
+    title: category.name || "Chi tiết danh mục",
+    description: category.description || `Chi tiết danh mục: ${category.name}`,
+  }
+}
 
 /**
  * Category Detail Page với Suspense cho streaming

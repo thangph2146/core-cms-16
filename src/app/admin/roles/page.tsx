@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { RolesTable } from "@/features/admin/roles/components/roles-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Roles Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Vai trò | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Vai trò",
+  description: "Quản lý vai trò và quyền hạn",
+}
 
 /**
  * Roles Page với Suspense cho streaming

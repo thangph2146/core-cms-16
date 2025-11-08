@@ -1,7 +1,41 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { ContactRequestDetail } from "@/features/admin/contact-requests/components/contact-request-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getContactRequestDetailById } from "@/features/admin/contact-requests/server/cache"
+
+/**
+ * Contact Request Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên contact request data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Yêu cầu liên hệ {Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const contactRequest = await getContactRequestDetailById(id)
+
+  if (!contactRequest) {
+    return {
+      title: "Không tìm thấy",
+      description: "Yêu cầu liên hệ không tồn tại",
+    }
+  }
+
+  const descriptionText = contactRequest.content || contactRequest.subject || `Yêu cầu liên hệ từ ${contactRequest.name || contactRequest.email || ""}`
+  const descriptionPreview = descriptionText.length > 100 ? descriptionText.substring(0, 100) + "..." : descriptionText
+
+  return {
+    title: `Yêu cầu liên hệ ${contactRequest.name || contactRequest.email || ""}`.trim() || "Chi tiết yêu cầu liên hệ",
+    description: descriptionPreview,
+  }
+}
 
 /**
  * Contact Request Detail Page với Suspense cho streaming

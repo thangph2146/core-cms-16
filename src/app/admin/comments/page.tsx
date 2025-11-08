@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { CommentsTable } from "@/features/admin/comments/components/comments-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Comments Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Bình luận | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Bình luận",
+  description: "Quản lý bình luận",
+}
 
 /**
  * Comments Page với Suspense cho streaming

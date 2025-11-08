@@ -1,7 +1,38 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { TagDetail } from "@/features/admin/tags/components/tag-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { getTagDetailById } from "@/features/admin/tags/server/cache"
+
+/**
+ * Tag Detail Page Metadata (Dynamic)
+ * 
+ * Theo Next.js 16 best practices:
+ * - Sử dụng generateMetadata để tạo metadata động dựa trên tag data
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "{Tag Name} | CMS"
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const tag = await getTagDetailById(id)
+
+  if (!tag) {
+    return {
+      title: "Không tìm thấy",
+      description: "Thẻ tag không tồn tại",
+    }
+  }
+
+  return {
+    title: tag.name || "Chi tiết thẻ tag",
+    description: `Chi tiết thẻ tag: ${tag.name}`,
+  }
+}
 
 interface TagDetailPageProps {
   params: Promise<{ id: string }>

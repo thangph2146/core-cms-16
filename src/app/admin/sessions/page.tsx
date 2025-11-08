@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { SessionsTable } from "@/features/admin/sessions/components/sessions-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Sessions Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Session | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Session",
+  description: "Quản lý phiên đăng nhập",
+}
 
 /**
  * Sessions Page với Suspense cho streaming

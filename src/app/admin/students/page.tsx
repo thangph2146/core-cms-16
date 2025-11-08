@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { StudentsTable } from "@/features/admin/students/components/students-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Students Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Học sinh | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Học sinh",
+  description: "Quản lý học sinh",
+}
 
 /**
  * Students Page với Suspense cho streaming

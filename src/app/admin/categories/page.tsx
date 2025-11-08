@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { CategoriesTable } from "@/features/admin/categories/components/categories-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Categories Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Danh mục | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Danh mục",
+  description: "Quản lý danh mục nội dung",
+}
 
 /**
  * Categories Page với Suspense cho streaming

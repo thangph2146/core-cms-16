@@ -1,8 +1,21 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { NotificationsTable } from "@/features/admin/notifications/components/notifications-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Notifications Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Thông báo | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Thông báo",
+  description: "Quản lý thông báo hệ thống",
+}
 
 /**
  * Notifications Page với Suspense cho streaming

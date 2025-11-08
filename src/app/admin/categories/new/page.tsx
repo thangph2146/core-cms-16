@@ -1,6 +1,19 @@
+import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { CategoryCreate } from "@/features/admin/categories/components/category-create"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Category Create Page Metadata
+ * 
+ * Theo Next.js 16 best practices:
+ * - Metadata được merge với admin layout và root layout
+ * - Title sử dụng template từ root: "Tạo danh mục | CMS"
+ */
+export const metadata: Metadata = {
+  title: "Tạo danh mục",
+  description: "Tạo danh mục mới",
+}
 
 /**
  * Category Create Page với Suspense cho streaming
