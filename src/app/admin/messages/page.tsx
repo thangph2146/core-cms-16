@@ -22,7 +22,7 @@ export default function MessagesPage() {
           { label: "Tin nhắn", isActive: true },
         ]}
       />
-      <div className="flex flex-1 flex-col gap-4 p-4 h-full min-h-0">
+      <div className="flex flex-1 flex-col">
         <MessagesPageClient />
       </div>
     </>

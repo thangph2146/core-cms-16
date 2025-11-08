@@ -33,7 +33,7 @@ export function MessagesPageClient() {
   ]
 
   // Simulate AI response
-  const handleSendMessage = async (message: string): Promise<string> => {
+  const handleSendMessage = async (_message: string): Promise<string> => {
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 1000))
     
@@ -47,7 +47,7 @@ export function MessagesPageClient() {
       position="bottom-right"
       icon={<Bot className="h-6 w-6" />}
       renderPage={true}
-      className="h-full min-h-[calc(100vh-150px)]"
+      className="h-full min-h-[calc(100vh-160px)]"
       title="Chat với AI"
       description="Hỏi tôi bất cứ điều gì về hệ thống"
       placeholder="Nhập tin nhắn của bạn... (Enter để gửi, Shift+Enter để xuống dòng)"

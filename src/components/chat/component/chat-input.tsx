@@ -16,8 +16,8 @@ const ChatInput = React.forwardRef<HTMLTextAreaElement, ChatInputProps>(
     {
       className,
       onEnter,
-      maxRows = 5,
-      minRows = 1,
+      maxRows: _maxRows = 5,
+      minRows: _minRows = 1,
       onKeyDown,
       onChange,
       ...props
@@ -112,8 +112,10 @@ const ChatInput = React.forwardRef<HTMLTextAreaElement, ChatInputProps>(
           // Focus states
           "focus-visible:outline-none focus-visible:ring-0",
           "focus-visible:placeholder:text-muted-foreground/40",
-          // Transitions
+          // Transitions - smooth và responsive
           "transition-all duration-200 ease-in-out",
+          // Hover states
+          "hover:placeholder:text-muted-foreground/50",
           // Disabled state
           "disabled:cursor-not-allowed disabled:opacity-50",
           // Scrollbar styling (when content exceeds max height)
@@ -122,8 +124,8 @@ const ChatInput = React.forwardRef<HTMLTextAreaElement, ChatInputProps>(
           className
         )}
         style={{
-          minHeight: "95px",
-          maxHeight: "95px",
+          minHeight: "108px",
+          maxHeight: "108px",
         }}
         {...props}
       />

@@ -99,7 +99,7 @@ export function ChatPlugin({
   showAttachButton = true,
   showMicrophoneButton = true,
   showTimestamp = true,
-  maxInputRows = 5,
+  maxInputRows = 4,
   minInputRows = 1,
   renderHeader,
   renderEmptyState,
@@ -245,7 +245,7 @@ export function ChatPlugin({
       {renderHeader ? (
         renderHeader({ title, description, recipientInfo: currentRecipientInfo })
       ) : (
-        <ChatBuilderHeader className="px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <ChatBuilderHeader className="px-4 py-4 bg-gradient-to-r from-background via-background/95 to-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
           {showRecipientInfo && currentRecipientInfo ? (
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -260,15 +260,15 @@ export function ChatPlugin({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold truncate">
+                <h3 className="text-sm font-bold truncate bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                   {currentRecipientInfo.name || "AI Assistant"}
                 </h3>
                 {currentRecipientInfo.email ? (
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground/80 truncate font-medium">
                     {currentRecipientInfo.email}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground/80 truncate font-medium">
                     {description || "Đang trực tuyến"}
                   </p>
                 )}
@@ -282,7 +282,7 @@ export function ChatPlugin({
                 ) : (
                   <Bot className="h-6 w-6 text-primary" />
                 )}
-                <Sparkles className="h-3 w-3 text-primary absolute -top-1 -right-1 animate-pulse" />
+                <Sparkles className="h-3 w-3 text-primary absolute -top-1 -right-1 drop-shadow-lg" />
               </div>
               <div className="flex-1">
                 <h1 className="text-lg font-semibold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -305,50 +305,50 @@ export function ChatPlugin({
               renderEmptyState()
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                <div className="rounded-full bg-primary/10 p-4 mb-4">
-                  <Bot className="h-8 w-8 text-primary" />
+                <div className="rounded-full bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 p-5 mb-5 shadow-lg ring-4 ring-primary/5">
+                  <Bot className="h-10 w-10 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{emptyStateTitle}</h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
+                <h3 className="text-xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  {emptyStateTitle}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                   {emptyStateDescription}
                 </p>
               </div>
             )
           ) : (
-            messages.map((message, index) => (
+            messages.map((message) => (
               <ChatBubble
                 key={message.id}
                 variant={message.sender === "user" ? "sent" : "received"}
-                className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <ChatBubbleAvatar
-                  className="h-9 w-9 shrink-0 ring-2 ring-background"
+                  className="h-10 w-10 shrink-0 ring-2 ring-background shadow-md group-hover:ring-primary/30 group-hover:shadow-lg"
                   src={message.avatar}
                   fallback={
                     message.avatarFallback ||
                     (message.sender === "user" ? "US" : message.sender === "ai" ? "AI" : "SYS")
                   }
                 />
-                <div className="flex flex-col gap-1 max-w-[80%] sm:max-w-[70%]">
+                <div className="flex flex-col gap-2 max-w-[80%] sm:max-w-[70%]">
                   <ChatBubbleMessage
                     variant={message.sender === "user" ? "sent" : "received"}
                     className={cn(
                       message.sender === "user"
-                        ? "bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-md ring-1 ring-primary/20"
                         : message.sender === "system"
-                        ? "bg-destructive/10 text-destructive border border-destructive/20"
-                        : "bg-background border shadow-sm"
+                        ? "bg-destructive/10 text-destructive border-2 border-destructive/30 shadow-sm"
+                        : "bg-gradient-to-br from-background to-muted/50 border shadow-md ring-1 ring-border/50"
                     )}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words font-medium">
                       {message.content}
                     </p>
                   </ChatBubbleMessage>
                   {showTimestamp && message.timestamp && (
                     <span
                       className={cn(
-                        "text-xs text-muted-foreground px-2",
+                        "text-xs text-muted-foreground/80 px-2 font-medium",
                         message.sender === "user" ? "text-right" : "text-left"
                       )}
                     >
@@ -361,14 +361,14 @@ export function ChatPlugin({
           )}
 
           {isLoading && (
-            <ChatBubble variant="received" className="animate-in fade-in">
+            <ChatBubble variant="received">
               <ChatBubbleAvatar
-                className="h-9 w-9 shrink-0 ring-2 ring-background"
+                className="h-10 w-10 shrink-0 ring-2 ring-background shadow-md"
                 fallback="AI"
               />
               <ChatBubbleMessage
                 isLoading
-                className="bg-background border shadow-sm"
+                className="bg-gradient-to-br from-background to-muted/50 border shadow-md ring-1 ring-border/50"
               />
             </ChatBubble>
           )}
@@ -385,12 +385,12 @@ export function ChatPlugin({
           onMicrophone: handleMicrophoneClick,
         })
       ) : (
-        <ChatBuilderFooter className="px-4 py-3 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <ChatBuilderFooter className="px-4 py-4 border-t-2 bg-gradient-to-r from-background via-background/95 to-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg">
           <form
             onSubmit={handleSubmit}
             className="h-full relative flex items-end gap-2"
           >
-            <div className="flex-1 relative rounded-lg border bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+            <div className="flex-1 relative rounded-md border-2 bg-gradient-to-br from-background to-muted/30 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/60 shadow-lg hover:shadow-xl">
               <ChatInput
                 ref={inputRef}
                 value={input}
@@ -403,14 +403,14 @@ export function ChatPlugin({
                 className="pr-0 border-0 focus-visible:ring-0"
               />
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               {showAttachButton && (
                 <Button
                   variant="ghost"
                   size="icon"
                   type="button"
                   onClick={handleAttachFile}
-                  className="h-9 w-9 hover:bg-muted rounded-lg"
+                  className="h-10 w-10 hover:bg-muted/80 rounded-md shadow-md hover:shadow-lg border border-border/50"
                   title="Đính kèm file"
                 >
                   <Paperclip className="size-4" />
@@ -423,7 +423,7 @@ export function ChatPlugin({
                   size="icon"
                   type="button"
                   onClick={handleMicrophoneClick}
-                  className="h-9 w-9 hover:bg-muted rounded-lg"
+                  className="h-10 w-10 hover:bg-muted/80 rounded-md shadow-md hover:shadow-lg border border-border/50"
                   title="Ghi âm"
                 >
                   <Mic className="size-4" />
@@ -435,10 +435,10 @@ export function ChatPlugin({
                 size="icon"
                 disabled={!input.trim() || isLoading}
                 className={cn(
-                  "h-9 w-9 transition-all rounded-lg",
+                  "h-10 w-10 rounded-md shadow-lg border-2",
                   !input.trim() || isLoading
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:scale-105"
+                    ? "opacity-50 cursor-not-allowed border-border/30"
+                    : "bg-gradient-to-br from-primary to-primary/90 hover:shadow-xl border-primary/30 hover:border-primary/50"
                 )}
                 title="Gửi tin nhắn (Enter)"
               >

@@ -61,7 +61,7 @@ const ChatBuilder: React.FC<ChatBuilderProps> = ({
       <div
         ref={chatRef}
         className={cn(
-          "flex flex-col bg-background border shadow-lg overflow-hidden transition-all",
+          "flex flex-col bg-background shadow-lg overflow-hidden transition-all",
           className,
         )}
         {...props}
@@ -139,7 +139,7 @@ const ChatBuilderBody: React.FC<ChatBuilderBodyProps> = ({
 }) => (
   <ScrollArea
     className={cn(
-      "flex-grow max-h-[calc(100dvh)] sm:max-h-[calc(100dvh-300px)]",
+      "flex-grow max-h-[calc(100dvh)] sm:max-h-[calc(100dvh-300px)] shadow-md  ",
       className
     )}
     {...props}
