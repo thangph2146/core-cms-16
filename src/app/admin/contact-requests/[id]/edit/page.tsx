@@ -1,15 +1,19 @@
 import { AdminHeader } from "@/components/headers"
 import { ContactRequestEdit } from "@/features/admin/contact-requests/components/contact-request-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Contact Request Edit Page (Server Component)
+ * Contact Request Edit Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Route này yêu cầu CONTACT_REQUESTS_UPDATE permission (được map trong route-permissions.ts)
- * 
- * Pattern: Page validates params -> ContactRequestEdit (server) -> ContactRequestEditClient (client)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, form content stream khi ready
+ * - ContactRequestEdit component fetch contactRequest và users data bên trong
  */
+async function ContactRequestEditContent({ contactRequestId }: { contactRequestId: string }) {
+  return <ContactRequestEdit contactRequestId={contactRequestId} variant="page" backUrl={`/admin/contact-requests/${contactRequestId}`} />
+}
+
 export default async function ContactRequestEditPage({
   params,
 }: {
@@ -51,7 +55,9 @@ export default async function ContactRequestEditPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <ContactRequestEdit contactRequestId={validatedId} variant="page" backUrl={`/admin/contact-requests/${validatedId}`} />
+        <FormPageSuspense fieldCount={8} sectionCount={2}>
+          <ContactRequestEditContent contactRequestId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

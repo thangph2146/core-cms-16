@@ -1,15 +1,18 @@
 import { AdminHeader } from "@/components/headers"
 import { ContactRequestDetail } from "@/features/admin/contact-requests/components/contact-request-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Contact Request Detail Page (Server Component)
+ * Contact Request Detail Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Route này yêu cầu CONTACT_REQUESTS_VIEW permission (được map trong route-permissions.ts)
- * 
- * Pattern: Page validates params -> ContactRequestDetail (server) -> ContactRequestDetailClient (client)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
  */
+async function ContactRequestDetailContent({ contactRequestId }: { contactRequestId: string }) {
+  return <ContactRequestDetail contactRequestId={contactRequestId} backUrl="/admin/contact-requests" />
+}
+
 export default async function ContactRequestDetailPage({
   params,
 }: {
@@ -51,7 +54,9 @@ export default async function ContactRequestDetailPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <ContactRequestDetail contactRequestId={validatedId} backUrl="/admin/contact-requests" />
+        <FormPageSuspense fieldCount={8} sectionCount={2}>
+          <ContactRequestDetailContent contactRequestId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

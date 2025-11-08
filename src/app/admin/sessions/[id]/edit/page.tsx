@@ -1,9 +1,20 @@
 import { AdminHeader } from "@/components/headers"
 import { SessionEdit } from "@/features/admin/sessions/components/session-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 interface SessionEditPageProps {
   params: Promise<{ id: string }>
+}
+
+/**
+ * Session Edit Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, form content stream khi ready
+ */
+async function SessionEditContent({ sessionId }: { sessionId: string }) {
+  return <SessionEdit sessionId={sessionId} variant="page" backUrl={`/admin/sessions/${sessionId}`} />
 }
 
 export default async function SessionEditPage({ params }: SessionEditPageProps) {
@@ -43,7 +54,9 @@ export default async function SessionEditPage({ params }: SessionEditPageProps) 
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <SessionEdit sessionId={validatedId} variant="page" backUrl={`/admin/sessions/${validatedId}`} />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <SessionEditContent sessionId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

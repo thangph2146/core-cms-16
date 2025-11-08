@@ -1,12 +1,18 @@
 import { AdminHeader } from "@/components/headers"
 import { UserCreate } from "@/features/admin/users/components/user-create"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 /**
- * User Create Page
+ * User Create Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Route này yêu cầu USERS_CREATE permission (được map trong route-permissions.ts)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, form content stream khi ready
+ * - UserCreate component fetch roles data bên trong
  */
+async function UserCreateContent() {
+  return <UserCreate backUrl="/admin/users" />
+}
+
 export default async function UserCreatePage() {
   return (
     <>
@@ -17,7 +23,9 @@ export default async function UserCreatePage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <UserCreate backUrl="/admin/users" />
+        <FormPageSuspense fieldCount={8} sectionCount={2}>
+          <UserCreateContent />
+        </FormPageSuspense>
       </div>
     </>
   )

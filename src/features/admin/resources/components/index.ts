@@ -17,6 +17,18 @@ export { ResourceForm } from "./resource-form"
 export { ResourceDetailPage } from "./resource-detail-page"
 export { NotFoundMessage } from "./not-found-message"
 
+// Suspense Wrappers
+export {
+  SuspenseWrapper,
+  FormPageSuspense,
+  TablePageSuspense,
+} from "./suspense-wrapper"
+export type {
+  SuspenseWrapperProps,
+  FormPageSuspenseProps,
+  TablePageSuspenseProps,
+} from "./suspense-wrapper"
+
 // Types
 export type { ResourceTableProps } from "./resource-table"
 export type { ResourceDetailProps } from "./resource-detail"

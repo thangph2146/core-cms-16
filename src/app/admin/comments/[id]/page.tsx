@@ -1,6 +1,17 @@
 import { AdminHeader } from "@/components/headers"
 import { CommentDetail } from "@/features/admin/comments/components/comment-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Comment Detail Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
+ */
+async function CommentDetailContent({ commentId }: { commentId: string }) {
+  return <CommentDetail commentId={commentId} backUrl="/admin/comments" />
+}
 
 export default async function CommentDetailPage({
   params,
@@ -43,7 +54,9 @@ export default async function CommentDetailPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <CommentDetail commentId={validatedId} backUrl="/admin/comments" />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <CommentDetailContent commentId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

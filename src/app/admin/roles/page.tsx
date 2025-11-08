@@ -2,14 +2,15 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { RolesTable } from "@/features/admin/roles/components/roles-table"
+import { TablePageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Roles Page
+ * Roles Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Chỉ cần check permissions cho UI actions (canDelete, canRestore, canManage, canCreate)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, table content stream khi ready
  */
-export default async function RolesPage() {
+async function RolesTableContent() {
   const { canDelete, canRestore, canManage, canCreate } = await getTablePermissionsAsync({
     delete: [PERMISSIONS.ROLES_DELETE, PERMISSIONS.ROLES_MANAGE],
     restore: [PERMISSIONS.ROLES_UPDATE, PERMISSIONS.ROLES_MANAGE],
@@ -18,6 +19,17 @@ export default async function RolesPage() {
   })
 
   return (
+    <RolesTable
+      canDelete={canDelete}
+      canRestore={canRestore}
+      canManage={canManage}
+      canCreate={canCreate}
+    />
+  )
+}
+
+export default async function RolesPage() {
+  return (
     <>
       <AdminHeader
         breadcrumbs={[
@@ -25,12 +37,9 @@ export default async function RolesPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <RolesTable
-          canDelete={canDelete}
-          canRestore={canRestore}
-          canManage={canManage}
-          canCreate={canCreate}
-        />
+        <TablePageSuspense columnCount={4} rowCount={10}>
+          <RolesTableContent />
+        </TablePageSuspense>
       </div>
     </>
   )

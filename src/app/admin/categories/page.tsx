@@ -2,21 +2,33 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { CategoriesTable } from "@/features/admin/categories/components/categories-table"
+import { TablePageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Categories Page
+ * Categories Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Chỉ cần check permissions cho UI actions (canDelete, canRestore, canManage, canCreate)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, table content stream khi ready
  */
-export default async function CategoriesPage() {
-  const { canDelete, canRestore, canManage, canCreate } = await getTablePermissionsAsync({
+async function CategoriesTableWithPermissions() {
+  const permissions = await getTablePermissionsAsync({
     delete: [PERMISSIONS.CATEGORIES_DELETE, PERMISSIONS.CATEGORIES_MANAGE],
     restore: [PERMISSIONS.CATEGORIES_UPDATE, PERMISSIONS.CATEGORIES_MANAGE],
     manage: PERMISSIONS.CATEGORIES_MANAGE,
     create: PERMISSIONS.CATEGORIES_CREATE,
   })
 
+  return (
+    <CategoriesTable
+      canDelete={permissions.canDelete}
+      canRestore={permissions.canRestore}
+      canManage={permissions.canManage}
+      canCreate={permissions.canCreate}
+    />
+  )
+}
+
+export default async function CategoriesPage() {
   return (
     <>
       <AdminHeader
@@ -25,12 +37,9 @@ export default async function CategoriesPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <CategoriesTable
-          canDelete={canDelete}
-          canRestore={canRestore}
-          canManage={canManage}
-          canCreate={canCreate}
-        />
+        <TablePageSuspense columnCount={4} rowCount={10}>
+          <CategoriesTableWithPermissions />
+        </TablePageSuspense>
       </div>
     </>
   )

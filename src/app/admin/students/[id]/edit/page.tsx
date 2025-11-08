@@ -1,9 +1,21 @@
 import { AdminHeader } from "@/components/headers"
 import { StudentEdit } from "@/features/admin/students/components/student-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 interface StudentEditPageProps {
   params: Promise<{ id: string }>
+}
+
+/**
+ * Student Edit Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, form content stream khi ready
+ * - StudentEdit component sử dụng Promise.all để fetch student, users, và auth info song song
+ */
+async function StudentEditContent({ studentId }: { studentId: string }) {
+  return <StudentEdit studentId={studentId} variant="page" backUrl={`/admin/students/${studentId}`} />
 }
 
 export default async function StudentEditPage({ params }: StudentEditPageProps) {
@@ -43,7 +55,9 @@ export default async function StudentEditPage({ params }: StudentEditPageProps) 
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <StudentEdit studentId={validatedId} variant="page" backUrl={`/admin/students/${validatedId}`} />
+        <FormPageSuspense fieldCount={8} sectionCount={2}>
+          <StudentEditContent studentId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

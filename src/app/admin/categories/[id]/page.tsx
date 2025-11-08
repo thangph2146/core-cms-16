@@ -1,6 +1,17 @@
 import { AdminHeader } from "@/components/headers"
 import { CategoryDetail } from "@/features/admin/categories/components/category-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Category Detail Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
+ */
+async function CategoryDetailContent({ categoryId }: { categoryId: string }) {
+  return <CategoryDetail categoryId={categoryId} backUrl="/admin/categories" />
+}
 
 export default async function CategoryDetailPage({
   params,
@@ -43,7 +54,9 @@ export default async function CategoryDetailPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <CategoryDetail categoryId={validatedId} backUrl="/admin/categories" />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <CategoryDetailContent categoryId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

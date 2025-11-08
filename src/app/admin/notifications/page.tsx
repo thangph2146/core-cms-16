@@ -2,19 +2,19 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { NotificationsTable } from "@/features/admin/notifications/components/notifications-table"
+import { TablePageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Notifications Page - TẤT CẢ ROLES ĐƯỢC TRUY CẬP
+ * Notifications Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, table content stream khi ready
  * 
  * Page này hiển thị thông báo:
  * - Super Admin: Xem tất cả thông báo trong hệ thống
  * - Các roles khác: Chỉ xem thông báo của chính họ
- * 
- * Permission checking:
- * - Page access: Tất cả roles có NOTIFICATIONS_VIEW permission
- * - UI actions: canManage (dựa trên NOTIFICATIONS_MANAGE permission)
  */
-export default async function NotificationsPage() {
+async function NotificationsTableContent() {
   const { permissions, roles, actorId, isSuperAdminUser } = await getAuthInfo()
   
   // Nếu không phải super admin, chỉ xem notifications của chính họ
@@ -24,6 +24,12 @@ export default async function NotificationsPage() {
   const canManage = canPerformAction(permissions, roles, PERMISSIONS.NOTIFICATIONS_MANAGE)
 
   return (
+    <NotificationsTable canManage={canManage} userId={userId} isSuperAdmin={isSuperAdminUser} />
+  )
+}
+
+export default async function NotificationsPage() {
+  return (
     <>
       <AdminHeader
         breadcrumbs={[
@@ -31,7 +37,9 @@ export default async function NotificationsPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <NotificationsTable canManage={canManage} userId={userId} isSuperAdmin={isSuperAdminUser} />
+        <TablePageSuspense columnCount={5} rowCount={10}>
+          <NotificationsTableContent />
+        </TablePageSuspense>
       </div>
     </>
   )

@@ -1,9 +1,20 @@
 import { AdminHeader } from "@/components/headers"
 import { TagEdit } from "@/features/admin/tags/components/tag-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 interface TagEditPageProps {
   params: Promise<{ id: string }>
+}
+
+/**
+ * Tag Edit Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, form content stream khi ready
+ */
+async function TagEditContent({ tagId }: { tagId: string }) {
+  return <TagEdit tagId={tagId} variant="page" backUrl={`/admin/tags/${tagId}`} />
 }
 
 export default async function TagEditPage({ params }: TagEditPageProps) {
@@ -43,7 +54,9 @@ export default async function TagEditPage({ params }: TagEditPageProps) {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <TagEdit tagId={validatedId} variant="page" backUrl={`/admin/tags/${validatedId}`} />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <TagEditContent tagId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

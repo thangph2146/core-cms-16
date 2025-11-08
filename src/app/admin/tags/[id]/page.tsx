@@ -1,9 +1,20 @@
 import { AdminHeader } from "@/components/headers"
 import { TagDetail } from "@/features/admin/tags/components/tag-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 interface TagDetailPageProps {
   params: Promise<{ id: string }>
+}
+
+/**
+ * Tag Detail Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
+ */
+async function TagDetailContent({ tagId }: { tagId: string }) {
+  return <TagDetail tagId={tagId} backUrl="/admin/tags" />
 }
 
 export default async function TagDetailPage({ params }: TagDetailPageProps) {
@@ -43,7 +54,9 @@ export default async function TagDetailPage({ params }: TagDetailPageProps) {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <TagDetail tagId={validatedId} backUrl="/admin/tags" />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <TagDetailContent tagId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

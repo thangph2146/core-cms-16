@@ -1,7 +1,17 @@
 import { AdminHeader } from "@/components/headers"
 import { RoleDetail } from "@/features/admin/roles/components/role-detail"
-import { getRoleDetailById } from "@/features/admin/roles/server/cache"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
+
+/**
+ * Role Detail Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
+ */
+async function RoleDetailContent({ roleId }: { roleId: string }) {
+  return <RoleDetail roleId={roleId} backUrl="/admin/roles" />
+}
 
 export default async function RoleDetailPage({
   params,
@@ -34,31 +44,6 @@ export default async function RoleDetailPage({
       </>
     )
   }
-  
-  const role = await getRoleDetailById(validatedId)
-
-  if (!role) {
-    return (
-      <>
-        <AdminHeader
-          breadcrumbs={[
-            { label: "Vai trò", href: "/admin/roles" },
-            { label: "Chi tiết", href: `/admin/roles/${id}` },
-          ]}
-        />
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="flex min-h-[400px] flex-1 items-center justify-center">
-            <div className="text-center">
-              <h2 className="mb-2 text-2xl font-bold">Không tìm thấy vai trò</h2>
-              <p className="text-muted-foreground">
-                Vai trò bạn đang tìm kiếm không tồn tại.
-              </p>
-            </div>
-          </div>
-        </div>
-      </>
-    )
-  }
 
   return (
     <>
@@ -69,7 +54,9 @@ export default async function RoleDetailPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <RoleDetail roleId={validatedId} backUrl="/admin/roles" />
+        <FormPageSuspense fieldCount={6} sectionCount={2}>
+          <RoleDetailContent roleId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

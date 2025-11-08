@@ -1,15 +1,18 @@
 import { AdminHeader } from "@/components/headers"
 import { NotificationDetail } from "@/features/admin/notifications/components/notification-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Notification Detail Page (Server Component)
+ * Notification Detail Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Route này yêu cầu NOTIFICATIONS_VIEW permission (được map trong route-permissions.ts)
- * 
- * Pattern: Page validates params -> NotificationDetail (server) -> NotificationDetailClient (client)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
  */
+async function NotificationDetailContent({ notificationId }: { notificationId: string }) {
+  return <NotificationDetail notificationId={notificationId} backUrl="/admin/notifications" />
+}
+
 export default async function NotificationDetailPage({
   params,
 }: {
@@ -51,8 +54,9 @@ export default async function NotificationDetailPage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        {/* NotificationDetail là server component, tự fetch data và render client component */}
-        <NotificationDetail notificationId={validatedId} backUrl="/admin/notifications" />
+        <FormPageSuspense fieldCount={6} sectionCount={1}>
+          <NotificationDetailContent notificationId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

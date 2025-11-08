@@ -2,14 +2,15 @@ import { AdminHeader } from "@/components/headers"
 import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { TagsTable } from "@/features/admin/tags/components/tags-table"
+import { TablePageSuspense } from "@/features/admin/resources/components"
 
 /**
- * Tags Page
+ * Tags Page với Suspense cho streaming
  * 
- * Permission checking cho page access đã được xử lý ở layout level (PermissionGate)
- * Chỉ cần check permissions cho UI actions (canDelete, canRestore, canManage, canCreate)
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, table content stream khi ready
  */
-export default async function TagsPage() {
+async function TagsTableContent() {
   const { canDelete, canRestore, canManage, canCreate } = await getTablePermissionsAsync({
     delete: [PERMISSIONS.TAGS_DELETE, PERMISSIONS.TAGS_MANAGE],
     restore: [PERMISSIONS.TAGS_UPDATE, PERMISSIONS.TAGS_MANAGE],
@@ -18,6 +19,17 @@ export default async function TagsPage() {
   })
 
   return (
+    <TagsTable
+      canDelete={canDelete}
+      canRestore={canRestore}
+      canManage={canManage}
+      canCreate={canCreate}
+    />
+  )
+}
+
+export default async function TagsPage() {
+  return (
     <>
       <AdminHeader
         breadcrumbs={[
@@ -25,12 +37,9 @@ export default async function TagsPage() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <TagsTable
-          canDelete={canDelete}
-          canRestore={canRestore}
-          canManage={canManage}
-          canCreate={canCreate}
-        />
+        <TablePageSuspense columnCount={4} rowCount={10}>
+          <TagsTableContent />
+        </TablePageSuspense>
       </div>
     </>
   )

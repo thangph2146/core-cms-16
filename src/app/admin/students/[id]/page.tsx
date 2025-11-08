@@ -1,9 +1,20 @@
 import { AdminHeader } from "@/components/headers"
 import { StudentDetail } from "@/features/admin/students/components/student-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
+import { FormPageSuspense } from "@/features/admin/resources/components"
 
 interface StudentDetailPageProps {
   params: Promise<{ id: string }>
+}
+
+/**
+ * Student Detail Page với Suspense cho streaming
+ * 
+ * Theo Next.js 16 best practices:
+ * - Header render ngay, detail content stream khi ready
+ */
+async function StudentDetailContent({ studentId }: { studentId: string }) {
+  return <StudentDetail studentId={studentId} backUrl="/admin/students" />
 }
 
 export default async function StudentDetailPage({ params }: StudentDetailPageProps) {
@@ -43,7 +54,9 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <StudentDetail studentId={validatedId} backUrl="/admin/students" />
+        <FormPageSuspense fieldCount={8} sectionCount={2}>
+          <StudentDetailContent studentId={validatedId} />
+        </FormPageSuspense>
       </div>
     </>
   )

@@ -186,7 +186,12 @@ export function getMenuData(userPermissions: Permission[]): {
     // Students
     createMenuItemFromRoute("students", "Học sinh", React.createElement(GraduationCap, { className: "h-4 w-4" })),
     // Comments - no sub items
-    createMenuItemFromRoute("comments", "Bình luận", React.createElement(MessageSquare, { className: "h-4 w-4" })),
+    {
+      title: "Bình luận",
+      url: "/admin/comments",
+      icon: React.createElement(MessageSquare, { className: "h-4 w-4" }),
+      permissions: MENU_PERMISSIONS.comments,
+    },
     // Notifications - no sub items
     {
       title: "Thông báo",
@@ -200,21 +205,14 @@ export function getMenuData(userPermissions: Permission[]): {
       url: "/admin/contact-requests",
       icon: React.createElement(Phone, { className: "h-4 w-4" }),
       permissions: MENU_PERMISSIONS.contact_requests,
-      items: [
-        {
-          title: "Danh sách",
-          url: "/admin/contact-requests",
-          permissions: [PERMISSIONS.CONTACT_REQUESTS_VIEW],
-        },
-        {
-          title: "Đã giải quyết",
-          url: "/admin/contact-requests/resolved",
-          permissions: [PERMISSIONS.CONTACT_REQUESTS_VIEW],
-        },
-      ],
     },
     // Sessions
-    createMenuItemFromRoute("sessions", "Phiên đăng nhập", React.createElement(LogIn, { className: "h-4 w-4" })),
+    {
+      title: "Phiên đăng nhập",
+      url: "/admin/sessions",
+      icon: React.createElement(LogIn, { className: "h-4 w-4" }),
+      permissions: MENU_PERMISSIONS.sessions,
+    }
   ].filter((item): item is MenuItem => item !== null)
 
   const navSecondary: MenuItem[] = [
