@@ -1,0 +1,29 @@
+{
+  "name": "CMS - Hệ thống quản trị nội dung",
+  "short_name": "CMS",
+  "description": "Hệ thống quản trị nội dung hiện đại, mạnh mẽ và dễ sử dụng",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "lang": "vi-VN",
+  "dir": "ltr"
+}
+
