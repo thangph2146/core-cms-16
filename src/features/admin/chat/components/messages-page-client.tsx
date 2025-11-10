@@ -1,6 +1,7 @@
 "use client"
 
-import { ChatTemplate, type Contact, type Message } from "@/components/chat"
+import { ChatTemplate } from "./chat-template"
+import type { Contact, Message } from "@/components/chat/types"
 
 /**
  * Messages Page Client Component

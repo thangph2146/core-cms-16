@@ -3,8 +3,8 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
 import { useSocket } from "@/hooks/use-socket"
 import { useChatSocketBridge } from "./use-chat-socket-bridge"
-import type { Contact, Message } from "../types"
-import { TEXTAREA_MIN_HEIGHT, TEXTAREA_MAX_HEIGHT } from "../constants"
+import type { Contact, Message } from "@/components/chat/types"
+import { TEXTAREA_MIN_HEIGHT, TEXTAREA_MAX_HEIGHT } from "@/components/chat/constants"
 import {
   calculateMessagesHeight,
   debouncedMarkAsRead,

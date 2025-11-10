@@ -3,8 +3,8 @@
  * Tách logic để code ngắn gọn và dễ maintain
  */
 
-import type { Contact, Message } from "../types"
-import { TEXTAREA_MIN_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "../constants"
+import type { Contact, Message } from "@/components/chat/types"
+import { TEXTAREA_MIN_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "@/components/chat/constants"
 
 const ESTIMATED_REPLY_BANNER_HEIGHT = 48
 const ADJUSTMENT_PX = 5

@@ -2,12 +2,13 @@
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
-import type { ChatTemplateProps } from "./types"
-import { useChat } from "./hooks/use-chat"
-import { ChatListHeader } from "./components/chat-list-header"
-import { ContactList } from "./components/contact-list"
-import { ChatWindow } from "./components/chat-window"
-import { EmptyState } from "./components/empty-state"
+import type { ChatTemplateProps } from "@/components/chat/types"
+import { useChat } from "../hooks/use-chat"
+import { ChatListHeader } from "@/components/chat/components/chat-list-header"
+import { NewConversationDialog } from "./new-conversation-dialog"
+import { ContactList } from "@/components/chat/components/contact-list"
+import { ChatWindow } from "@/components/chat/components/chat-window"
+import { EmptyState } from "@/components/chat/components/empty-state"
 
 export function ChatTemplate({ contacts, currentUserId, role, onNewConversation }: ChatTemplateProps) {
   const isMobile = useIsMobile()
@@ -52,6 +53,16 @@ export function ChatTemplate({ contacts, currentUserId, role, onNewConversation 
                 onNewConversation?.(contact)
               }}
               existingContactIds={contactsState.map((c) => c.id)}
+              newConversationDialog={
+                <NewConversationDialog
+                  onSelectUser={(contact) => {
+                    addContact(contact)
+                    setCurrentChat(contact)
+                    onNewConversation?.(contact)
+                  }}
+                  existingContactIds={contactsState.map((c) => c.id)}
+                />
+              }
             />
             <ContactList
               contacts={contactsState}
@@ -130,5 +141,4 @@ export function ChatTemplate({ contacts, currentUserId, role, onNewConversation 
 }
 
 // Re-export types for convenience
-export type { Message, Contact, MessageType } from "./types"
-export type { ChatTemplateProps } from "./types"
+export type { Message, Contact, MessageType, ChatTemplateProps } from "@/components/chat/types"

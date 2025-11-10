@@ -21,21 +21,23 @@ import {
   Users,
 } from "lucide-react"
 import type { Contact } from "../types"
-import { NewConversationDialog } from "@/features/admin/chat/components/new-conversation-dialog"
 
 interface ChatListHeaderProps {
-  onNewConversation?: (contact: Contact) => void
-  existingContactIds?: string[]
+  onNewConversation?: (contact: Contact) => void // Deprecated: sử dụng newConversationDialog thay thế
+  existingContactIds?: string[] // Deprecated: sử dụng newConversationDialog thay thế
+  newConversationDialog?: React.ReactNode // Cho phép inject business component từ bên ngoài
 }
 
-export function ChatListHeader({ onNewConversation, existingContactIds }: ChatListHeaderProps) {
+export function ChatListHeader({ 
+  onNewConversation: _onNewConversation, 
+  existingContactIds: _existingContactIds, 
+  newConversationDialog 
+}: ChatListHeaderProps) {
   return (
     <div className="flex items-center justify-between h-14 px-4 border-b shrink-0">
       <h2 className="text-lg font-semibold">Chats</h2>
       <div className="flex items-center gap-1">
-        {onNewConversation && (
-          <NewConversationDialog onSelectUser={onNewConversation} existingContactIds={existingContactIds} />
-        )}
+        {newConversationDialog}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

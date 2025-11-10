@@ -1,10 +1,16 @@
-// Main component
-export { ChatTemplate } from "./chat-template"
+/**
+ * Chat UI Components
+ * 
+ * Pure UI/UX components dùng chung cho chat feature.
+ * Không chứa business logic, hooks, hoặc API calls.
+ * 
+ * @see src/features/admin/chat - Business logic và hooks
+ */
 
 // Types
 export type { Message, Contact, MessageType, ChatTemplateProps } from "./types"
 
-// Components (for advanced usage)
+// UI Components (pure presentation, no business logic)
 export { AttachmentMenu } from "./components/attachment-menu"
 export { MessageBubble } from "./components/message-bubble"
 export { EmptyState } from "./components/empty-state"
@@ -15,9 +21,6 @@ export { ContactList } from "./components/contact-list"
 export { MessagesArea } from "./components/messages-area"
 export { ChatInput } from "./components/chat-input"
 export { ChatWindow } from "./components/chat-window"
-
-// Hooks
-export { useChat } from "./hooks/use-chat"
 
 // Utils
 export { formatTime, formatMessageTime } from "./utils"

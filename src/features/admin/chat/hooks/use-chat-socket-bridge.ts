@@ -16,7 +16,7 @@
 
 import { useEffect } from "react"
 import { useSocket } from "@/hooks/use-socket"
-import type { Contact, Message } from "../types"
+import type { Contact, Message } from "@/components/chat/types"
 import { logger } from "@/lib/config"
 
 interface UseChatSocketBridgeProps {
