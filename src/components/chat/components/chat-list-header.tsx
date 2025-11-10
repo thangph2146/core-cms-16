@@ -16,40 +16,38 @@ import {
   ListFilter,
   MessageSquareDashed,
   MessageSquareDot,
-  SquarePen,
   Star,
   Users,
+  Trash2,
+  CheckCircle2,
 } from "lucide-react"
 import type { Contact } from "../types"
+
+export type ChatFilterType = "ACTIVE" | "DELETED"
 
 interface ChatListHeaderProps {
   onNewConversation?: (contact: Contact) => void // Deprecated: sử dụng newConversationDialog thay thế
   existingContactIds?: string[] // Deprecated: sử dụng newConversationDialog thay thế
   newConversationDialog?: React.ReactNode // Cho phép inject business component từ bên ngoài
+  newGroupDialog?: React.ReactNode // Cho phép inject group dialog từ bên ngoài
+  filterType?: ChatFilterType
+  onFilterChange?: (filter: ChatFilterType) => void
 }
 
 export function ChatListHeader({ 
   onNewConversation: _onNewConversation, 
   existingContactIds: _existingContactIds, 
-  newConversationDialog 
+  newConversationDialog,
+  newGroupDialog,
+  filterType = "ACTIVE",
+  onFilterChange,
 }: ChatListHeaderProps) {
   return (
     <div className="flex items-center justify-between h-14 px-4 border-b shrink-0">
       <h2 className="text-lg font-semibold">Chats</h2>
       <div className="flex items-center gap-1">
         {newConversationDialog}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <SquarePen className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Users className="mr-2 h-4 w-4" /> New Group
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {newGroupDialog}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -58,6 +56,21 @@ export function ChatListHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Filter Chats By</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => onFilterChange?.("ACTIVE")}
+                className={filterType === "ACTIVE" ? "bg-accent" : ""}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Active
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onFilterChange?.("DELETED")}
+                className={filterType === "DELETED" ? "bg-accent" : ""}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Deleted
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>

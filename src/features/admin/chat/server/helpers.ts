@@ -47,7 +47,8 @@ export function mapMessageRecord(message: MessageWithRelations): MessageDetail {
     content: message.content,
     subject: message.subject,
     senderId: message.senderId,
-    receiverId: message.receiverId,
+    receiverId: message.receiverId || null,
+    groupId: message.groupId || null,
     timestamp: message.createdAt,
     isRead: message.isRead,
     type: message.type,
@@ -58,17 +59,20 @@ export function mapMessageRecord(message: MessageWithRelations): MessageDetail {
           content: message.parent.content,
           subject: "",
           senderId: message.parent.senderId,
-          receiverId: message.parent.receiverId,
+          receiverId: message.parent.receiverId || null,
+          groupId: undefined,
           timestamp: message.parent.createdAt,
           isRead: message.parent.isRead,
           type: message.parent.type,
           parentId: message.parent.parentId,
-          receiver: {
-            id: message.receiver.id,
-            name: message.receiver.name,
-            email: message.receiver.email,
-            avatar: message.receiver.avatar,
-          },
+          receiver: message.receiver
+            ? {
+                id: message.receiver.id,
+                name: message.receiver.name,
+                email: message.receiver.email,
+                avatar: message.receiver.avatar,
+              }
+            : null,
         }
       : null,
     sender: message.sender
@@ -79,12 +83,14 @@ export function mapMessageRecord(message: MessageWithRelations): MessageDetail {
           avatar: message.sender.avatar,
         }
       : null,
-    receiver: {
-      id: message.receiver.id,
-      name: message.receiver.name,
-      email: message.receiver.email,
-      avatar: message.receiver.avatar,
-    },
+    receiver: message.receiver
+      ? {
+          id: message.receiver.id,
+          name: message.receiver.name,
+          email: message.receiver.email,
+          avatar: message.receiver.avatar,
+        }
+      : null,
   }
 }
 

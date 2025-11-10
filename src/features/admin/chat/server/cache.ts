@@ -8,7 +8,7 @@
  */
 
 import { cache } from "react"
-import { listConversations, getMessagesBetweenUsers, getMessageById, type ListConversationsInput, type ListConversationsResult, type MessageDetail } from "./queries"
+import { listConversations, getMessagesBetweenUsers, getMessageById, listGroups, getMessagesForGroup, type ListConversationsInput, type ListConversationsResult, type ListGroupsInput, type MessageDetail } from "./queries"
 
 /**
  * Cache function: List conversations
@@ -29,5 +29,19 @@ export const getMessagesBetweenUsersCached = cache(async (userId: string, otherU
  */
 export const getMessageByIdCached = cache(async (id: string): Promise<MessageDetail | null> => {
   return getMessageById(id)
+})
+
+/**
+ * Cache function: List groups
+ */
+export const listGroupsCached = cache(async (params: ListGroupsInput) => {
+  return listGroups(params)
+})
+
+/**
+ * Cache function: Get messages for a group
+ */
+export const getMessagesForGroupCached = cache(async (groupId: string, userId: string, limit: number = 100): Promise<MessageDetail[]> => {
+  return getMessagesForGroup(groupId, userId, limit)
 })
 

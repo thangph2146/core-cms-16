@@ -102,6 +102,9 @@ export const apiRoutes = {
   adminMessages: {
     send: getResourceApiRoute("messages", "POST", "send") || "/admin/messages",
     markRead: (id: string) => `/admin/messages/${id}`,
+    softDelete: (id: string) => `/admin/messages/${id}/soft-delete`,
+    hardDelete: (id: string) => `/admin/messages/${id}/hard-delete`,
+    restore: (id: string) => `/admin/messages/${id}/restore`,
   },
   adminConversations: {
     list: (params?: { page?: number; limit?: number; search?: string; otherUserId?: string }) => {
@@ -125,6 +128,26 @@ export const apiRoutes = {
       const route = routes.find((r: { path: string }) => r.path.includes("/search"))?.path.replace("/api", "") || "/admin/users/search"
       return `${route}?q=${encodeURIComponent(query)}`
     },
+  },
+  // Groups - Chat groups
+  adminGroups: {
+    create: "/admin/groups",
+    list: (params?: { page?: number; limit?: number; search?: string }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.page) searchParams.set("page", params.page.toString())
+      if (params?.limit) searchParams.set("limit", params.limit.toString())
+      if (params?.search) searchParams.set("search", params.search)
+      const queryString = searchParams.toString()
+      return `/admin/groups${queryString ? `?${queryString}` : ""}`
+    },
+    detail: (id: string) => `/admin/groups/${id}`,
+    update: (id: string) => `/admin/groups/${id}`,
+    delete: (id: string) => `/admin/groups/${id}`,
+    hardDelete: (id: string) => `/admin/groups/${id}/hard-delete`,
+    restore: (id: string) => `/admin/groups/${id}/restore`,
+    addMembers: (id: string) => `/admin/groups/${id}/members`,
+    removeMember: (id: string, userId: string) => `/admin/groups/${id}/members/${userId}`,
+    updateMemberRole: (id: string, userId: string) => `/admin/groups/${id}/members/${userId}/role`,
   },
 } as const
 

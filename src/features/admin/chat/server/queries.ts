@@ -15,6 +15,14 @@ export interface ListConversationsInput {
   search?: string
 }
 
+export interface ListGroupsInput {
+  userId: string
+  page?: number
+  limit?: number
+  search?: string
+  includeDeleted?: boolean // Include deleted groups
+}
+
 export interface ConversationListItem {
   id: string
   otherUser: {
@@ -50,7 +58,8 @@ export interface MessageDetail {
   content: string
   subject: string
   senderId: string | null
-  receiverId: string
+  receiverId: string | null
+  groupId?: string | null
   timestamp: Date
   isRead: boolean
   type: string
@@ -62,12 +71,12 @@ export interface MessageDetail {
     email: string
     avatar: string | null
   } | null
-  receiver: {
+  receiver?: {
     id: string
     name: string | null
     email: string
     avatar: string | null
-  }
+  } | null
 }
 
 /**
@@ -284,6 +293,69 @@ export async function getMessagesBetweenUsers(
 }
 
 /**
+ * Get messages for a group
+ */
+export async function getMessagesForGroup(
+  groupId: string,
+  userId: string,
+  limit: number = 100
+): Promise<MessageDetail[]> {
+  // Verify user is a member of the group
+  const groupMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId,
+      leftAt: null,
+    },
+  })
+
+  if (!groupMember) {
+    return []
+  }
+
+  const messages = await prisma.message.findMany({
+    where: {
+      groupId,
+      deletedAt: null,
+    },
+    include: {
+      sender: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+      receiver: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+      parent: {
+        select: {
+          id: true,
+          content: true,
+          senderId: true,
+          receiverId: true,
+          createdAt: true,
+          isRead: true,
+          type: true,
+          parentId: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  })
+
+  return messages.map(mapMessageRecord)
+}
+
+/**
  * Get message by ID
  */
 export async function getMessageById(id: string): Promise<MessageDetail | null> {
@@ -326,6 +398,180 @@ export async function getMessageById(id: string): Promise<MessageDetail | null> 
   }
 
   return mapMessageRecord(message)
+}
+
+/**
+ * List groups that user is a member of
+ */
+export async function listGroups(input: ListGroupsInput) {
+  const page = input.page || 1
+  const limit = input.limit || 50
+  const skip = (page - 1) * limit
+
+  const where: {
+    userId: string
+    leftAt: null
+    group: {
+      deletedAt?: null | { not: null }
+    }
+  } = {
+    userId: input.userId,
+    leftAt: null,
+    group: input.includeDeleted
+      ? {} // Include all groups (deleted and active)
+      : { deletedAt: null }, // Only active groups
+  }
+
+  const groupMembers = await prisma.groupMember.findMany({
+    where,
+    include: {
+      group: {
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          members: {
+            where: { leftAt: null },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+          messages: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              id: true,
+              content: true,
+              createdAt: true,
+              senderId: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      group: {
+        updatedAt: "desc",
+      },
+    },
+    skip,
+    take: limit,
+  })
+
+  const total = await prisma.groupMember.count({ where })
+
+  return {
+    data: groupMembers.map((gm) => ({
+      id: gm.group.id,
+      name: gm.group.name,
+      description: gm.group.description,
+      avatar: gm.group.avatar,
+      createdById: gm.group.createdById,
+      createdAt: gm.group.createdAt,
+      updatedAt: gm.group.updatedAt,
+      deletedAt: gm.group.deletedAt,
+      creator: gm.group.creator,
+      members: gm.group.members.map((m) => ({
+        id: m.id,
+        groupId: m.groupId,
+        userId: m.userId,
+        role: m.role,
+        joinedAt: m.joinedAt,
+        leftAt: m.leftAt,
+        user: m.user,
+      })),
+      lastMessage: gm.group.messages[0] || null,
+      memberCount: gm.group.members.length,
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  }
+}
+
+/**
+ * Get group by ID (with member verification)
+ */
+export async function getGroup(groupId: string, userId: string) {
+  const groupMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId,
+      leftAt: null,
+      group: {
+        deletedAt: null,
+      },
+    },
+    include: {
+      group: {
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          members: {
+            where: { leftAt: null },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!groupMember) {
+    return null
+  }
+
+  return {
+    id: groupMember.group.id,
+    name: groupMember.group.name,
+    description: groupMember.group.description,
+    avatar: groupMember.group.avatar,
+    createdById: groupMember.group.createdById,
+    createdAt: groupMember.group.createdAt,
+    updatedAt: groupMember.group.updatedAt,
+    creator: groupMember.group.creator,
+    members: groupMember.group.members.map((m) => ({
+      id: m.id,
+      groupId: m.groupId,
+      userId: m.userId,
+      role: m.role,
+      joinedAt: m.joinedAt,
+      leftAt: m.leftAt,
+      user: m.user,
+    })),
+    memberCount: groupMember.group.members.length,
+    userRole: groupMember.role,
+  }
 }
 
 // Re-export helpers

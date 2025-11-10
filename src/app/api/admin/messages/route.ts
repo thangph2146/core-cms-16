@@ -24,11 +24,16 @@ async function sendMessageHandler(req: NextRequest, context: ApiRouteContext) {
 
   const content = typeof body.content === "string" ? body.content : undefined
   const receiverId = typeof body.receiverId === "string" ? body.receiverId : undefined
+  const groupId = typeof body.groupId === "string" ? body.groupId : undefined
   const parentId = typeof body.parentId === "string" ? body.parentId : body.parentId === null ? null : undefined
   const type = typeof body.type === "string" ? body.type : undefined
 
-  if (!content || !receiverId) {
-    return NextResponse.json({ error: "Content và receiverId là bắt buộc" }, { status: 400 })
+  if (!content) {
+    return NextResponse.json({ error: "Content là bắt buộc" }, { status: 400 })
+  }
+
+  if (!receiverId && !groupId) {
+    return NextResponse.json({ error: "receiverId hoặc groupId là bắt buộc" }, { status: 400 })
   }
 
   if (!context.session?.user?.id) {
@@ -44,7 +49,8 @@ async function sendMessageHandler(req: NextRequest, context: ApiRouteContext) {
       },
       {
         content,
-        receiverId,
+        receiverId: receiverId || null,
+        groupId: groupId || null,
         parentId: parentId || null,
         type: (type as "NOTIFICATION" | "ANNOUNCEMENT" | "PERSONAL" | "SYSTEM") || "PERSONAL",
       }

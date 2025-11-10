@@ -12,6 +12,13 @@ import {
   hasMessagesChanged,
 } from "./use-chat-helpers"
 import { markMessageAPI, sendMessageAPI, handleAPIError } from "./use-chat-api"
+import {
+  createOptimisticMessage,
+  updateContactMessage,
+  removeContactMessage,
+  addContactMessage,
+} from "./use-chat-message-helpers"
+import { logger } from "@/lib/config"
 
 interface UseChatProps {
   contacts: Contact[]
@@ -43,6 +50,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   const currentChat = currentChatState
   const [messageInput, setMessageInput] = useState("")
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
   const [textareaHeight, setTextareaHeight] = useState<number>(TEXTAREA_MIN_HEIGHT)
   const [messagesMaxHeight, setMessagesMaxHeight] = useState<number | undefined>(undefined)
   const [messagesMinHeight, setMessagesMinHeight] = useState<number | undefined>(undefined)
@@ -51,6 +59,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const replyBannerRef = useRef<HTMLDivElement>(null)
+  const deletedBannerRef = useRef<HTMLDivElement>(null)
   const isSendingRef = useRef(false)
   const prevChatIdRef = useRef<string | undefined>(currentChat?.id)
 
@@ -60,12 +69,53 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     role,
   })
 
+  // State to track if current group is deleted
+  const [isGroupDeleted, setIsGroupDeleted] = useState(false)
+  
+  // Auto mark as read callback khi nhận tin nhắn mới trong conversation hiện tại
+  const handleMessageReceived = useCallback(
+    async (messageId: string, contactId: string) => {
+      if (contactId === currentChat?.id && currentUserId) {
+        try {
+          await markMessageAPI(messageId, true)
+        } catch (error) {
+          logger.error("Failed to auto-mark message as read", error)
+        }
+      }
+    },
+    [currentChat?.id, currentUserId]
+  )
+
   // Socket bridge để handle realtime messages (tương tự notifications)
   useChatSocketBridge({
     currentUserId,
     role,
     setContactsState,
+    setCurrentChat,
+    currentChatId: currentChat?.id || null,
+    setIsGroupDeleted,
+    onMessageReceived: handleMessageReceived,
   })
+  
+  // Reset isGroupDeleted when switching chats
+  useEffect(() => {
+    if (currentChat?.type === "GROUP") {
+      setIsGroupDeleted(false)
+      // Check if group still exists
+      const checkGroupExists = async () => {
+        try {
+          const { apiRoutes } = await import("@/lib/api/routes")
+          const response = await fetch(`/api${apiRoutes.adminGroups.detail(currentChat.id)}`)
+          setIsGroupDeleted(response.status === 404)
+        } catch {
+          setIsGroupDeleted(false)
+        }
+      }
+      checkGroupExists()
+    } else {
+      setIsGroupDeleted(false)
+    }
+  }, [currentChat?.id, currentChat?.type])
 
   const currentMessages = currentChat?.messages || []
 
@@ -102,25 +152,24 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     setTextareaHeight(newHeight)
   }, [messageInput])
 
-  // Sync messages area height with textarea and reply banner
-  // Use useLayoutEffect để update trước khi browser paint, tránh flicker
+  // Sync messages area height with textarea, reply banner, and deleted banner
   useLayoutEffect(() => {
     const updateHeights = () => {
       const { maxHeight, minHeight } = calculateMessagesHeight({
         textareaHeight,
         replyingTo,
         replyBannerRef,
+        deletedBannerRef,
+        isGroupDeleted,
       })
       setMessagesMaxHeight(maxHeight)
       setMessagesMinHeight(minHeight)
     }
     
-    // Update ngay lập tức (useLayoutEffect chạy đồng bộ trước paint)
     updateHeights()
     
-    // Sau đó đo lại chính xác nếu cần (cho trường hợp element chưa render)
     let rafId: number | null = null
-    if (replyingTo && replyBannerRef.current) {
+    if ((replyingTo && replyBannerRef.current && !isGroupDeleted) || (isGroupDeleted && deletedBannerRef.current)) {
       rafId = requestAnimationFrame(updateHeights)
     }
     
@@ -129,7 +178,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
       if (rafId !== null) cancelAnimationFrame(rafId)
       window.removeEventListener("resize", updateHeights)
     }
-  }, [textareaHeight, replyingTo])
+  }, [textareaHeight, replyingTo, isGroupDeleted])
 
   // Join/leave conversation room when chat changes
   useEffect(() => {
@@ -170,77 +219,38 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     isSendingRef.current = true
 
     const content = messageInput.trim()
-    const parentId = replyingTo?.id || undefined
-
-    // Optimistically add message to UI
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
+    const parentId = replyingTo?.id
+    const optimisticMessage = createOptimisticMessage({
       content,
       senderId: currentUserId,
-      receiverId: currentChat.id,
-      timestamp: new Date(),
-      isRead: false,
-      type: "PERSONAL",
-      parentId: parentId || null,
-    }
+      receiverId: currentChat.type === "GROUP" ? null : currentChat.id,
+      groupId: currentChat.type === "GROUP" ? currentChat.id : null,
+      parentId,
+    })
 
     setMessageInput("")
     setReplyingTo(null)
-    setContactsState((prev) =>
-      prev.map((contact) =>
-        contact.id === currentChat.id
-          ? {
-              ...contact,
-              messages: [...contact.messages, optimisticMessage],
-              lastMessage: content,
-              lastMessageTime: optimisticMessage.timestamp,
-            }
-          : contact
-      )
-    )
+    setContactsState((prev) => addContactMessage(prev, currentChat.id, optimisticMessage))
 
     try {
-      // Persist to database via API (server will emit socket event)
       const savedMessage = await sendMessageAPI({
         content,
-        receiverId: currentChat.id,
+        receiverId: currentChat.type === "GROUP" ? undefined : currentChat.id,
+        groupId: currentChat.type === "GROUP" ? currentChat.id : undefined,
         parentId,
       })
 
-      // Replace optimistic message with saved one (from API response)
-      // Socket event sẽ được handle bởi socket bridge, nhưng cần update ID ngay để tránh duplicate
+      // Update optimistic message ID (socket bridge sẽ handle duplicate)
       setContactsState((prev) =>
-        prev.map((contact) =>
-          contact.id === currentChat.id
-            ? {
-                ...contact,
-                messages: contact.messages.map((msg) =>
-                  msg.id === optimisticMessage.id
-                    ? {
-                        ...msg,
-                        id: savedMessage.id,
-                        timestamp: new Date(savedMessage.timestamp),
-                      }
-                    : msg
-                ),
-              }
-            : contact
-        )
+        updateContactMessage(prev, currentChat.id, optimisticMessage.id, (msg) => ({
+          ...msg,
+          id: savedMessage.id,
+          timestamp: new Date(savedMessage.timestamp),
+        }))
       )
     } catch (error) {
       handleAPIError(error, "Không thể gửi tin nhắn")
-      
-      // Remove optimistic message on error
-      setContactsState((prev) =>
-        prev.map((contact) =>
-          contact.id === currentChat.id
-            ? {
-                ...contact,
-                messages: contact.messages.filter((msg) => msg.id !== optimisticMessage.id),
-              }
-            : contact
-        )
-      )
+      setContactsState((prev) => removeContactMessage(prev, currentChat.id, optimisticMessage.id))
     } finally {
       isSendingRef.current = false
       setMessageInput("")
@@ -278,10 +288,41 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   const markMessageAsRead = useCallback(
     async (messageId: string) => {
       if (!currentChat) return
+      
+      // Optimistic update
+      setContactsState((prev) => {
+        const contact = prev.find((c) => c.id === currentChat.id)
+        if (!contact) return prev
+        
+        const message = contact.messages.find((m) => m.id === messageId)
+        if (!message || message.isRead) return prev
+        
+        return prev.map((c) =>
+          c.id === currentChat.id
+            ? {
+                ...c,
+                messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: true } : m)),
+                unreadCount: Math.max(0, c.unreadCount - 1),
+              }
+            : c
+        )
+      })
+      
       try {
         await markMessageAPI(messageId, true)
-        // Socket event sẽ update state tự động
       } catch (error) {
+        // Rollback
+        setContactsState((prev) =>
+          prev.map((c) =>
+            c.id === currentChat.id
+              ? {
+                  ...c,
+                  messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: false } : m)),
+                  unreadCount: c.unreadCount + 1,
+                }
+              : c
+          )
+        )
         handleAPIError(error, "Không thể đánh dấu đã đọc")
       }
     },
@@ -291,10 +332,41 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   const markMessageAsUnread = useCallback(
     async (messageId: string) => {
       if (!currentChat) return
+      
+      // Optimistic update
+      setContactsState((prev) => {
+        const contact = prev.find((c) => c.id === currentChat.id)
+        if (!contact) return prev
+        
+        const message = contact.messages.find((m) => m.id === messageId)
+        if (!message || !message.isRead) return prev
+        
+        return prev.map((c) =>
+          c.id === currentChat.id
+            ? {
+                ...c,
+                messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: false } : m)),
+                unreadCount: c.unreadCount + 1,
+              }
+            : c
+        )
+      })
+      
       try {
         await markMessageAPI(messageId, false)
-        // Socket event sẽ update state tự động
       } catch (error) {
+        // Rollback
+        setContactsState((prev) =>
+          prev.map((c) =>
+            c.id === currentChat.id
+              ? {
+                  ...c,
+                  messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: true } : m)),
+                  unreadCount: Math.max(0, c.unreadCount - 1),
+                }
+              : c
+          )
+        )
         handleAPIError(error, "Không thể đánh dấu chưa đọc")
       }
     },
@@ -304,6 +376,25 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   // Auto mark conversation as read khi có tin nhắn mới đến (socket bridge sẽ update contactsState)
   // Logic mark as read đã được handle trong setCurrentChat wrapper
 
+  // Scroll to specific message
+  const scrollToMessage = useCallback((messageId: string) => {
+    // Use requestAnimationFrame để đảm bảo DOM đã render
+    requestAnimationFrame(() => {
+      const messageElement = document.getElementById(`message-${messageId}`)
+      if (messageElement) {
+        const viewport = scrollAreaRef.current?.closest('[data-slot="scroll-area"]')?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement
+        if (viewport) {
+          const elementRect = messageElement.getBoundingClientRect()
+          const viewportRect = viewport.getBoundingClientRect()
+          const scrollTop = viewport.scrollTop + (elementRect.top - viewportRect.top) - 20 // 20px offset from top
+          viewport.scrollTo({ top: scrollTop, behavior: "smooth" })
+        } else {
+          messageElement.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+      }
+    })
+  }, [scrollAreaRef])
+
   return {
     contactsState,
     currentChat,
@@ -311,6 +402,8 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     messageInput,
     setMessageInput,
     replyingTo,
+    searchQuery,
+    setSearchQuery,
     textareaHeight,
     messagesMaxHeight,
     messagesMinHeight,
@@ -318,6 +411,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     scrollAreaRef,
     inputRef,
     replyBannerRef,
+    deletedBannerRef,
     currentMessages,
     handleSendMessage,
     handleKeyDown,
@@ -326,6 +420,9 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     addContact,
     markMessageAsRead,
     markMessageAsUnread,
+    scrollToMessage,
+    setContactsState,
+    isGroupDeleted,
   }
 }
 

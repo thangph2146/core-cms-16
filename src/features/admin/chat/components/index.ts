@@ -1,6 +1,10 @@
 export { MessagesPage } from "./messages-page"
 export { MessagesPageClient } from "./messages-page-client"
-export { NewConversationDialog } from "./new-conversation-dialog"
+export { NewConversationDialog } from "./dialogs/new-conversation-dialog"
+export { NewGroupDialog } from "./dialogs/new-group-dialog"
+export { EditGroupDialog } from "./edit-group-dialog"
+export { ManageMembersDialog } from "./dialogs/manage-members-dialog"
+export { DeleteGroupDialog } from "./dialogs/delete-group-dialog"
+export { GroupManagementMenu } from "./group-management-menu"
 export { ChatTemplate } from "./chat-template"
 export type { ChatTemplateProps } from "@/components/chat/types"
-

@@ -14,7 +14,8 @@ export interface SocketMessagePayload {
   parentMessageId?: string
   content: string
   fromUserId: string
-  toUserId: string
+  toUserId?: string // Nullable for group messages
+  groupId?: string // For group messages
   timestamp?: number
   isRead?: boolean // Include isRead status for message:updated events
 }

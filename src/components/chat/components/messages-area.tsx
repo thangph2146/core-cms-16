@@ -1,9 +1,11 @@
 "use client"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { Message } from "../types"
+import type { Message, GroupRole } from "../types"
 import { EmptyState } from "./empty-state"
 import { MessageBubble } from "./message-bubble"
+import { DeletedGroupBanner } from "./deleted-group-banner"
+import { filterMessagesByQuery, createMessageMap, getParentMessage } from "../utils/message-helpers"
 
 interface MessagesAreaProps {
   messages: Message[]
@@ -15,6 +17,10 @@ interface MessagesAreaProps {
   onReply?: (message: Message) => void
   onMarkAsRead?: (messageId: string) => void
   onMarkAsUnread?: (messageId: string) => void
+  searchQuery?: string
+  isGroupDeleted?: boolean
+  currentUserRole?: GroupRole
+  onHardDeleteGroup?: () => void
 }
 
 export function MessagesArea({
@@ -27,10 +33,13 @@ export function MessagesArea({
   onReply,
   onMarkAsRead,
   onMarkAsUnread,
+  searchQuery = "",
+  isGroupDeleted = false,
+  currentUserRole,
+  onHardDeleteGroup,
 }: MessagesAreaProps) {
-  // Create a map for quick parent message lookup
-  const messageMap = new Map<string, Message>()
-  messages.forEach((msg) => messageMap.set(msg.id, msg))
+  const messageMap = createMessageMap(messages)
+  const filteredMessages = filterMessagesByQuery(messages, searchQuery)
 
   const style = {
     maxHeight: messagesMaxHeight ? `${messagesMaxHeight}px` : "calc(100dvh - 13rem)",
@@ -42,25 +51,39 @@ export function MessagesArea({
       style={style}
     >
       <div className="flex flex-col p-4 gap-2" ref={scrollAreaRef}>
-        {messages.length > 0 ? (
+        {isGroupDeleted && (
+          <DeletedGroupBanner
+            currentUserRole={currentUserRole}
+            onHardDeleteGroup={onHardDeleteGroup}
+          />
+        )}
+        {filteredMessages.length > 0 ? (
           <>
-            {messages.map((message) => {
-              const parentMessage = message.parentId ? messageMap.get(message.parentId) : null
-              return (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  isOwnMessage={message.senderId === currentUserId}
-                  parentMessage={parentMessage}
-                  currentUserId={currentUserId}
-                  onReply={onReply}
-                  onMarkAsRead={onMarkAsRead}
-                  onMarkAsUnread={onMarkAsUnread}
-                />
-              )
-            })}
+            {searchQuery.trim() && (
+              <div className="text-xs text-muted-foreground text-center py-2">
+                Tìm thấy {filteredMessages.length} tin nhắn
+              </div>
+            )}
+            {filteredMessages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                isOwnMessage={message.senderId === currentUserId}
+                parentMessage={getParentMessage(message, messageMap)}
+                currentUserId={currentUserId}
+                onReply={onReply}
+                onMarkAsRead={onMarkAsRead}
+                onMarkAsUnread={onMarkAsUnread}
+                searchQuery={searchQuery}
+              />
+            ))}
             <div ref={messagesEndRef} />
           </>
+        ) : searchQuery.trim() ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <p className="text-sm text-muted-foreground">Không tìm thấy tin nhắn nào</p>
+            <p className="text-xs text-muted-foreground mt-1">Thử tìm kiếm với từ khóa khác</p>
+          </div>
         ) : (
           <EmptyState variant="messages" />
         )}

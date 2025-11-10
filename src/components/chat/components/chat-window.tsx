@@ -5,12 +5,12 @@
 
 "use client"
 
-import type { Contact, Message } from "../types"
+import type { Contact, Message, GroupRole } from "../types"
 import { ChatHeader } from "./chat-header"
 import { MessagesArea } from "./messages-area"
 import { ChatInput } from "./chat-input"
 
-interface ChatWindowProps {
+export interface ChatWindowProps {
   currentChat: Contact
   currentUserId: string
   currentMessages: Message[]
@@ -20,6 +20,7 @@ interface ChatWindowProps {
   messagesEndRef: React.RefObject<HTMLDivElement | null>
   inputRef: React.RefObject<HTMLTextAreaElement | null>
   replyBannerRef: React.RefObject<HTMLDivElement | null>
+  deletedBannerRef?: React.RefObject<HTMLDivElement | null>
   messageInput: string
   setMessageInput: (value: string) => void
   replyingTo: Message | null
@@ -29,6 +30,13 @@ interface ChatWindowProps {
   handleCancelReply: () => void
   markMessageAsRead: (messageId: string) => void
   markMessageAsUnread: (messageId: string) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  onScrollToMessage?: (messageId: string) => void
+  groupManagementMenu?: React.ReactNode
+  isGroupDeleted?: boolean
+  currentUserRole?: GroupRole
+  onHardDeleteGroup?: () => void
   onBack?: () => void
   showBackButton?: boolean
 }
@@ -43,6 +51,7 @@ export function ChatWindow({
   messagesEndRef,
   inputRef,
   replyBannerRef,
+  deletedBannerRef,
   messageInput,
   setMessageInput,
   replyingTo,
@@ -52,12 +61,28 @@ export function ChatWindow({
   handleCancelReply,
   markMessageAsRead,
   markMessageAsUnread,
+  searchQuery,
+  onSearchChange,
+  onScrollToMessage,
+  groupManagementMenu,
+  isGroupDeleted = false,
+  currentUserRole,
+  onHardDeleteGroup,
   onBack,
   showBackButton,
 }: ChatWindowProps) {
   return (
     <>
-      <ChatHeader contact={currentChat} onBack={onBack} showBackButton={showBackButton} />
+      <ChatHeader 
+        contact={currentChat} 
+        onBack={onBack} 
+        showBackButton={showBackButton}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        currentMessages={currentMessages}
+        onScrollToMessage={onScrollToMessage}
+        groupManagementMenu={groupManagementMenu}
+      />
       <MessagesArea
         messages={currentMessages}
         currentUserId={currentUserId}
@@ -68,6 +93,10 @@ export function ChatWindow({
         onReply={handleReplyToMessage}
         onMarkAsRead={markMessageAsRead}
         onMarkAsUnread={markMessageAsUnread}
+        searchQuery={searchQuery}
+        isGroupDeleted={isGroupDeleted}
+        currentUserRole={currentUserRole}
+        onHardDeleteGroup={onHardDeleteGroup}
       />
       <ChatInput
         inputRef={inputRef}
@@ -79,8 +108,9 @@ export function ChatWindow({
         replyingTo={replyingTo}
         onCancelReply={handleCancelReply}
         replyBannerRef={replyBannerRef}
+        deletedBannerRef={deletedBannerRef}
+        isGroupDeleted={isGroupDeleted}
       />
     </>
   )
 }
-

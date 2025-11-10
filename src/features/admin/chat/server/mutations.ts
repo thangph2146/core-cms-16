@@ -11,7 +11,8 @@ import { logger } from "@/lib/config"
 export interface CreateMessageInput {
   content: string
   subject?: string
-  receiverId: string
+  receiverId?: string | null // Nullable for group messages
+  groupId?: string | null // For group messages
   parentId?: string | null
   type?: "NOTIFICATION" | "ANNOUNCEMENT" | "PERSONAL" | "SYSTEM"
 }
@@ -25,21 +26,50 @@ export interface MarkMessagesAsReadInput {
  * Create a new message
  */
 export async function createMessage(ctx: AuthContext, input: CreateMessageInput): Promise<MessageWithRelations> {
-  if (!input.content || !input.receiverId) {
-    throw new ApplicationError("Content và receiverId là bắt buộc", 400)
+  if (!input.content) {
+    throw new ApplicationError("Content là bắt buộc", 400)
   }
 
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
   }
 
-  // Verify receiver exists
-  const receiver = await prisma.user.findUnique({
-    where: { id: input.receiverId },
-  })
+  // Validate: either receiverId (personal) or groupId (group) must be provided
+  if (!input.receiverId && !input.groupId) {
+    throw new ApplicationError("receiverId hoặc groupId là bắt buộc", 400)
+  }
 
-  if (!receiver) {
-    throw new NotFoundError("Người nhận không tồn tại")
+  if (input.receiverId && input.groupId) {
+    throw new ApplicationError("Không thể có cả receiverId và groupId", 400)
+  }
+
+  // Verify receiver exists (for personal messages)
+  if (input.receiverId) {
+    const receiver = await prisma.user.findUnique({
+      where: { id: input.receiverId },
+    })
+
+    if (!receiver) {
+      throw new NotFoundError("Người nhận không tồn tại")
+    }
+  }
+
+  // Verify group exists and user is a member (for group messages)
+  if (input.groupId) {
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: input.groupId,
+        userId: ctx.actorId,
+        leftAt: null,
+      },
+      include: {
+        group: true,
+      },
+    })
+
+    if (!groupMember) {
+      throw new ApplicationError("Bạn không phải thành viên của nhóm này", 403)
+    }
   }
 
   // Verify parent message exists if provided
@@ -58,7 +88,8 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
       content: input.content.trim(),
       subject: input.subject || "PERSONAL",
       senderId: ctx.actorId,
-      receiverId: input.receiverId,
+      receiverId: input.receiverId || null,
+      groupId: input.groupId || null,
       parentId: input.parentId || null,
       type: input.type || "PERSONAL",
       isRead: false,
@@ -104,19 +135,42 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
         parentMessageId: message.parentId || undefined,
         content: message.content,
         fromUserId: message.senderId || ctx.actorId,
-        toUserId: message.receiverId,
+        toUserId: message.receiverId || undefined,
+        groupId: message.groupId || undefined,
         timestamp: message.createdAt.getTime(),
       }
 
-      // Emit đến user rooms (tương tự notifications emit đến user:${userId})
-      io.to(`user:${ctx.actorId}`).emit("message:new", payload)
-      io.to(`user:${input.receiverId}`).emit("message:new", payload)
-      
-      logger.debug("Socket message:new emitted", {
-        messageId: message.id,
-        fromUserId: message.senderId,
-        toUserId: message.receiverId,
-      })
+      if (input.groupId) {
+        // Group message: emit đến tất cả members của group
+        const groupMembers = await prisma.groupMember.findMany({
+          where: {
+            groupId: input.groupId,
+            leftAt: null,
+          },
+          select: { userId: true },
+        })
+
+        const memberIds = groupMembers.map((m) => m.userId)
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("message:new", payload)
+        })
+
+        logger.debug("Socket message:new emitted (group)", {
+          messageId: message.id,
+          groupId: input.groupId,
+          memberCount: memberIds.length,
+        })
+      } else if (input.receiverId) {
+        // Personal message: emit đến sender và receiver
+        io.to(`user:${ctx.actorId}`).emit("message:new", payload)
+        io.to(`user:${input.receiverId}`).emit("message:new", payload)
+        
+        logger.debug("Socket message:new emitted (personal)", {
+          messageId: message.id,
+          fromUserId: message.senderId,
+          toUserId: message.receiverId,
+        })
+      }
     } catch (error) {
       logger.error("Failed to emit socket message", error instanceof Error ? error : new Error(String(error)))
     }
@@ -391,6 +445,965 @@ export async function markConversationAsRead(
   }
 
   return { count: result.count }
+}
+
+/**
+ * Create a new group
+ */
+export interface CreateGroupInput {
+  name: string
+  description?: string
+  avatar?: string | null
+  memberIds: string[]
+}
+
+export async function createGroup(ctx: AuthContext, input: CreateGroupInput) {
+  if (!input.name?.trim()) {
+    throw new ApplicationError("Tên nhóm là bắt buộc", 400)
+  }
+
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  if (!input.memberIds || input.memberIds.length === 0) {
+    throw new ApplicationError("Phải có ít nhất một thành viên", 400)
+  }
+
+  // Verify all members exist
+  const members = await prisma.user.findMany({
+    where: {
+      id: { in: input.memberIds },
+      deletedAt: null,
+    },
+  })
+
+  if (members.length !== input.memberIds.length) {
+    throw new ApplicationError("Một hoặc nhiều thành viên không tồn tại", 400)
+  }
+
+  // Create group with creator as owner
+  const group = await prisma.group.create({
+    data: {
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      avatar: input.avatar || null,
+      createdById: ctx.actorId,
+      members: {
+        create: [
+          // Creator as owner
+          {
+            userId: ctx.actorId,
+            role: "OWNER",
+          },
+          // Other members
+          ...input.memberIds
+            .filter((id) => id !== ctx.actorId)
+            .map((userId) => ({
+              userId,
+              role: "MEMBER" as const,
+            })),
+        ],
+      },
+    },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+      members: {
+        where: { leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  return group
+}
+
+/**
+ * Add members to a group
+ */
+export interface AddGroupMembersInput {
+  groupId: string
+  memberIds: string[]
+}
+
+export async function addGroupMembers(ctx: AuthContext, input: AddGroupMembersInput) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is member of group
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: { in: ["OWNER", "ADMIN"] },
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Bạn không có quyền thêm thành viên", 403)
+  }
+
+  // Verify group exists
+  const group = await prisma.group.findUnique({
+    where: { id: input.groupId },
+  })
+
+  if (!group) {
+    throw new NotFoundError("Nhóm không tồn tại")
+  }
+
+  // Verify all members exist and not already in group
+  const existingMembers = await prisma.groupMember.findMany({
+    where: {
+      groupId: input.groupId,
+      userId: { in: input.memberIds },
+      leftAt: null,
+    },
+  })
+
+  const existingMemberIds = existingMembers.map((m) => m.userId)
+  const newMemberIds = input.memberIds.filter((id) => !existingMemberIds.includes(id))
+
+  if (newMemberIds.length === 0) {
+    throw new ApplicationError("Tất cả thành viên đã có trong nhóm", 400)
+  }
+
+  // Verify users exist
+  const users = await prisma.user.findMany({
+    where: {
+      id: { in: newMemberIds },
+      deletedAt: null,
+    },
+  })
+
+  if (users.length !== newMemberIds.length) {
+    throw new ApplicationError("Một hoặc nhiều thành viên không tồn tại", 400)
+  }
+
+  // Add members
+  await prisma.groupMember.createMany({
+    data: newMemberIds.map((userId) => ({
+      groupId: input.groupId,
+      userId,
+      role: "MEMBER",
+    })),
+  })
+
+  // Emit socket event for group update
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId: input.groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      const group = await prisma.group.findUnique({
+        where: { id: input.groupId },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          members: {
+            where: { leftAt: null },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      if (group) {
+        const payload = {
+          id: group.id,
+          name: group.name,
+          description: group.description,
+          avatar: group.avatar,
+          memberCount: group.members.length,
+        }
+
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("group:updated", payload)
+        })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket group update", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { count: newMemberIds.length }
+}
+
+/**
+ * Update group information
+ */
+export interface UpdateGroupInput {
+  groupId: string
+  name?: string
+  description?: string
+  avatar?: string | null
+}
+
+export async function updateGroup(ctx: AuthContext, input: UpdateGroupInput) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner or admin
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: { in: ["OWNER", "ADMIN"] },
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Bạn không có quyền chỉnh sửa nhóm", 403)
+  }
+
+  // Verify group exists
+  const group = await prisma.group.findUnique({
+    where: { id: input.groupId },
+  })
+
+  if (!group) {
+    throw new NotFoundError("Nhóm không tồn tại")
+  }
+
+  // Update group
+  const updated = await prisma.group.update({
+    where: { id: input.groupId },
+    data: {
+      ...(input.name && { name: input.name.trim() }),
+      ...(input.description !== undefined && { description: input.description?.trim() || null }),
+      ...(input.avatar !== undefined && { avatar: input.avatar }),
+    },
+    include: {
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+      members: {
+        where: { leftAt: null },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId: input.groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      const payload = {
+        id: updated.id,
+        name: updated.name,
+        description: updated.description,
+        avatar: updated.avatar,
+        memberCount: updated.members.length,
+      }
+
+      memberIds.forEach((userId) => {
+        io.to(`user:${userId}`).emit("group:updated", payload)
+      })
+    } catch (error) {
+      logger.error("Failed to emit socket group update", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return updated
+}
+
+/**
+ * Delete group (soft delete)
+ */
+export async function deleteGroup(ctx: AuthContext, groupId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: "OWNER",
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Chỉ chủ nhóm mới có quyền xóa nhóm", 403)
+  }
+
+  // Verify group exists
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+  })
+
+  if (!group) {
+    throw new NotFoundError("Nhóm không tồn tại")
+  }
+
+  if (group.deletedAt) {
+    throw new ApplicationError("Nhóm đã bị xóa", 400)
+  }
+
+  // Soft delete group
+  const deleted = await prisma.group.update({
+    where: { id: groupId },
+    data: {
+      deletedAt: new Date(),
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      memberIds.forEach((userId) => {
+        io.to(`user:${userId}`).emit("group:deleted", { id: groupId })
+      })
+    } catch (error) {
+      logger.error("Failed to emit socket group delete", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return deleted
+}
+
+/**
+ * Hard delete group (permanent delete)
+ */
+export async function hardDeleteGroup(ctx: AuthContext, groupId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: "OWNER",
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Chỉ chủ nhóm mới có quyền xóa vĩnh viễn nhóm", 403)
+  }
+
+  // Verify group exists
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+  })
+
+  if (!group) {
+    throw new NotFoundError("Nhóm không tồn tại")
+  }
+
+  // Hard delete group (cascade will delete members and messages)
+  await prisma.group.delete({
+    where: { id: groupId },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      memberIds.forEach((userId) => {
+        io.to(`user:${userId}`).emit("group:hard-deleted", { id: groupId })
+      })
+    } catch (error) {
+      logger.error("Failed to emit socket group hard delete", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Restore group (undo soft delete)
+ */
+export async function restoreGroup(ctx: AuthContext, groupId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: "OWNER",
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Chỉ chủ nhóm mới có quyền khôi phục nhóm", 403)
+  }
+
+  // Verify group exists and is deleted
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+  })
+
+  if (!group) {
+    throw new NotFoundError("Nhóm không tồn tại")
+  }
+
+  if (!group.deletedAt) {
+    throw new ApplicationError("Nhóm chưa bị xóa", 400)
+  }
+
+  // Restore group
+  const restored = await prisma.group.update({
+    where: { id: groupId },
+    data: {
+      deletedAt: null,
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      memberIds.forEach((userId) => {
+        io.to(`user:${userId}`).emit("group:restored", { id: groupId })
+      })
+    } catch (error) {
+      logger.error("Failed to emit socket group restore", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return restored
+}
+
+/**
+ * Remove a member from group
+ */
+export interface RemoveGroupMemberInput {
+  groupId: string
+  memberId: string
+}
+
+export async function removeGroupMember(ctx: AuthContext, input: RemoveGroupMemberInput) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner or admin
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: { in: ["OWNER", "ADMIN"] },
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Bạn không có quyền xóa thành viên", 403)
+  }
+
+  // Cannot remove owner
+  const targetMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: input.memberId,
+      leftAt: null,
+    },
+  })
+
+  if (!targetMember) {
+    throw new NotFoundError("Thành viên không tồn tại trong nhóm")
+  }
+
+  if (targetMember.role === "OWNER") {
+    throw new ApplicationError("Không thể xóa chủ nhóm", 400)
+  }
+
+  // Remove member (set leftAt)
+  await prisma.groupMember.update({
+    where: { id: targetMember.id },
+    data: {
+      leftAt: new Date(),
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId: input.groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      const group = await prisma.group.findUnique({
+        where: { id: input.groupId },
+        include: {
+          members: {
+            where: { leftAt: null },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      if (group) {
+        const payload = {
+          id: group.id,
+          name: group.name,
+          description: group.description,
+          avatar: group.avatar,
+          memberCount: group.members.length,
+        }
+
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("group:updated", payload)
+        })
+        io.to(`user:${input.memberId}`).emit("group:removed", { groupId: input.groupId })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket group update", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Update member role (promote to admin or demote to member)
+ */
+export interface UpdateGroupMemberRoleInput {
+  groupId: string
+  memberId: string
+  role: "ADMIN" | "MEMBER"
+}
+
+export async function updateGroupMemberRole(ctx: AuthContext, input: UpdateGroupMemberRoleInput) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is owner
+  const userMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: ctx.actorId,
+      leftAt: null,
+      role: "OWNER",
+    },
+  })
+
+  if (!userMember) {
+    throw new ApplicationError("Chỉ chủ nhóm mới có quyền thay đổi vai trò", 403)
+  }
+
+  // Verify target member exists
+  const targetMember = await prisma.groupMember.findFirst({
+    where: {
+      groupId: input.groupId,
+      userId: input.memberId,
+      leftAt: null,
+    },
+  })
+
+  if (!targetMember) {
+    throw new NotFoundError("Thành viên không tồn tại trong nhóm")
+  }
+
+  // Cannot change owner role
+  if (targetMember.role === "OWNER") {
+    throw new ApplicationError("Không thể thay đổi vai trò của chủ nhóm", 400)
+  }
+
+  // Update role
+  await prisma.groupMember.update({
+    where: { id: targetMember.id },
+    data: {
+      role: input.role,
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      const groupMembers = await prisma.groupMember.findMany({
+        where: {
+          groupId: input.groupId,
+          leftAt: null,
+        },
+        select: { userId: true },
+      })
+
+      const memberIds = groupMembers.map((m) => m.userId)
+      const group = await prisma.group.findUnique({
+        where: { id: input.groupId },
+        include: {
+          members: {
+            where: { leftAt: null },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      if (group) {
+        const payload = {
+          id: group.id,
+          name: group.name,
+          description: group.description,
+          avatar: group.avatar,
+          memberCount: group.members.length,
+        }
+
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("group:updated", payload)
+        })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket group update", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Soft delete message
+ */
+export async function softDeleteMessage(ctx: AuthContext, messageId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify message exists
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { id: true, senderId: true, receiverId: true, groupId: true, deletedAt: true },
+  })
+
+  if (!message) {
+    throw new NotFoundError("Tin nhắn không tồn tại")
+  }
+
+  // Verify user is sender or receiver (for personal messages) or group member (for group messages)
+  if (message.groupId) {
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: message.groupId,
+        userId: ctx.actorId,
+        leftAt: null,
+      },
+    })
+
+    if (!groupMember) {
+      throw new ApplicationError("Bạn không có quyền xóa tin nhắn này", 403)
+    }
+  } else {
+    if (message.senderId !== ctx.actorId && message.receiverId !== ctx.actorId) {
+      throw new ApplicationError("Bạn không có quyền xóa tin nhắn này", 403)
+    }
+  }
+
+  if (message.deletedAt) {
+    throw new ApplicationError("Tin nhắn đã bị xóa", 400)
+  }
+
+  // Soft delete message
+  const deleted = await prisma.message.update({
+    where: { id: messageId },
+    data: {
+      deletedAt: new Date(),
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      if (message.groupId) {
+        const groupMembers = await prisma.groupMember.findMany({
+          where: {
+            groupId: message.groupId,
+            leftAt: null,
+          },
+          select: { userId: true },
+        })
+
+        const memberIds = groupMembers.map((m) => m.userId)
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("message:deleted", { id: messageId, groupId: message.groupId })
+        })
+      } else if (message.senderId && message.receiverId) {
+        io.to(`user:${message.senderId}`).emit("message:deleted", { id: messageId })
+        io.to(`user:${message.receiverId}`).emit("message:deleted", { id: messageId })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket message delete", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return deleted
+}
+
+/**
+ * Hard delete message (permanent delete)
+ */
+export async function hardDeleteMessage(ctx: AuthContext, messageId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify message exists
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { id: true, senderId: true, receiverId: true, groupId: true },
+  })
+
+  if (!message) {
+    throw new NotFoundError("Tin nhắn không tồn tại")
+  }
+
+  // Verify user is sender or receiver (for personal messages) or group member (for group messages)
+  if (message.groupId) {
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: message.groupId,
+        userId: ctx.actorId,
+        leftAt: null,
+        role: { in: ["OWNER", "ADMIN"] },
+      },
+    })
+
+    if (!groupMember) {
+      throw new ApplicationError("Chỉ quản trị viên mới có quyền xóa vĩnh viễn tin nhắn trong nhóm", 403)
+    }
+  } else {
+    if (message.senderId !== ctx.actorId && message.receiverId !== ctx.actorId) {
+      throw new ApplicationError("Bạn không có quyền xóa tin nhắn này", 403)
+    }
+  }
+
+  // Hard delete message
+  await prisma.message.delete({
+    where: { id: messageId },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      if (message.groupId) {
+        const groupMembers = await prisma.groupMember.findMany({
+          where: {
+            groupId: message.groupId,
+            leftAt: null,
+          },
+          select: { userId: true },
+        })
+
+        const memberIds = groupMembers.map((m) => m.userId)
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("message:hard-deleted", { id: messageId, groupId: message.groupId })
+        })
+      } else if (message.senderId && message.receiverId) {
+        io.to(`user:${message.senderId}`).emit("message:hard-deleted", { id: messageId })
+        io.to(`user:${message.receiverId}`).emit("message:hard-deleted", { id: messageId })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket message hard delete", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Restore message (undo soft delete)
+ */
+export async function restoreMessage(ctx: AuthContext, messageId: string) {
+  if (!ctx.actorId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify message exists and is deleted
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { id: true, senderId: true, receiverId: true, groupId: true, deletedAt: true },
+  })
+
+  if (!message) {
+    throw new NotFoundError("Tin nhắn không tồn tại")
+  }
+
+  if (!message.deletedAt) {
+    throw new ApplicationError("Tin nhắn chưa bị xóa", 400)
+  }
+
+  // Verify user is sender or receiver (for personal messages) or group member (for group messages)
+  if (message.groupId) {
+    const groupMember = await prisma.groupMember.findFirst({
+      where: {
+        groupId: message.groupId,
+        userId: ctx.actorId,
+        leftAt: null,
+      },
+    })
+
+    if (!groupMember) {
+      throw new ApplicationError("Bạn không có quyền khôi phục tin nhắn này", 403)
+    }
+  } else {
+    if (message.senderId !== ctx.actorId && message.receiverId !== ctx.actorId) {
+      throw new ApplicationError("Bạn không có quyền khôi phục tin nhắn này", 403)
+    }
+  }
+
+  // Restore message
+  const restored = await prisma.message.update({
+    where: { id: messageId },
+    data: {
+      deletedAt: null,
+    },
+  })
+
+  // Emit socket event
+  const io = getSocketServer()
+  if (io) {
+    try {
+      if (message.groupId) {
+        const groupMembers = await prisma.groupMember.findMany({
+          where: {
+            groupId: message.groupId,
+            leftAt: null,
+          },
+          select: { userId: true },
+        })
+
+        const memberIds = groupMembers.map((m) => m.userId)
+        memberIds.forEach((userId) => {
+          io.to(`user:${userId}`).emit("message:restored", { id: messageId, groupId: message.groupId })
+        })
+      } else if (message.senderId && message.receiverId) {
+        io.to(`user:${message.senderId}`).emit("message:restored", { id: messageId })
+        io.to(`user:${message.receiverId}`).emit("message:restored", { id: messageId })
+      }
+    } catch (error) {
+      logger.error("Failed to emit socket message restore", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return restored
 }
 
 // Re-export for backward compatibility

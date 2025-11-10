@@ -12,8 +12,9 @@ const MARK_AS_READ_DEBOUNCE_MS = 300
 
 /**
  * Tính toán base height cho messages area
+ * Internal helper - not exported
  */
-export function calculateBaseHeight(): number {
+function calculateBaseHeight(): number {
   return window.innerHeight - (BASE_OFFSET_REM * REM_TO_PX)
 }
 
@@ -24,37 +25,48 @@ export function calculateMessagesHeight(params: {
   textareaHeight: number
   replyingTo: Message | null
   replyBannerRef: React.RefObject<HTMLDivElement | null>
+  deletedBannerRef?: React.RefObject<HTMLDivElement | null>
+  isGroupDeleted?: boolean
 }): { maxHeight: number; minHeight: number } {
-  const { textareaHeight, replyingTo, replyBannerRef } = params
+  const { textareaHeight, replyingTo, replyBannerRef, deletedBannerRef, isGroupDeleted = false } = params
   const baseHeight = calculateBaseHeight()
   const textareaExtraHeight = Math.max(0, textareaHeight - TEXTAREA_MIN_HEIGHT)
-  
+
   // Measure actual reply banner height
-  let replyBannerHeight = 0
-  if (replyingTo) {
-    replyBannerHeight = replyBannerRef.current?.offsetHeight || ESTIMATED_REPLY_BANNER_HEIGHT
-  }
-  
-  const totalExtraHeight = textareaExtraHeight + replyBannerHeight + ADJUSTMENT_PX
+  const replyBannerHeight = replyingTo && !isGroupDeleted
+    ? replyBannerRef.current?.offsetHeight || ESTIMATED_REPLY_BANNER_HEIGHT
+    : 0
+
+  // Measure actual deleted banner height
+  const deletedBannerHeight = isGroupDeleted && deletedBannerRef?.current
+    ? deletedBannerRef.current.offsetHeight
+    : isGroupDeleted
+    ? 40 // Fallback estimate
+    : 0
+
+  const totalExtraHeight = textareaExtraHeight + replyBannerHeight + deletedBannerHeight + ADJUSTMENT_PX
   const height = Math.max(0, baseHeight - totalExtraHeight)
-  
+
   return { maxHeight: height, minHeight: height }
 }
 
 /**
  * Mark conversation as read via API
+ * Internal helper - not exported
  */
-export async function markConversationAsReadAPI(contactId: string): Promise<void> {
+async function markConversationAsReadAPI(contactId: string): Promise<void> {
   try {
     const response = await fetch(`/api/admin/conversations/${contactId}/mark-read`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
     if (!response.ok) {
-      console.error("Failed to mark conversation as read:", await response.text())
+      const { logger } = await import("@/lib/config")
+      logger.error("Failed to mark conversation as read", { contactId, status: response.status })
     }
   } catch (error) {
-    console.error("Error auto-marking conversation as read:", error)
+    const { logger } = await import("@/lib/config")
+    logger.error("Error auto-marking conversation as read", error)
   }
 }
 
@@ -73,12 +85,15 @@ export function getUnreadMessages(contact: Contact, currentUserId: string): Mess
 }
 
 /**
- * Check if messages changed
+ * Check if messages changed (including isRead status)
  */
 export function hasMessagesChanged(oldMessages: Message[], newMessages: Message[]): boolean {
-  return (
-    oldMessages.length !== newMessages.length ||
-    oldMessages[oldMessages.length - 1]?.id !== newMessages[newMessages.length - 1]?.id
-  )
+  if (oldMessages.length !== newMessages.length) return true
+  if (oldMessages[oldMessages.length - 1]?.id !== newMessages[newMessages.length - 1]?.id) return true
+  
+  // Check if any message's isRead status changed
+  return oldMessages.some((oldMsg, idx) => {
+    const newMsg = newMessages[idx]
+    return newMsg && newMsg.id === oldMsg.id && newMsg.isRead !== oldMsg.isRead
+  })
 }
-

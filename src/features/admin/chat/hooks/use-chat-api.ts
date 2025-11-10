@@ -3,16 +3,26 @@
  * Tách API calls để dễ test và maintain
  */
 
-import { apiRoutes } from "@/lib/api/routes"
 import { toast } from "@/hooks/use-toast"
+
+/**
+ * Parse API error response
+ * Internal helper - not exported
+ */
+async function parseErrorResponse(response: Response, defaultMessage: string): Promise<string> {
+  try {
+    const errorData = await response.json()
+    return errorData.error || defaultMessage
+  } catch {
+    return defaultMessage
+  }
+}
 
 /**
  * Mark message as read/unread
  */
-export async function markMessageAPI(
-  messageId: string,
-  isRead: boolean
-): Promise<void> {
+export async function markMessageAPI(messageId: string, isRead: boolean): Promise<void> {
+  const { apiRoutes } = await import("@/lib/api/routes")
   const response = await fetch(`/api${apiRoutes.adminMessages.markRead(messageId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -20,10 +30,9 @@ export async function markMessageAPI(
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({
-      error: isRead ? "Không thể đánh dấu đã đọc" : "Không thể đánh dấu chưa đọc",
-    }))
-    throw new Error(errorData.error || `Failed to mark message as ${isRead ? "read" : "unread"}`)
+    const defaultMessage = isRead ? "Không thể đánh dấu đã đọc" : "Không thể đánh dấu chưa đọc"
+    const errorMessage = await parseErrorResponse(response, defaultMessage)
+    throw new Error(errorMessage)
   }
 }
 
@@ -32,7 +41,8 @@ export async function markMessageAPI(
  */
 export async function sendMessageAPI(params: {
   content: string
-  receiverId: string
+  receiverId?: string
+  groupId?: string
   parentId?: string
 }): Promise<{ id: string; timestamp: string }> {
   const { apiRoutes } = await import("@/lib/api/routes")
@@ -42,14 +52,15 @@ export async function sendMessageAPI(params: {
     body: JSON.stringify({
       content: params.content,
       receiverId: params.receiverId,
+      groupId: params.groupId,
       parentId: params.parentId,
       type: "PERSONAL",
     }),
   })
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: "Không thể gửi tin nhắn" }))
-    throw new Error(errorData.error || `Failed to send message: ${response.status}`)
+    const errorMessage = await parseErrorResponse(response, "Không thể gửi tin nhắn")
+    throw new Error(errorMessage)
   }
 
   return response.json()
@@ -59,7 +70,10 @@ export async function sendMessageAPI(params: {
  * Handle API error với toast
  */
 export function handleAPIError(error: unknown, defaultMessage: string): void {
-  console.error(defaultMessage, error)
+  // Use dynamic import to avoid require()
+  import("@/lib/config").then(({ logger }) => {
+    logger.error(defaultMessage, error)
+  })
   const errorMessage = error instanceof Error ? error.message : defaultMessage
   toast({
     title: "Lỗi",
@@ -67,4 +81,3 @@ export function handleAPIError(error: unknown, defaultMessage: string): void {
     variant: "destructive",
   })
 }
-

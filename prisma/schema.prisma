@@ -1,6 +1,6 @@
 generator client {
-  provider   = "prisma-client-js"
-  engineType = "binary"
+  provider      = "prisma-client-js"
+  engineType    = "binary"
   binaryTargets = ["native"]
 }
 
@@ -34,6 +34,8 @@ model User {
   notifications            Notification[]
   contactRequestsSubmitted ContactRequest[] @relation("ContactSubmittedBy")
   contactRequestsAssigned  ContactRequest[] @relation("ContactAssignedTo")
+  groupsCreated            Group[]          @relation("GroupCreator")
+  groupMemberships         GroupMember[]    @relation("GroupMembers")
 
   @@map("users")
 }
@@ -177,10 +179,43 @@ model Student {
   @@map("students")
 }
 
+model Group {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  avatar      String?
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  creator     User          @relation("GroupCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members     GroupMember[]
+  messages    Message[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String    @id @default(cuid())
+  groupId  String
+  userId   String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User      @relation("GroupMembers", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("group_members")
+}
+
 model Message {
   id         String      @id @default(cuid())
   senderId   String?
-  receiverId String
+  receiverId String? // Nullable for group messages
+  groupId    String? // Nullable for personal messages
   subject    String
   content    String
   isRead     Boolean     @default(false)
@@ -191,9 +226,13 @@ model Message {
   parentId   String?
   parent     Message?    @relation("MessageReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies    Message[]   @relation("MessageReplies")
-  receiver   User        @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiver   User?       @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   sender     User?       @relation("MessageSender", fields: [senderId], references: [id])
+  group      Group?      @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
+  @@index([groupId, createdAt])
+  @@index([receiverId, createdAt])
+  @@index([senderId, createdAt])
   @@map("messages")
 }
 
@@ -279,6 +318,12 @@ enum ContactPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 // NextAuth.js Models
