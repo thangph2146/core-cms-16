@@ -89,6 +89,15 @@ export function MessagesArea({
             <p className="text-sm text-muted-foreground">Không tìm thấy tin nhắn nào</p>
             <p className="text-xs text-muted-foreground mt-1">Thử tìm kiếm với từ khóa khác</p>
           </div>
+        ) : isGroupDeleted ? (
+          <>
+            <EmptyState variant="messages" />
+            <DeletedGroupBanner
+              currentUserRole={currentUserRole}
+              group={group}
+              onHardDeleteGroup={onHardDeleteGroup}
+            />
+          </>
         ) : (
           <EmptyState variant="messages" />
         )}

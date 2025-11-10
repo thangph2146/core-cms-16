@@ -90,7 +90,6 @@ export function DeleteGroupDialog({ open, onOpenChange, group, onSuccess }: Dele
             <Trash className="mr-2 h-4 w-4" />
             <div className="flex-1 text-left">
               <div className="font-medium">Xóa tạm thời</div>
-              <div className="text-xs text-muted-foreground">Có thể khôi phục sau</div>
             </div>
             {isDeleting && (
               <Loader2 className="ml-2 h-4 w-4 animate-spin" />
@@ -105,7 +104,6 @@ export function DeleteGroupDialog({ open, onOpenChange, group, onSuccess }: Dele
             <AlertTriangle className="mr-2 h-4 w-4" />
             <div className="flex-1 text-left">
               <div className="font-medium">Xóa vĩnh viễn</div>
-              <div className="text-xs text-muted-foreground">Không thể hoàn tác</div>
             </div>
           </Button>
         </div>

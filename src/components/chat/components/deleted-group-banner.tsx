@@ -22,7 +22,7 @@ export function DeletedGroupBanner({
   onHardDeleteGroup,
 }: DeletedGroupBannerProps) {
   const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = useState(false)
-  const canHardDelete = (currentUserRole === "OWNER" || currentUserRole === "ADMIN") && onHardDeleteGroup
+  const canHardDelete = currentUserRole === "OWNER" && onHardDeleteGroup
 
   const handleHardDeleteClick = () => {
     setHardDeleteDialogOpen(true)

@@ -14,6 +14,7 @@ interface UseGroupActionsProps {
   currentUserRole?: GroupRole
   setCurrentChat: (contact: Contact | null) => void
   setContactsState: React.Dispatch<React.SetStateAction<Contact[]>>
+  onHardDeleteSuccess?: () => void // Callback after hard delete success
 }
 
 export function useGroupActions({
@@ -21,6 +22,7 @@ export function useGroupActions({
   currentUserRole,
   setCurrentChat,
   setContactsState,
+  onHardDeleteSuccess,
 }: UseGroupActionsProps) {
   const { toast } = useToast()
 
@@ -34,39 +36,19 @@ export function useGroupActions({
   }, [currentChat, setContactsState])
 
   const handleHardDeleteGroup = useCallback(async () => {
-    if (!currentChat || currentChat.type !== "GROUP" || !currentChat.group) return
-    if (currentUserRole !== "OWNER" && currentUserRole !== "ADMIN") return
-
-    if (!confirm("Bạn có chắc chắn muốn xóa vĩnh viễn nhóm này? Hành động này không thể hoàn tác.")) {
-      return
+    // This function is called after successful hard delete from dialog
+    // Just handle cleanup and state updates
+    if (!currentChat || currentChat.type !== "GROUP") return
+    
+    setCurrentChat(null)
+    // Refresh deleted groups list if callback provided (when on DELETED filter)
+    // Wait a bit for socket event to process first
+    if (onHardDeleteSuccess) {
+      setTimeout(() => {
+        onHardDeleteSuccess()
+      }, 500) // Wait 500ms for socket event to remove group from state
     }
-
-    try {
-      const response = await fetch(`/api${apiRoutes.adminGroups.hardDelete(currentChat.id)}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to hard delete group" }))
-        throw new Error(errorData.error || "Failed to hard delete group")
-      }
-
-      toast({
-        title: "Thành công",
-        description: "Đã xóa vĩnh viễn nhóm",
-      })
-
-      setCurrentChat(null)
-      handleGroupUpdated()
-    } catch (error) {
-      console.error("Error hard deleting group:", error)
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa vĩnh viễn nhóm",
-        variant: "destructive",
-      })
-    }
-  }, [currentChat, currentUserRole, toast, setCurrentChat, handleGroupUpdated])
+  }, [currentChat, setCurrentChat, onHardDeleteSuccess])
 
   return {
     handleGroupUpdated,

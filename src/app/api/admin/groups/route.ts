@@ -60,9 +60,10 @@ async function listGroupsHandler(req: NextRequest, context: ApiRouteContext) {
   const page = parseInt(searchParams.get("page") || "1", 10)
   const limit = parseInt(searchParams.get("limit") || "50", 10)
   const search = searchParams.get("search") || undefined
+  const includeDeleted = searchParams.get("includeDeleted") === "true"
 
   try {
-    const result = await listGroups({ userId, page, limit, search })
+    const result = await listGroups({ userId, page, limit, search, includeDeleted })
     return NextResponse.json(result)
   } catch (error) {
     return handleApiError(error, "Đã xảy ra lỗi khi lấy danh sách nhóm", 500)

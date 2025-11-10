@@ -11,10 +11,11 @@ import { GroupManagementMenu } from "./group-management-menu"
 import { ContactList } from "@/components/chat/components/contact-list"
 import { ChatWindow } from "@/components/chat/components/chat-window"
 import { EmptyState } from "@/components/chat/components/empty-state"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { getCurrentUserRole, createGroupContact } from "./chat-template-helpers"
 import { useGroupActions } from "../hooks/use-group-actions"
 import { filterContacts } from "@/components/chat/utils/contact-helpers"
+import { mapGroupListItemToContact } from "../utils/contact-transformers"
 import type { ChatWindowProps } from "@/components/chat/components/chat-window"
 
 export function ChatTemplate({ contacts, currentUserId, role, onNewConversation, onNewGroup }: ChatTemplateProps) {
@@ -52,12 +53,52 @@ export function ChatTemplate({ contacts, currentUserId, role, onNewConversation,
 
   const currentUserRole = getCurrentUserRole(currentChat, currentUserId)
 
+  // Function to fetch deleted groups
+  const fetchDeletedGroups = useCallback(async () => {
+    try {
+      const { apiRoutes } = await import("@/lib/api/routes")
+      const listRoute = apiRoutes.adminGroups.list({ page: 1, limit: 50 })
+      const separator = listRoute.includes("?") ? "&" : "?"
+      const response = await fetch(`/api${listRoute}${separator}includeDeleted=true`)
+      if (response.ok) {
+        const result = await response.json()
+        const deletedGroups = result.data || []
+        
+        // Map deleted groups to Contact format
+        const deletedGroupContacts: Contact[] = deletedGroups
+          .filter((groupData: { deletedAt?: string | Date | null }) => Boolean(groupData.deletedAt))
+          .map((groupData: any) =>
+            mapGroupListItemToContact({
+              groupData,
+              messages: [],
+              currentUserId,
+            })
+          )
+        
+        // Replace all deleted groups in contactsState (not merge, to remove hard-deleted groups)
+        setContactsState((prev) => {
+          // Keep all PERSONAL contacts (they don't have isDeleted)
+          const personalContacts = prev.filter((c) => c.type === "PERSONAL")
+          // Keep active groups (not deleted)
+          const activeGroups = prev.filter((c) => c.type === "GROUP" && !c.isDeleted)
+          
+          // Replace all deleted groups with fresh data from server
+          // This ensures hard-deleted groups are removed
+          return [...personalContacts, ...activeGroups, ...deletedGroupContacts]
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching deleted groups:", error)
+    }
+  }, [setContactsState, currentUserId])
+
   // Group actions hook
   const { handleGroupUpdated, handleHardDeleteGroup } = useGroupActions({
     currentChat,
     currentUserRole,
     setCurrentChat,
     setContactsState,
+    onHardDeleteSuccess: filterType === "DELETED" ? fetchDeletedGroups : undefined, // Refresh deleted groups list if on DELETED filter
   })
 
   // Handlers for new conversation/group
@@ -73,7 +114,9 @@ export function ChatTemplate({ contacts, currentUserId, role, onNewConversation,
     setCurrentChat(groupContact)
     onNewGroup?.(group)
   }
-  
+
+
+
   // Filter contacts based on filterType
   const filteredContacts = useMemo(
     () => filterContacts(contactsState, filterType),

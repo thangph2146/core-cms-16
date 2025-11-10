@@ -6,9 +6,15 @@
  */
 
 import { getAuthInfo } from "@/features/admin/resources/server/auth-helpers"
-import { listConversationsCached, getMessagesBetweenUsersCached, listGroupsCached, getMessagesForGroupCached } from "../server/cache"
+import {
+  listConversationsCached,
+  getMessagesBetweenUsersCached,
+  listGroupsCached,
+  getMessagesForGroupCached,
+} from "../server/cache"
 import { MessagesPageClient } from "./messages-page-client"
-import type { Contact, Message, Group } from "@/components/chat/types"
+import type { Contact } from "@/components/chat/types"
+import { ensureDate, mapGroupListItemToContact, mapMessageDetailToMessage } from "../utils/contact-transformers"
 
 export async function MessagesPage() {
   const authInfo = await getAuthInfo()
@@ -26,18 +32,19 @@ export async function MessagesPage() {
     limit: 50,
   })
 
-  // Fetch groups
+  // Fetch groups (active + deleted)
   const groupsResult = await listGroupsCached({
     userId: currentUserId,
     page: 1,
     limit: 50,
+    includeDeleted: true,
   })
 
   // Map conversations to Contact format
   const personalContacts: Contact[] = await Promise.all(
     conversationsResult.data.map(async (conv) => {
-      // Fetch messages for each conversation
       const messages = await getMessagesBetweenUsersCached(currentUserId, conv.otherUser.id, 100)
+      const mappedMessages = messages.map(mapMessageDetailToMessage)
 
       return {
         id: conv.otherUser.id,
@@ -45,25 +52,12 @@ export async function MessagesPage() {
         email: conv.otherUser.email,
         image: conv.otherUser.avatar,
         lastMessage: conv.lastMessage?.content || "",
-        lastMessageTime: conv.lastMessage?.timestamp || conv.updatedAt,
+        lastMessageTime: ensureDate(conv.lastMessage?.timestamp, conv.updatedAt),
         unreadCount: conv.unreadCount,
         isOnline: conv.otherUser.isOnline || false,
-        messages: messages.map((msg): Message => ({
-          id: msg.id,
-          content: msg.content,
-          subject: msg.subject,
-          senderId: msg.senderId,
-          receiverId: msg.receiverId,
-          timestamp: msg.timestamp,
-          isRead: msg.isRead,
-          type: msg.type as Message["type"],
-          parentId: msg.parentId,
-          sender: msg.sender || null,
-          receiver: msg.receiver || null,
-          readers: msg.readers || undefined,
-        })),
+        messages: mappedMessages,
         type: "PERSONAL" as const,
-        isDeleted: false, // Personal conversations don't have deletedAt
+        isDeleted: false,
       }
     })
   )
@@ -71,68 +65,13 @@ export async function MessagesPage() {
   // Map groups to Contact format
   const groupContacts: Contact[] = await Promise.all(
     groupsResult.data.map(async (groupData) => {
-      // Fetch messages for each group
       const messages = await getMessagesForGroupCached(groupData.id, currentUserId, 100)
 
-      const group: Group = {
-        id: groupData.id,
-        name: groupData.name,
-        description: groupData.description || undefined,
-        avatar: groupData.avatar || undefined,
-        createdById: groupData.createdById,
-        createdAt: groupData.createdAt,
-        updatedAt: groupData.updatedAt,
-        members: groupData.members,
-        memberCount: groupData.memberCount,
-      }
-
-      // Calculate unread count for group messages using helper
-      const { isMessageUnreadByUser } = await import("@/components/chat/utils/message-helpers")
-      // Map MessageDetail to Message format for helper function
-      const mappedMessages: Message[] = messages.map((msg): Message => ({
-        id: msg.id,
-        content: msg.content,
-        subject: msg.subject,
-        senderId: msg.senderId,
-        receiverId: msg.receiverId,
-        groupId: msg.groupId || null,
-        timestamp: msg.timestamp,
-        isRead: msg.isRead,
-        type: (msg.type as Message["type"]) || "PERSONAL",
-        parentId: msg.parentId,
-        sender: msg.sender || null,
-        receiver: msg.receiver || null,
-        readers: msg.readers || undefined,
-      }))
-      const unreadCount = mappedMessages.filter((msg) => isMessageUnreadByUser(msg, currentUserId)).length
-
-      return {
-        id: groupData.id,
-        name: groupData.name,
-        image: groupData.avatar,
-        lastMessage: groupData.lastMessage?.content || "",
-        lastMessageTime: groupData.lastMessage?.createdAt || groupData.updatedAt,
-        unreadCount,
-        isOnline: false,
-        messages: messages.map((msg): Message => ({
-          id: msg.id,
-          content: msg.content,
-          subject: msg.subject,
-          senderId: msg.senderId,
-          receiverId: msg.receiverId,
-          groupId: msg.groupId || null,
-          timestamp: msg.timestamp,
-          isRead: msg.isRead,
-          type: msg.type as Message["type"],
-          parentId: msg.parentId,
-          sender: msg.sender || null,
-          receiver: msg.receiver || null,
-          readers: msg.readers || undefined,
-        })),
-        type: "GROUP" as const,
-        group,
-        isDeleted: !!groupData.deletedAt, // Set based on group.deletedAt from query
-      }
+      return mapGroupListItemToContact({
+        groupData,
+        messages,
+        currentUserId,
+      })
     })
   )
 
