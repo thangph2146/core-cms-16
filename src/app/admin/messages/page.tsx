@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
-import { MessagesPageClient } from "./messages-page-client"
+import { MessagesPageClient } from "@/features/admin/chat/messages-page-client"
 
 /**
  * Messages Page Metadata
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
   description: "Quản lý tin nhắn và chat",
 }
 
+/**
+ * Messages Page
+ * 
+ * Trang quản lý tin nhắn và chat
+ * - Sử dụng AdminHeader với breadcrumbs
+ * - ChatTemplate được render trong flex container để phù hợp với layout
+ */
 export default function MessagesPage() {
   return (
     <>
@@ -22,7 +29,7 @@ export default function MessagesPage() {
           { label: "Tin nhắn", isActive: true },
         ]}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <MessagesPageClient />
       </div>
     </>
