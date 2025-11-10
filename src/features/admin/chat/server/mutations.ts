@@ -275,7 +275,7 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     })
 
     // Return message with reads
-    return await prisma.message.findUnique({
+    const messageWithReads = await prisma.message.findUnique({
       where: { id: messageId },
       include: {
         sender: { select: { id: true, name: true, email: true, avatar: true } },
@@ -287,6 +287,48 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
         },
       },
     })
+
+    // Emit socket event with readers data
+    const io = getSocketServer()
+    if (io && messageWithReads) {
+      try {
+        const readers = messageWithReads.reads
+          ?.filter((read) => read.user)
+          .map((read) => ({
+            id: read.user.id,
+            name: read.user.name,
+            email: read.user.email,
+            avatar: read.user.avatar,
+          })) || []
+
+        const payload = {
+          id: messageWithReads.id,
+          parentMessageId: messageWithReads.parentId || undefined,
+          content: messageWithReads.content,
+          fromUserId: messageWithReads.senderId || "",
+          toUserId: messageWithReads.receiverId,
+          groupId: messageWithReads.groupId || undefined,
+          timestamp: messageWithReads.createdAt.getTime(),
+          isRead: messageWithReads.isRead,
+          readers, // Include readers array in payload
+        }
+
+        // Emit to all group members
+        if (!messageWithReads.groupId) return messageWithReads
+        const members = await prisma.groupMember.findMany({
+          where: { groupId: messageWithReads.groupId, leftAt: null },
+          select: { userId: true },
+        })
+        members.forEach((member) => {
+          io.to(`user:${member.userId}`).emit("message:updated", payload)
+        })
+        logger.debug("Socket message:updated emitted (group with readers)", { messageId, groupId: messageWithReads.groupId, userId })
+      } catch (error) {
+        logger.error("Failed to emit socket message update", error instanceof Error ? error : new Error(String(error)))
+      }
+    }
+
+    return messageWithReads
   }
 
   // For personal messages: use legacy isRead field
@@ -513,7 +555,7 @@ export async function markMessagesAsRead(ctx: AuthContext, input: MarkMessagesAs
 }
 
 /**
- * Mark all messages in a conversation as read
+ * Mark all messages in a conversation as read (personal messages)
  */
 export async function markConversationAsRead(
   ctx: AuthContext,
@@ -579,6 +621,124 @@ export async function markConversationAsRead(
   }
 
   return { count: result.count }
+}
+
+/**
+ * Mark all unread messages in a group as read for a user
+ */
+export async function markGroupMessagesAsRead(
+  ctx: AuthContext,
+  userId: string,
+  groupId: string
+): Promise<{ count: number }> {
+  if (!ctx.actorId || ctx.actorId !== userId) {
+    throw new ApplicationError("Unauthorized", 401)
+  }
+
+  // Verify user is a member of the group
+  const member = await prisma.groupMember.findFirst({
+    where: {
+      groupId,
+      userId,
+      leftAt: null,
+    },
+  })
+
+  if (!member) {
+    throw new ApplicationError("Forbidden: You must be a member of the group", 403)
+  }
+
+  // Get all unread messages in the group that the user hasn't read yet
+  const unreadMessages = await prisma.message.findMany({
+    where: {
+      groupId,
+      deletedAt: null,
+      senderId: { not: userId }, // Don't mark own messages as read
+      reads: {
+        none: {
+          userId,
+        },
+      },
+    },
+    select: { id: true },
+  })
+
+  if (unreadMessages.length === 0) {
+    return { count: 0 }
+  }
+
+  // Create MessageRead records for all unread messages
+  const messageIds = unreadMessages.map((msg) => msg.id)
+  await prisma.messageRead.createMany({
+    data: messageIds.map((messageId) => ({
+      messageId,
+      userId,
+    })),
+    skipDuplicates: true, // Skip if already exists
+  })
+
+  // Fetch updated messages with reads to emit socket events
+  const updatedMessages = await prisma.message.findMany({
+    where: {
+      id: { in: messageIds },
+    },
+    include: {
+      reads: {
+        include: {
+          user: { select: { id: true, name: true, email: true, avatar: true } },
+        },
+      },
+    },
+  })
+
+  // Emit socket events for updated messages
+  const io = getSocketServer()
+  if (io && updatedMessages.length > 0) {
+    try {
+      const members = await prisma.groupMember.findMany({
+        where: { groupId, leftAt: null },
+        select: { userId: true },
+      })
+
+      updatedMessages.forEach((msg) => {
+        const readers = msg.reads
+          ?.filter((read) => read.user)
+          .map((read) => ({
+            id: read.user.id,
+            name: read.user.name,
+            email: read.user.email,
+            avatar: read.user.avatar,
+          })) || []
+
+        const payload = {
+          id: msg.id,
+          parentMessageId: msg.parentId || undefined,
+          content: msg.content,
+          fromUserId: msg.senderId || "",
+          toUserId: msg.receiverId,
+          groupId: msg.groupId || undefined,
+          timestamp: msg.createdAt.getTime(),
+          isRead: msg.isRead,
+          readers, // Include readers array
+        }
+
+        // Emit to all group members
+        members.forEach((member) => {
+          io.to(`user:${member.userId}`).emit("message:updated", payload)
+        })
+      })
+
+      logger.debug("Socket messages:updated emitted (group mark all as read)", {
+        userId,
+        groupId,
+        count: updatedMessages.length,
+      })
+    } catch (error) {
+      logger.error("Failed to emit socket messages update", error instanceof Error ? error : new Error(String(error)))
+    }
+  }
+
+  return { count: messageIds.length }
 }
 
 /**

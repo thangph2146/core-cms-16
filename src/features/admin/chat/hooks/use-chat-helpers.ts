@@ -5,6 +5,7 @@
 
 import type { Contact, Message } from "@/components/chat/types"
 import { TEXTAREA_MIN_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "@/components/chat/constants"
+import { isMessageUnreadByUser, isMessageReadByUser } from "@/components/chat/utils/message-helpers"
 
 const ESTIMATED_REPLY_BANNER_HEIGHT = 48
 const ADJUSTMENT_PX = 5
@@ -53,16 +54,23 @@ export function calculateMessagesHeight(params: {
 /**
  * Mark conversation as read via API
  * Internal helper - not exported
+ * Handles both personal conversations and groups
  */
-async function markConversationAsReadAPI(contactId: string): Promise<void> {
+async function markConversationAsReadAPI(contactId: string, contactType?: "PERSONAL" | "GROUP"): Promise<void> {
   try {
-    const response = await fetch(`/api/admin/conversations/${contactId}/mark-read`, {
+    // For groups: use group mark-read endpoint
+    // For personal: use conversation mark-read endpoint
+    const endpoint = contactType === "GROUP"
+      ? `/api/admin/groups/${contactId}/mark-read`
+      : `/api/admin/conversations/${contactId}/mark-read`
+    
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
     if (!response.ok) {
       const { logger } = await import("@/lib/config")
-      logger.error("Failed to mark conversation as read", { contactId, status: response.status })
+      logger.error("Failed to mark conversation as read", { contactId, contactType, status: response.status })
     }
   } catch (error) {
     const { logger } = await import("@/lib/config")
@@ -73,27 +81,51 @@ async function markConversationAsReadAPI(contactId: string): Promise<void> {
 /**
  * Debounced mark conversation as read
  */
-export function debouncedMarkAsRead(contactId: string): void {
-  setTimeout(() => markConversationAsReadAPI(contactId), MARK_AS_READ_DEBOUNCE_MS)
+export function debouncedMarkAsRead(contactId: string, contactType?: "PERSONAL" | "GROUP"): void {
+  setTimeout(() => markConversationAsReadAPI(contactId, contactType), MARK_AS_READ_DEBOUNCE_MS)
 }
 
 /**
  * Get unread messages for a contact
+ * Uses isMessageUnreadByUser helper for consistent logic
  */
 export function getUnreadMessages(contact: Contact, currentUserId: string): Message[] {
-  return contact.messages.filter((msg) => msg.receiverId === currentUserId && !msg.isRead)
+  return contact.messages.filter((msg) => {
+    // For personal messages: also check receiverId
+    if (!msg.groupId && msg.receiverId !== currentUserId) return false
+    return isMessageUnreadByUser(msg, currentUserId)
+  })
 }
 
 /**
- * Check if messages changed (including isRead status)
+ * Calculate unread count for a contact
+ * Uses getUnreadMessages for consistent logic
  */
-export function hasMessagesChanged(oldMessages: Message[], newMessages: Message[]): boolean {
+export function calculateUnreadCount(contact: Contact, currentUserId: string): number {
+  return getUnreadMessages(contact, currentUserId).length
+}
+
+/**
+ * Check if messages changed (including isRead status and readers array)
+ */
+export function hasMessagesChanged(oldMessages: Message[], newMessages: Message[], currentUserId?: string): boolean {
   if (oldMessages.length !== newMessages.length) return true
   if (oldMessages[oldMessages.length - 1]?.id !== newMessages[newMessages.length - 1]?.id) return true
   
-  // Check if any message's isRead status changed
+  // Check if any message's read status changed (using helper for consistency)
+  if (!currentUserId) {
+    // Fallback to isRead comparison if no currentUserId
+    return oldMessages.some((oldMsg, idx) => {
+      const newMsg = newMessages[idx]
+      return newMsg && newMsg.id === oldMsg.id && newMsg.isRead !== oldMsg.isRead
+    })
+  }
+  
   return oldMessages.some((oldMsg, idx) => {
     const newMsg = newMessages[idx]
-    return newMsg && newMsg.id === oldMsg.id && newMsg.isRead !== oldMsg.isRead
+    if (!newMsg || newMsg.id !== oldMsg.id) return false
+    const oldRead = isMessageReadByUser(oldMsg, currentUserId)
+    const newRead = isMessageReadByUser(newMsg, currentUserId)
+    return oldRead !== newRead
   })
 }

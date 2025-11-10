@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createApiRoute } from "@/lib/api/api-route-wrapper"
 import { markMessageAsRead, markMessageAsUnread } from "@/features/admin/chat/server/mutations"
+import { mapMessageRecord } from "@/features/admin/chat/server/helpers"
 import { ApplicationError, NotFoundError } from "@/features/admin/resources/server"
 import type { ApiRouteContext } from "@/lib/api/types"
 
@@ -59,6 +60,23 @@ async function markMessageHandler(req: NextRequest, context: ApiRouteContext, ..
       return NextResponse.json({ error: "Message not found" }, { status: 404 })
     }
 
+    // For group messages: map to include readers array
+    // For personal messages: return simple response
+    if (message.groupId && "reads" in message && Array.isArray(message.reads)) {
+      const messageDetail = mapMessageRecord(message as Parameters<typeof mapMessageRecord>[0])
+      return NextResponse.json({
+        id: messageDetail.id,
+        isRead: messageDetail.isRead,
+        content: messageDetail.content,
+        senderId: messageDetail.senderId,
+        receiverId: messageDetail.receiverId,
+        groupId: messageDetail.groupId,
+        timestamp: messageDetail.timestamp.toISOString(),
+        readers: messageDetail.readers, // Include readers array for group messages
+      })
+    }
+
+    // For personal messages: return simple response
     return NextResponse.json({
       id: message.id,
       isRead: message.isRead,

@@ -18,6 +18,12 @@ export interface SocketMessagePayload {
   groupId?: string // For group messages
   timestamp?: number
   isRead?: boolean // Include isRead status for message:updated events
+  readers?: { // List of users who have read this message (for group messages)
+    id: string
+    name: string | null
+    email: string
+    avatar: string | null
+  }[]
 }
 
 export interface SocketNotificationPayload {

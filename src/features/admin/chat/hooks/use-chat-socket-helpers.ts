@@ -4,15 +4,18 @@
  */
 
 import type { Contact } from "@/components/chat/types"
+import { isMessageReadByUser } from "@/components/chat/utils/message-helpers"
 
 /**
- * Update contact message isRead status
+ * Update contact message isRead status and readers array
  */
 export function updateMessageReadStatus(
   contacts: Contact[],
   contactId: string,
   messageId: string | undefined,
-  isRead: boolean
+  isRead: boolean,
+  readers?: { id: string; name: string | null; email: string; avatar: string | null }[],
+  currentUserId?: string
 ): Contact[] {
   if (!messageId) return contacts
   return contacts.map((contact) => {
@@ -22,11 +25,22 @@ export function updateMessageReadStatus(
     if (messageIndex === -1) return contact
     
     const currentMessage = contact.messages[messageIndex]
-    const wasUnread = !currentMessage.isRead
-    const isNowRead = isRead
-
+    
+    // Use helper function for consistent logic
+    const wasUnread = currentUserId ? !isMessageReadByUser(currentMessage, currentUserId) : !currentMessage.isRead
+    
     const updatedMessages = [...contact.messages]
-    updatedMessages[messageIndex] = { ...currentMessage, isRead: isNowRead }
+    const isGroupMessage = currentMessage.groupId
+    updatedMessages[messageIndex] = {
+      ...currentMessage,
+      // For group messages: update readers array, keep isRead for backward compatibility
+      ...(isGroupMessage && readers ? { readers } : {}),
+      // For personal messages: update isRead boolean
+      ...(!isGroupMessage ? { isRead } : {}),
+    }
+
+    // Use helper function for consistent logic
+    const isNowRead = currentUserId ? isMessageReadByUser(updatedMessages[messageIndex], currentUserId) : isRead
 
     const unreadCount = wasUnread !== !isNowRead
       ? isNowRead

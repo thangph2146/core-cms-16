@@ -17,7 +17,9 @@ import {
   updateContactMessage,
   removeContactMessage,
   addContactMessage,
+  updateMessageReadStatusOptimistic,
 } from "./use-chat-message-helpers"
+import { isMessageReadByUser } from "@/components/chat/utils/message-helpers"
 
 interface UseChatProps {
   contacts: Contact[]
@@ -38,7 +40,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
       if (contact && currentUserId) {
         const unreadMessages = getUnreadMessages(contact, currentUserId)
         if (unreadMessages.length > 0) {
-          debouncedMarkAsRead(contact.id)
+          debouncedMarkAsRead(contact.id, contact.type)
         }
       }
     },
@@ -74,19 +76,24 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   // Auto mark as read callback khi nhận tin nhắn mới trong conversation hiện tại
   const handleMessageReceived = useCallback(
     async (messageId: string, contactId: string, message?: Message) => {
-      if (contactId === currentChat?.id && currentUserId) {
+      if (contactId === currentChat?.id && currentUserId && message) {
         // Chỉ mark as read nếu message đó là message mà user nhận được
         // Personal: receiverId === currentUserId
         // Group: groupId exists và senderId !== currentUserId
-        const isPersonalMessage = message && message.receiverId === currentUserId
-        const isGroupMessage = message && message.groupId && message.senderId !== currentUserId
+        const isPersonalMessage = message.receiverId === currentUserId
+        const isGroupMessage = message.groupId && message.senderId !== currentUserId
         
-        if ((isPersonalMessage || isGroupMessage) && !message.isRead) {
-          try {
-            await markMessageAPI(messageId, true)
-          } catch {
-            // Silently fail - không log error vì có thể message không phải của user
-            // hoặc đã được mark as read bởi socket event
+        if (isPersonalMessage || isGroupMessage) {
+          // Use helper function for consistent logic
+          const isAlreadyRead = isMessageReadByUser(message, currentUserId)
+          
+          if (!isAlreadyRead) {
+            try {
+              await markMessageAPI(messageId, true)
+            } catch {
+              // Silently fail - không log error vì có thể message không phải của user
+              // hoặc đã được mark as read bởi socket event
+            }
           }
         }
       }
@@ -131,12 +138,12 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
   useEffect(() => {
     if (!currentChatState) return
     const updatedChat = contactsState.find((c) => c.id === currentChatState.id)
-    if (updatedChat && hasMessagesChanged(currentChatState.messages, updatedChat.messages)) {
+    if (updatedChat && hasMessagesChanged(currentChatState.messages, updatedChat.messages, currentUserId)) {
       setCurrentChatState(updatedChat)
       // Trigger mark as read nếu có unread messages
       const unreadMessages = getUnreadMessages(updatedChat, currentUserId)
       if (unreadMessages.length > 0) {
-        debouncedMarkAsRead(updatedChat.id)
+        debouncedMarkAsRead(updatedChat.id, updatedChat.type)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,93 +299,37 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
     })
   }
 
-  // Mark message as read/unread
-  const markMessageAsRead = useCallback(
-    async (messageId: string) => {
+  // Mark message as read/unread (unified handler)
+  const markMessageReadStatus = useCallback(
+    async (messageId: string, isRead: boolean) => {
       if (!currentChat) return
       
       // Optimistic update
-      setContactsState((prev) => {
-        const contact = prev.find((c) => c.id === currentChat.id)
-        if (!contact) return prev
-        
-        const message = contact.messages.find((m) => m.id === messageId)
-        if (!message || message.isRead) return prev
-        
-        return prev.map((c) =>
-          c.id === currentChat.id
-            ? {
-                ...c,
-                messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: true } : m)),
-                unreadCount: Math.max(0, c.unreadCount - 1),
-              }
-            : c
-        )
-      })
+      setContactsState((prev) =>
+        updateMessageReadStatusOptimistic(prev, currentChat.id, messageId, isRead, currentUserId)
+      )
       
       try {
-        await markMessageAPI(messageId, true)
+        await markMessageAPI(messageId, isRead)
       } catch (error) {
         // Rollback
         setContactsState((prev) =>
-          prev.map((c) =>
-            c.id === currentChat.id
-              ? {
-                  ...c,
-                  messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: false } : m)),
-                  unreadCount: c.unreadCount + 1,
-                }
-              : c
-          )
+          updateMessageReadStatusOptimistic(prev, currentChat.id, messageId, !isRead, currentUserId)
         )
-        handleAPIError(error, "Không thể đánh dấu đã đọc")
+        handleAPIError(error, isRead ? "Không thể đánh dấu đã đọc" : "Không thể đánh dấu chưa đọc")
       }
     },
-    [currentChat]
+    [currentChat, currentUserId]
+  )
+
+  const markMessageAsRead = useCallback(
+    (messageId: string) => markMessageReadStatus(messageId, true),
+    [markMessageReadStatus]
   )
 
   const markMessageAsUnread = useCallback(
-    async (messageId: string) => {
-      if (!currentChat) return
-      
-      // Optimistic update
-      setContactsState((prev) => {
-        const contact = prev.find((c) => c.id === currentChat.id)
-        if (!contact) return prev
-        
-        const message = contact.messages.find((m) => m.id === messageId)
-        if (!message || !message.isRead) return prev
-        
-        return prev.map((c) =>
-          c.id === currentChat.id
-            ? {
-                ...c,
-                messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: false } : m)),
-                unreadCount: c.unreadCount + 1,
-              }
-            : c
-        )
-      })
-      
-      try {
-        await markMessageAPI(messageId, false)
-      } catch (error) {
-        // Rollback
-        setContactsState((prev) =>
-          prev.map((c) =>
-            c.id === currentChat.id
-              ? {
-                  ...c,
-                  messages: c.messages.map((m) => (m.id === messageId ? { ...m, isRead: true } : m)),
-                  unreadCount: Math.max(0, c.unreadCount - 1),
-                }
-              : c
-          )
-        )
-        handleAPIError(error, "Không thể đánh dấu chưa đọc")
-      }
-    },
-    [currentChat]
+    (messageId: string) => markMessageReadStatus(messageId, false),
+    [markMessageReadStatus]
   )
 
   // Auto mark conversation as read khi có tin nhắn mới đến (socket bridge sẽ update contactsState)

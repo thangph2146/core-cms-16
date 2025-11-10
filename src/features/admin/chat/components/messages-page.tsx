@@ -86,13 +86,33 @@ export async function MessagesPage() {
         memberCount: groupData.memberCount,
       }
 
+      // Calculate unread count for group messages using helper
+      const { isMessageUnreadByUser } = await import("@/components/chat/utils/message-helpers")
+      // Map MessageDetail to Message format for helper function
+      const mappedMessages: Message[] = messages.map((msg): Message => ({
+        id: msg.id,
+        content: msg.content,
+        subject: msg.subject,
+        senderId: msg.senderId,
+        receiverId: msg.receiverId,
+        groupId: msg.groupId || null,
+        timestamp: msg.timestamp,
+        isRead: msg.isRead,
+        type: (msg.type as Message["type"]) || "PERSONAL",
+        parentId: msg.parentId,
+        sender: msg.sender || null,
+        receiver: msg.receiver || null,
+        readers: msg.readers || undefined,
+      }))
+      const unreadCount = mappedMessages.filter((msg) => isMessageUnreadByUser(msg, currentUserId)).length
+
       return {
         id: groupData.id,
         name: groupData.name,
         image: groupData.avatar,
         lastMessage: groupData.lastMessage?.content || "",
         lastMessageTime: groupData.lastMessage?.createdAt || groupData.updatedAt,
-        unreadCount: 0, // TODO: Calculate unread count for groups
+        unreadCount,
         isOnline: false,
         messages: messages.map((msg): Message => ({
           id: msg.id,

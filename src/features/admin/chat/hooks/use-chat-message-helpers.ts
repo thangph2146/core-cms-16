@@ -4,6 +4,7 @@
  */
 
 import type { Contact, Message } from "@/components/chat/types"
+import { isMessageReadByUser } from "@/components/chat/utils/message-helpers"
 
 /**
  * Create optimistic message
@@ -89,5 +90,42 @@ export function addContactMessage(
         }
       : contact
   )
+}
+
+/**
+ * Update message read status with optimistic update
+ * Handles both group (readers array) and personal (isRead boolean) messages
+ */
+export function updateMessageReadStatusOptimistic(
+  contacts: Contact[],
+  contactId: string,
+  messageId: string,
+  isRead: boolean,
+  currentUserId: string
+): Contact[] {
+  return contacts.map((contact) => {
+    if (contact.id !== contactId) return contact
+    
+    const message = contact.messages.find((m) => m.id === messageId)
+    if (!message) return contact
+    
+    // Check current read status using helper
+    const wasRead = isMessageReadByUser(message, currentUserId)
+    if (wasRead === isRead) return contact // No change needed
+    
+    // Update message based on type
+    const isGroupMessage = !!message.groupId
+    const updatedMessage = isGroupMessage
+      ? message // For group messages, readers array is updated via socket
+      : { ...message, isRead }
+    
+    return {
+      ...contact,
+      messages: contact.messages.map((m) => (m.id === messageId ? updatedMessage : m)),
+      unreadCount: isRead
+        ? Math.max(0, contact.unreadCount - 1)
+        : contact.unreadCount + 1,
+    }
+  })
 }
 

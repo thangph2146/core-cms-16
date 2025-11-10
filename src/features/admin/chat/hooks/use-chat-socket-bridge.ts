@@ -22,6 +22,7 @@ import {
   updateContactInState,
   filterContactInState,
 } from "./use-chat-socket-helpers"
+import { isMessageUnreadByUser } from "@/components/chat/utils/message-helpers"
 import { logger } from "@/lib/config"
 
 interface UseChatSocketBridgeProps {
@@ -61,6 +62,7 @@ export function useChatSocketBridge({
       timestamp?: number
       parentMessageId?: string
       isRead?: boolean
+      readers?: { id: string; name: string | null; email: string; avatar: string | null }[]
     }): Message => ({
       id: payload.id || `msg-${payload.timestamp || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       content: payload.content,
@@ -71,6 +73,7 @@ export function useChatSocketBridge({
       isRead: payload.isRead ?? (payload.groupId ? false : payload.toUserId !== currentUserId),
       type: "PERSONAL",
       parentId: payload.parentMessageId || null,
+      readers: payload.readers || undefined, // Include readers array for group messages
     })
 
     // Helper: Get contact ID from payload
@@ -109,9 +112,11 @@ export function useChatSocketBridge({
           return prev
         }
 
-        const isUnread = payload.fromUserId !== currentUserId
         const isCurrentChat = currentChatId === contactId
         const newMessage = convertToMessage(payload)
+        
+        // Use helper function for consistent logic
+        const isUnread = isMessageUnreadByUser(newMessage, currentUserId)
 
         // Auto mark as read nếu đang ở conversation này
         if (isCurrentChat && isUnread && payload.id) {
@@ -133,13 +138,13 @@ export function useChatSocketBridge({
     })
 
     const stopUpdated = onMessageUpdated((payload) => {
-      logger.debug("Socket message:updated received", { messageId: payload.id })
+      logger.debug("Socket message:updated received", { messageId: payload.id, readers: payload.readers })
 
       const contactId = getContactId(payload)
       if (!contactId || !payload.id) return
 
       setContactsState((prev) =>
-        updateMessageReadStatus(prev, contactId, payload.id, payload.isRead ?? true)
+        updateMessageReadStatus(prev, contactId, payload.id, payload.isRead ?? true, payload.readers, currentUserId)
       )
     })
 
