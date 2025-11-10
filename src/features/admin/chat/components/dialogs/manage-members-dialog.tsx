@@ -216,8 +216,14 @@ export function ManageMembersDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Quản lý thành viên</DialogTitle>
-          <DialogDescription>Thêm, xóa thành viên và quản lý vai trò</DialogDescription>
+          <DialogTitle>
+            {canManageMembers ? "Quản lý thành viên" : "Thành viên nhóm"}
+          </DialogTitle>
+          <DialogDescription>
+            {canManageMembers
+              ? "Thêm, xóa thành viên và quản lý vai trò"
+              : "Danh sách thành viên trong nhóm"}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-4">
           {/* Add Members Section */}

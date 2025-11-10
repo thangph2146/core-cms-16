@@ -7,54 +7,32 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { createApiRoute } from "@/lib/api/api-route-wrapper"
+import { createPatchRoute } from "@/lib/api/api-route-wrapper"
 import { markMessageAsRead, markMessageAsUnread } from "@/features/admin/chat/server/mutations"
 import { mapMessageRecord } from "@/features/admin/chat/server/helpers"
-import { ApplicationError, NotFoundError } from "@/features/admin/resources/server"
+import {
+  parseRequestBody,
+  extractParams,
+  getUserId,
+  createAuthContext,
+  handleApiError,
+} from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function markMessageHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const { params } = args[0] as { params: Promise<{ id: string }> }
-  const { id: messageId } = await params
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 })
-  }
+  const { id: messageId } = await extractParams<{ id: string }>(args)
+  const userId = getUserId(context)
+  const body = await parseRequestBody(req)
 
   const isRead = typeof body.isRead === "boolean" ? body.isRead : undefined
-
   if (isRead === undefined) {
     return NextResponse.json({ error: "isRead is required" }, { status: 400 })
   }
 
   try {
     const message = isRead
-      ? await markMessageAsRead(
-          {
-            actorId: userId,
-            permissions: context.permissions,
-            roles: context.roles,
-          },
-          messageId,
-          userId
-        )
-      : await markMessageAsUnread(
-          {
-            actorId: userId,
-            permissions: context.permissions,
-            roles: context.roles,
-          },
-          messageId,
-          userId
-        )
+      ? await markMessageAsRead(createAuthContext(context, userId), messageId, userId)
+      : await markMessageAsUnread(createAuthContext(context, userId), messageId, userId)
 
     if (!message) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 })
@@ -86,16 +64,9 @@ async function markMessageHandler(req: NextRequest, context: ApiRouteContext, ..
       timestamp: message.createdAt.toISOString(),
     })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error marking message:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi", 500)
   }
 }
 
-export const PATCH = createApiRoute(markMessageHandler)
+export const PATCH = createPatchRoute(markMessageHandler)
 

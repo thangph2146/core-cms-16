@@ -237,8 +237,26 @@ export const ROUTE_CONFIG: RoutePermissionConfig[] = [
   { path: "/admin/messages/sent", permissions: [PERMISSIONS.MESSAGES_VIEW], type: "page" },
   // Messages API routes
   { path: "/api/admin/messages", method: "POST", permissions: [PERMISSIONS.MESSAGES_SEND], type: "api" },
+  { path: "/api/admin/messages/[id]", method: "PATCH", permissions: [PERMISSIONS.MESSAGES_UPDATE], type: "api" },
+  { path: "/api/admin/messages/[id]", method: "DELETE", permissions: [PERMISSIONS.MESSAGES_DELETE], type: "api" },
+  { path: "/api/admin/messages/[id]/restore", method: "POST", permissions: [PERMISSIONS.MESSAGES_UPDATE], type: "api" },
+  { path: "/api/admin/messages/[id]/hard-delete", method: "DELETE", permissions: [PERMISSIONS.MESSAGES_MANAGE], type: "api" },
+  { path: "/api/admin/messages/[id]/soft-delete", method: "DELETE", permissions: [PERMISSIONS.MESSAGES_DELETE], type: "api" },
   // Conversations API routes
   { path: "/api/admin/conversations", method: "GET", permissions: [PERMISSIONS.MESSAGES_VIEW], type: "api" },
+  { path: "/api/admin/conversations/[otherUserId]/mark-read", method: "POST", permissions: [PERMISSIONS.MESSAGES_UPDATE], type: "api" },
+  // Groups API routes
+  { path: "/api/admin/groups", method: "GET", permissions: [PERMISSIONS.GROUPS_VIEW], type: "api" },
+  { path: "/api/admin/groups", method: "POST", permissions: [PERMISSIONS.GROUPS_CREATE], type: "api" },
+  { path: "/api/admin/groups/[id]", method: "GET", permissions: [PERMISSIONS.GROUPS_VIEW], type: "api" },
+  { path: "/api/admin/groups/[id]", method: "PUT", permissions: [PERMISSIONS.GROUPS_UPDATE], type: "api" },
+  { path: "/api/admin/groups/[id]", method: "DELETE", permissions: [PERMISSIONS.GROUPS_DELETE], type: "api" },
+  { path: "/api/admin/groups/[id]/restore", method: "POST", permissions: [PERMISSIONS.GROUPS_UPDATE], type: "api" },
+  { path: "/api/admin/groups/[id]/hard-delete", method: "DELETE", permissions: [PERMISSIONS.GROUPS_MANAGE], type: "api" },
+  { path: "/api/admin/groups/[id]/mark-read", method: "POST", permissions: [PERMISSIONS.MESSAGES_UPDATE], type: "api" },
+  { path: "/api/admin/groups/[id]/members", method: "POST", permissions: [PERMISSIONS.GROUPS_UPDATE], type: "api" },
+  { path: "/api/admin/groups/[id]/members/[userId]", method: "DELETE", permissions: [PERMISSIONS.GROUPS_UPDATE], type: "api" },
+  { path: "/api/admin/groups/[id]/members/[userId]/role", method: "PATCH", permissions: [PERMISSIONS.GROUPS_UPDATE], type: "api" },
   // Users search for conversations (requires MESSAGES_SEND to create new conversation)
   { path: "/api/admin/users/search", method: "GET", permissions: [PERMISSIONS.MESSAGES_SEND, PERMISSIONS.USERS_VIEW], type: "api" },
 

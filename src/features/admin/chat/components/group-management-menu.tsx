@@ -32,6 +32,7 @@ export function GroupManagementMenu({
 
   const canEdit = currentUserRole === "OWNER" || currentUserRole === "ADMIN"
   const canManageMembers = currentUserRole === "OWNER" || currentUserRole === "ADMIN"
+  const canViewMembers = true // Tất cả thành viên đều có thể xem danh sách
   const canDelete = currentUserRole === "OWNER"
 
   if (!group || !currentUserRole) return null
@@ -51,12 +52,17 @@ export function GroupManagementMenu({
               Chỉnh sửa nhóm
             </DropdownMenuItem>
           )}
-          {canManageMembers && (
+          {canManageMembers ? (
             <DropdownMenuItem onClick={() => setMembersDialogOpen(true)}>
               <Users className="mr-2 h-4 w-4" />
               Quản lý thành viên
             </DropdownMenuItem>
-          )}
+          ) : canViewMembers ? (
+            <DropdownMenuItem onClick={() => setMembersDialogOpen(true)}>
+              <Users className="mr-2 h-4 w-4" />
+              Xem thành viên
+            </DropdownMenuItem>
+          ) : null}
           {canDelete && (
             <>
               <DropdownMenuSeparator />

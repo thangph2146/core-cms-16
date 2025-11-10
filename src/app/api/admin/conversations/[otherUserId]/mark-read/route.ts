@@ -8,40 +8,27 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { createApiRoute } from "@/lib/api/api-route-wrapper"
+import { createPostRoute } from "@/lib/api/api-route-wrapper"
 import { markConversationAsRead } from "@/features/admin/chat/server/mutations"
-import { ApplicationError } from "@/features/admin/resources/server"
+import {
+  extractParams,
+  getUserId,
+  createAuthContext,
+  handleApiError,
+} from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function markConversationReadHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const { params } = args[0] as { params: Promise<{ otherUserId: string }> }
-  const { otherUserId } = await params
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const userId = getUserId(context)
+  const { otherUserId } = await extractParams<{ otherUserId: string }>(args)
 
   try {
-    const result = await markConversationAsRead(
-      {
-        actorId: userId,
-        permissions: context.permissions,
-        roles: context.roles,
-      },
-      userId,
-      otherUserId
-    )
-
+    const result = await markConversationAsRead(createAuthContext(context, userId), userId, otherUserId)
     return NextResponse.json({ count: result.count })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    console.error("Error marking conversation as read:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi", 500)
   }
 }
 
-export const POST = createApiRoute(markConversationReadHandler)
+export const POST = createPostRoute(markConversationReadHandler)
 

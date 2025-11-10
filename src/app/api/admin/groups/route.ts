@@ -1,46 +1,36 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createApiRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
+import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import { createGroup, listGroups } from "@/features/admin/chat/server"
-import { ApplicationError, NotFoundError } from "@/features/admin/resources/server"
+import {
+  parseRequestBody,
+  getUserId,
+  createAuthContext,
+  handleApiError,
+  getStringValue,
+  getArrayValue,
+} from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function createGroupHandler(req: NextRequest, context: ApiRouteContext) {
-  const userId = context.session?.user?.id
+  const userId = getUserId(context)
+  const body = await parseRequestBody(req)
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 })
-  }
-
-  const name = typeof body.name === "string" ? body.name : undefined
-  const description = typeof body.description === "string" ? body.description : undefined
+  const name = getStringValue(body, "name")
+  const description = getStringValue(body, "description")
   const avatar = typeof body.avatar === "string" ? body.avatar : null
-  const memberIds = Array.isArray(body.memberIds) ? body.memberIds.filter((id): id is string => typeof id === "string") : []
+  const memberIds = getArrayValue<string>(body, "memberIds", (id): id is string => typeof id === "string")
 
   if (!name) {
     return NextResponse.json({ error: "Tên nhóm là bắt buộc" }, { status: 400 })
   }
 
   try {
-    const group = await createGroup(
-      {
-        actorId: userId,
-        permissions: context.permissions,
-        roles: context.roles,
-      },
-      {
-        name,
-        description,
-        avatar,
-        memberIds,
-      }
-    )
+    const group = await createGroup(createAuthContext(context, userId), {
+      name,
+      description,
+      avatar,
+      memberIds,
+    })
 
     return NextResponse.json({
       id: group.id,
@@ -59,23 +49,12 @@ async function createGroupHandler(req: NextRequest, context: ApiRouteContext) {
       memberCount: group.members.length,
     })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error creating group:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi tạo nhóm" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi tạo nhóm", 500)
   }
 }
 
 async function listGroupsHandler(req: NextRequest, context: ApiRouteContext) {
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const userId = getUserId(context)
 
   const searchParams = req.nextUrl.searchParams
   const page = parseInt(searchParams.get("page") || "1", 10)
@@ -83,20 +62,13 @@ async function listGroupsHandler(req: NextRequest, context: ApiRouteContext) {
   const search = searchParams.get("search") || undefined
 
   try {
-    const result = await listGroups({
-      userId,
-      page,
-      limit,
-      search,
-    })
-
+    const result = await listGroups({ userId, page, limit, search })
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error listing groups:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi lấy danh sách nhóm" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi lấy danh sách nhóm", 500)
   }
 }
 
 export const POST = createPostRoute(createGroupHandler)
-export const GET = createApiRoute(listGroupsHandler)
+export const GET = createGetRoute(listGroupsHandler)
 

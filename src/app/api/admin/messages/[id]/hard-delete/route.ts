@@ -1,41 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createApiRoute } from "@/lib/api/api-route-wrapper"
+import { createDeleteRoute } from "@/lib/api/api-route-wrapper"
 import { hardDeleteMessage } from "@/features/admin/chat/server"
-import { ApplicationError, NotFoundError } from "@/features/admin/resources/server"
+import {
+  extractParams,
+  getUserId,
+  createAuthContext,
+  handleApiError,
+} from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function hardDeleteMessageHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { params } = args[0] as { params: Promise<{ id: string }> }
-  const { id } = await params
+  const userId = getUserId(context)
+  const { id } = await extractParams<{ id: string }>(args)
 
   try {
-    await hardDeleteMessage(
-      {
-        actorId: userId,
-        permissions: context.permissions,
-        roles: context.roles,
-      },
-      id
-    )
-
+    await hardDeleteMessage(createAuthContext(context, userId), id)
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error hard deleting message:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi xóa vĩnh viễn tin nhắn" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi xóa vĩnh viễn tin nhắn", 500)
   }
 }
 
-export const DELETE = createApiRoute(hardDeleteMessageHandler)
+export const DELETE = createDeleteRoute(hardDeleteMessageHandler)
 

@@ -1,44 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createPutRoute, createDeleteRoute, createApiRoute } from "@/lib/api/api-route-wrapper"
+import { createGetRoute, createPutRoute, createDeleteRoute } from "@/lib/api/api-route-wrapper"
 import { updateGroup, deleteGroup, getGroup } from "@/features/admin/chat/server"
-import { ApplicationError, NotFoundError } from "@/features/admin/resources/server"
+import {
+  parseRequestBody,
+  extractParams,
+  getUserId,
+  createAuthContext,
+  handleApiError,
+  getStringValue,
+} from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function updateGroupHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const userId = context.session?.user?.id
+  const userId = getUserId(context)
+  const { id } = await extractParams<{ id: string }>(args)
+  const body = await parseRequestBody(req)
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { params } = args[0] as { params: Promise<{ id: string }> }
-  const { id } = await params
-
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 })
-  }
-
-  const name = typeof body.name === "string" ? body.name : undefined
-  const description = typeof body.description === "string" ? body.description : undefined
+  const name = getStringValue(body, "name")
+  const description = getStringValue(body, "description")
   const avatar = typeof body.avatar === "string" ? body.avatar : null
 
   try {
-    const group = await updateGroup(
-      {
-        actorId: userId,
-        permissions: context.permissions,
-        roles: context.roles,
-      },
-      {
-        groupId: id,
-        name,
-        description,
-        avatar,
-      }
-    )
+    const group = await updateGroup(createAuthContext(context, userId), {
+      groupId: id,
+      name,
+      description,
+      avatar,
+    })
 
     return NextResponse.json({
       id: group.id,
@@ -57,59 +45,25 @@ async function updateGroupHandler(req: NextRequest, context: ApiRouteContext, ..
       memberCount: group.members.length,
     })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error updating group:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi cập nhật nhóm" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi cập nhật nhóm", 500)
   }
 }
 
 async function deleteGroupHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { params } = args[0] as { params: Promise<{ id: string }> }
-  const { id } = await params
+  const userId = getUserId(context)
+  const { id } = await extractParams<{ id: string }>(args)
 
   try {
-    await deleteGroup(
-      {
-        actorId: userId,
-        permissions: context.permissions,
-        roles: context.roles,
-      },
-      id
-    )
-
+    await deleteGroup(createAuthContext(context, userId), id)
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error deleting group:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi xóa nhóm" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi xóa nhóm", 500)
   }
 }
 
 async function getGroupHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
-  const userId = context.session?.user?.id
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { params } = args[0] as { params: Promise<{ id: string }> }
-  const { id } = await params
+  const userId = getUserId(context)
+  const { id } = await extractParams<{ id: string }>(args)
 
   try {
     const group = await getGroup(id, userId)
@@ -137,18 +91,11 @@ async function getGroupHandler(req: NextRequest, context: ApiRouteContext, ...ar
       memberCount: group.memberCount,
     })
   } catch (error) {
-    if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message }, { status: error.status || 400 })
-    }
-    if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 })
-    }
-    console.error("Error getting group:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi lấy thông tin nhóm" }, { status: 500 })
+    return handleApiError(error, "Đã xảy ra lỗi khi lấy thông tin nhóm", 500)
   }
 }
 
-export const GET = createApiRoute(getGroupHandler)
+export const GET = createGetRoute(getGroupHandler)
 export const PUT = createPutRoute(updateGroupHandler)
 export const DELETE = createDeleteRoute(deleteGroupHandler)
 

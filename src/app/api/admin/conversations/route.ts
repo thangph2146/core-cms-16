@@ -9,56 +9,40 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { createApiRoute } from "@/lib/api/api-route-wrapper"
+import { createGetRoute } from "@/lib/api/api-route-wrapper"
 import { listConversationsCached, getMessagesBetweenUsersCached } from "@/features/admin/chat/server/cache"
+import { getUserId } from "@/lib/api/api-route-helpers"
 import type { ApiRouteContext } from "@/lib/api/types"
 
 async function getConversationsHandler(req: NextRequest, context: ApiRouteContext) {
-  if (!context.session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const userId = getUserId(context)
 
   const searchParams = req.nextUrl.searchParams
   const page = parseInt(searchParams.get("page") || "1")
   const limit = parseInt(searchParams.get("limit") || "50")
   const search = searchParams.get("search") || undefined
 
-  const result = await listConversationsCached({
-    userId: context.session.user.id,
-    page,
-    limit,
-    search,
-  })
-
+  const result = await listConversationsCached({ userId, page, limit, search })
   return NextResponse.json(result)
 }
 
 async function getMessagesHandler(req: NextRequest, context: ApiRouteContext) {
-  if (!context.session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+  const userId = getUserId(context)
   const searchParams = req.nextUrl.searchParams
   const otherUserId = searchParams.get("otherUserId")
-  const limit = parseInt(searchParams.get("limit") || "100")
+  const limit = parseInt(searchParams.get("limit") || "100", 10)
 
   if (!otherUserId) {
     return NextResponse.json({ error: "otherUserId is required" }, { status: 400 })
   }
 
-  const messages = await getMessagesBetweenUsersCached(context.session.user.id, otherUserId, limit)
-
+  const messages = await getMessagesBetweenUsersCached(userId, otherUserId, limit)
   return NextResponse.json(messages)
 }
 
-export const GET = createApiRoute(async (req: NextRequest, context: ApiRouteContext) => {
+export const GET = createGetRoute(async (req: NextRequest, context: ApiRouteContext) => {
   const searchParams = req.nextUrl.searchParams
   const otherUserId = searchParams.get("otherUserId")
-
-  if (otherUserId) {
-    return getMessagesHandler(req, context)
-  } else {
-    return getConversationsHandler(req, context)
-  }
+  return otherUserId ? getMessagesHandler(req, context) : getConversationsHandler(req, context)
 })
 
