@@ -103,7 +103,6 @@ export function ChatTemplate({
   // Group actions hook
   const { handleGroupUpdated, handleHardDeleteGroup } = useGroupActions({
     currentChat,
-    currentUserRole,
     setCurrentChat,
     setContactsState,
     onHardDeleteSuccess: filterType === "DELETED" ? fetchDeletedGroups : undefined, // Refresh deleted groups list if on DELETED filter

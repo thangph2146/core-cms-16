@@ -78,10 +78,6 @@ export function ensureDate(value: DateLike, fallback?: DateLike): Date {
   return new Date()
 }
 
-function optionalDate(value: DateLike): Date | undefined {
-  return parseDate(value)
-}
-
 function mapMember(member: GroupMemberLike): GroupMember {
   return {
     id: member.id,
@@ -165,4 +161,3 @@ export function mapGroupListItemToContact({
     isDeleted: Boolean(groupData.deletedAt),
   }
 }
-

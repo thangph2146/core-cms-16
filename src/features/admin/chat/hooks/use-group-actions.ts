@@ -5,13 +5,11 @@
 
 import { useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { apiRoutes } from "@/lib/api/routes"
-import type { Contact, GroupRole } from "@/components/chat/types"
+import type { Contact } from "@/components/chat/types"
 import { refreshGroupData, updateContactWithGroupData } from "../components/chat-template-helpers"
 
 interface UseGroupActionsProps {
   currentChat: Contact | null
-  currentUserRole?: GroupRole
   setCurrentChat: (contact: Contact | null) => void
   setContactsState: React.Dispatch<React.SetStateAction<Contact[]>>
   onHardDeleteSuccess?: () => void // Callback after hard delete success
@@ -19,7 +17,6 @@ interface UseGroupActionsProps {
 
 export function useGroupActions({
   currentChat,
-  currentUserRole,
   setCurrentChat,
   setContactsState,
   onHardDeleteSuccess,
@@ -29,11 +26,28 @@ export function useGroupActions({
   const handleGroupUpdated = useCallback(async () => {
     if (!currentChat || currentChat.type !== "GROUP") return
 
-    const groupData = await refreshGroupData(currentChat.id)
-    if (!groupData) return
+    try {
+      const groupData = await refreshGroupData(currentChat.id)
 
-    setContactsState((prev) => updateContactWithGroupData(prev, currentChat.id, groupData))
-  }, [currentChat, setContactsState])
+      if (!groupData) {
+        toast({
+          variant: "destructive",
+          title: "Không thể tải nhóm",
+          description: "Vui lòng thử lại hoặc tải lại trang.",
+        })
+        return
+      }
+
+      setContactsState((prev) => updateContactWithGroupData(prev, currentChat.id, groupData))
+    } catch (error) {
+      console.error("Failed to refresh group data", error)
+      toast({
+        variant: "destructive",
+        title: "Lỗi cập nhật nhóm",
+        description: "Không thể cập nhật thông tin nhóm. Vui lòng thử lại sau.",
+      })
+    }
+  }, [currentChat, setContactsState, toast])
 
   const handleHardDeleteGroup = useCallback(async () => {
     // This function is called after successful hard delete from dialog
@@ -55,4 +69,3 @@ export function useGroupActions({
     handleHardDeleteGroup,
   }
 }
-
