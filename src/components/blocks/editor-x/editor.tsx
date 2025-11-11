@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 import { nodes } from "./nodes"
 import { Plugins } from "./plugins"
+import { cn } from "@/lib/utils"
 
 const editorConfig: InitialConfigType = {
   namespace: "Editor",
@@ -27,17 +28,20 @@ export function Editor({
   editorSerializedState,
   onChange,
   onSerializedChange,
+  readOnly = false,
 }: {
   editorState?: EditorState
   editorSerializedState?: SerializedEditorState
   onChange?: (editorState: EditorState) => void
   onSerializedChange?: (editorSerializedState: SerializedEditorState) => void
+  readOnly?: boolean
 }) {
   return (
-    <div className="bg-background overflow-hidden rounded-lg border shadow">
+    <div className={cn("bg-background overflow-hidden rounded-lg border shadow", readOnly && "border-none shadow-none")}>
       <LexicalComposer
         initialConfig={{
           ...editorConfig,
+          editable: !readOnly,
           ...(editorState ? { editorState } : {}),
           ...(editorSerializedState
             ? { editorState: JSON.stringify(editorSerializedState) }
@@ -45,15 +49,17 @@ export function Editor({
         }}
       >
         <TooltipProvider>
-          <Plugins />
+          <Plugins readOnly={readOnly} />
 
-          <OnChangePlugin
-            ignoreSelectionChange={true}
-            onChange={(editorState) => {
-              onChange?.(editorState)
-              onSerializedChange?.(editorState.toJSON())
-            }}
-          />
+          {!readOnly && (
+            <OnChangePlugin
+              ignoreSelectionChange={true}
+              onChange={(editorState) => {
+                onChange?.(editorState)
+                onSerializedChange?.(editorState.toJSON())
+              }}
+            />
+          )}
         </TooltipProvider>
       </LexicalComposer>
     </div>

@@ -107,7 +107,7 @@ import { Separator } from "@/components/ui/separator"
 const placeholder = "Press / for commands..."
 const maxLength = 500
 
-export function Plugins({}) {
+export function Plugins({ readOnly = false }: { readOnly?: boolean }) {
   const [floatingAnchorElem, setFloatingAnchorElem] =
     useState<HTMLDivElement | null>(null)
   const [isLinkEditMode, setIsLinkEditMode] = useState<boolean>(false)
@@ -120,9 +120,10 @@ export function Plugins({}) {
 
   return (
     <div className="relative">
-      <ToolbarPlugin>
-        {({ blockType }) => (
-          <div className="vertical-align-middle sticky top-0 z-10 flex items-center gap-2 overflow-auto border-b p-1">
+      {!readOnly && (
+        <ToolbarPlugin>
+          {({ blockType }) => (
+            <div className="vertical-align-middle sticky top-0 z-10 flex items-center gap-2 overflow-auto border-b p-1">
             <HistoryToolbarPlugin />
             <Separator orientation="vertical" className="!h-7" />
             <BlockFormatDropDown>
@@ -165,108 +166,124 @@ export function Plugins({}) {
           </div>
         )}
       </ToolbarPlugin>
+      )}
       <div className="relative">
-        <AutoFocusPlugin />
+        {!readOnly && <AutoFocusPlugin />}
         <RichTextPlugin
           contentEditable={
             <div className="">
               <div className="" ref={onRef}>
                 <ContentEditable
-                  placeholder={placeholder}
-                  className="ContentEditable__root relative block h-[calc(100vh-90px)] min-h-72 overflow-auto px-8 py-4 focus:outline-none"
+                  placeholder={readOnly ? "" : placeholder}
+                  className={`ContentEditable__root relative block ${readOnly ? "min-h-72" : "h-[calc(100vh-90px)] min-h-72"} overflow-auto px-8 py-4 focus:outline-none ${readOnly ? "cursor-default select-text" : ""}`}
+                  readOnly={readOnly}
                 />
               </div>
             </div>
           }
           ErrorBoundary={LexicalErrorBoundary}
+          placeholder={readOnly ? null : <div className="text-muted-foreground pointer-events-none absolute top-0 left-0 overflow-hidden px-8 py-[18px] text-ellipsis select-none">{placeholder}</div>}
         />
 
         <ClickableLinkPlugin />
-        <CheckListPlugin />
-        <HorizontalRulePlugin />
-        <TablePlugin />
-        <ListPlugin />
-        <TabIndentationPlugin />
+        {!readOnly && (
+          <>
+            <CheckListPlugin />
+            <HorizontalRulePlugin />
+            <TablePlugin />
+            <ListPlugin />
+            <TabIndentationPlugin />
+            <HistoryPlugin />
+          </>
+        )}
         <HashtagPlugin />
-        <HistoryPlugin />
 
         <MentionsPlugin />
-        <DraggableBlockPlugin anchorElem={floatingAnchorElem} />
+        {!readOnly && <DraggableBlockPlugin anchorElem={floatingAnchorElem} />}
         <KeywordsPlugin />
         <EmojisPlugin />
-        <ImagesPlugin />
+        {!readOnly && <ImagesPlugin />}
 
-        <LayoutPlugin />
+        {!readOnly && <LayoutPlugin />}
 
-        <AutoEmbedPlugin />
-        <TwitterPlugin />
-        <YouTubePlugin />
+        {!readOnly && (
+          <>
+            <AutoEmbedPlugin />
+            <TwitterPlugin />
+            <YouTubePlugin />
+          </>
+        )}
 
         <CodeHighlightPlugin />
-        <CodeActionMenuPlugin anchorElem={floatingAnchorElem} />
+        {!readOnly && <CodeActionMenuPlugin anchorElem={floatingAnchorElem} />}
 
-        <MarkdownShortcutPlugin
-          transformers={[
-            TABLE,
-            HR,
-            IMAGE,
-            EMOJI,
-            TWEET,
-            CHECK_LIST,
-            ...ELEMENT_TRANSFORMERS,
-            ...MULTILINE_ELEMENT_TRANSFORMERS,
-            ...TEXT_FORMAT_TRANSFORMERS,
-            ...TEXT_MATCH_TRANSFORMERS,
-          ]}
-        />
-        <TypingPerfPlugin />
-        <TabFocusPlugin />
-        <AutocompletePlugin />
-        <AutoLinkPlugin />
-        <LinkPlugin />
+        {!readOnly && (
+          <>
+            <MarkdownShortcutPlugin
+              transformers={[
+                TABLE,
+                HR,
+                IMAGE,
+                EMOJI,
+                TWEET,
+                CHECK_LIST,
+                ...ELEMENT_TRANSFORMERS,
+                ...MULTILINE_ELEMENT_TRANSFORMERS,
+                ...TEXT_FORMAT_TRANSFORMERS,
+                ...TEXT_MATCH_TRANSFORMERS,
+              ]}
+            />
+            <TypingPerfPlugin />
+            <TabFocusPlugin />
+            <AutocompletePlugin />
+            <AutoLinkPlugin />
+            <LinkPlugin />
 
-        <ComponentPickerMenuPlugin
-          baseOptions={[
-            ParagraphPickerPlugin(),
-            HeadingPickerPlugin({ n: 1 }),
-            HeadingPickerPlugin({ n: 2 }),
-            HeadingPickerPlugin({ n: 3 }),
-            TablePickerPlugin(),
-            CheckListPickerPlugin(),
-            NumberedListPickerPlugin(),
-            BulletedListPickerPlugin(),
-            QuotePickerPlugin(),
-            CodePickerPlugin(),
-            DividerPickerPlugin(),
-            EmbedsPickerPlugin({ embed: "tweet" }),
-            EmbedsPickerPlugin({ embed: "youtube-video" }),
-            ImagePickerPlugin(),
-            ColumnsLayoutPickerPlugin(),
-            AlignmentPickerPlugin({ alignment: "left" }),
-            AlignmentPickerPlugin({ alignment: "center" }),
-            AlignmentPickerPlugin({ alignment: "right" }),
-            AlignmentPickerPlugin({ alignment: "justify" }),
-          ]}
-          dynamicOptionsFn={DynamicTablePickerPlugin}
-        />
+            <ComponentPickerMenuPlugin
+              baseOptions={[
+                ParagraphPickerPlugin(),
+                HeadingPickerPlugin({ n: 1 }),
+                HeadingPickerPlugin({ n: 2 }),
+                HeadingPickerPlugin({ n: 3 }),
+                TablePickerPlugin(),
+                CheckListPickerPlugin(),
+                NumberedListPickerPlugin(),
+                BulletedListPickerPlugin(),
+                QuotePickerPlugin(),
+                CodePickerPlugin(),
+                DividerPickerPlugin(),
+                EmbedsPickerPlugin({ embed: "tweet" }),
+                EmbedsPickerPlugin({ embed: "youtube-video" }),
+                ImagePickerPlugin(),
+                ColumnsLayoutPickerPlugin(),
+                AlignmentPickerPlugin({ alignment: "left" }),
+                AlignmentPickerPlugin({ alignment: "center" }),
+                AlignmentPickerPlugin({ alignment: "right" }),
+                AlignmentPickerPlugin({ alignment: "justify" }),
+              ]}
+              dynamicOptionsFn={DynamicTablePickerPlugin}
+            />
 
-        <ContextMenuPlugin />
-        <DragDropPastePlugin />
-        <EmojiPickerPlugin />
+            <ContextMenuPlugin />
+            <DragDropPastePlugin />
+            <EmojiPickerPlugin />
 
-        <FloatingLinkEditorPlugin
-          anchorElem={floatingAnchorElem}
-          isLinkEditMode={isLinkEditMode}
-          setIsLinkEditMode={setIsLinkEditMode}
-        />
-        <FloatingTextFormatToolbarPlugin
-          anchorElem={floatingAnchorElem}
-          setIsLinkEditMode={setIsLinkEditMode}
-        />
+            <FloatingLinkEditorPlugin
+              anchorElem={floatingAnchorElem}
+              isLinkEditMode={isLinkEditMode}
+              setIsLinkEditMode={setIsLinkEditMode}
+            />
+            <FloatingTextFormatToolbarPlugin
+              anchorElem={floatingAnchorElem}
+              setIsLinkEditMode={setIsLinkEditMode}
+            />
 
-        <ListMaxIndentLevelPlugin />
+            <ListMaxIndentLevelPlugin />
+          </>
+        )}
       </div>
-      <ActionsPlugin>
+      {!readOnly && (
+        <ActionsPlugin>
         <div className="clear-both flex items-center justify-between gap-2 overflow-auto border-t p-1">
           <div className="flex flex-1 justify-start">
             <MaxLengthPlugin maxLength={maxLength} />
@@ -303,6 +320,7 @@ export function Plugins({}) {
           </div>
         </div>
       </ActionsPlugin>
+      )}
     </div>
   )
 }

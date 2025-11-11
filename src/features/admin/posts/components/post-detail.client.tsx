@@ -69,37 +69,12 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
       id: "basic",
       title: "Thông tin cơ bản",
       description: "Thông tin chính về bài viết",
-      fieldHeader: (
-        <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg border border-border/50">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">{post.title || "Chưa có tiêu đề"}</h3>
-            <div className="flex items-center gap-2 mt-2">
-              {post.published ? (
-                <Badge variant="outline" className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                  <Eye className="h-3 w-3" />
-                  Đã xuất bản
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-                  <EyeOff className="h-3 w-3" />
-                  Bản nháp
-                </Badge>
-              )}
-              {post.deletedAt && (
-                <Badge variant="outline" className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800">
-                  Đã xóa
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-      ),
       fieldsContent: (_fields, data) => {
         const postData = data as PostDetailData
         
         return (
           <Card className="border border-border/50 bg-card">
-            <CardContent className="p-6">
+            <CardContent>
               <div className="space-y-6">
                 {/* Image, Title, Description Section */}
                 <div className="space-y-4">
@@ -193,9 +168,7 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
             {editorState ? (
                 <Editor
                   editorSerializedState={editorState}
-                  onSerializedChange={() => {
-                    // Read-only mode, no changes allowed
-                  }}
+                  readOnly={true}
                 />
             ) : (
               <Card className="border border-border/50 bg-card p-5">
