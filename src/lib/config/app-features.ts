@@ -198,6 +198,10 @@ export const appFeatures: FeatureDefinition[] = [
         },
       ],
     },
+    api: {
+      type: "resource",
+      resourceName: "posts",
+    },
   },
   {
     key: "categories",

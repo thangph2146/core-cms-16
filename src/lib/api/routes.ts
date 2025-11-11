@@ -48,6 +48,15 @@ export const apiRoutes = {
   // Resource routes driven by Prisma schema + route-config
   ...featureResourceRoutes,
   ...prismaResourceRoutes,
+  
+  // Explicitly add resource routes to ensure TypeScript recognizes them
+  categories: getResourceRoutesOrFallback("categories", "categories"),
+  posts: getResourceRoutesOrFallback("posts", "posts"),
+  roles: getResourceRoutesOrFallback("roles", "roles"),
+  sessions: getResourceRoutesOrFallback("sessions", "sessions"),
+  users: getResourceRoutesOrFallback("users", "users"),
+  students: getResourceRoutesOrFallback("students", "students"),
+  tags: getResourceRoutesOrFallback("tags", "tags"),
 
   // Auth
   auth: {
