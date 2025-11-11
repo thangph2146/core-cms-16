@@ -49,10 +49,28 @@ export function useNotifications(options?: {
   return useQuery<NotificationsResponse>({
     queryKey: queryKeys.notifications.user(session?.user?.id, { limit, offset, unreadOnly }),
     queryFn: async () => {
-      const response = await apiClient.get<NotificationsResponse>(
-        apiRoutes.notifications.list({ limit, offset, unreadOnly })
-      )
-      return response.data
+      const response = await apiClient.get<{
+        success: boolean
+        data?: NotificationsResponse
+        error?: string
+        message?: string
+      }>(apiRoutes.notifications.list({ limit, offset, unreadOnly }))
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể tải thông báo")
+      }
+
+      return {
+        ...payload,
+        notifications: payload.notifications.map((notification) => ({
+          ...notification,
+          createdAt: new Date(notification.createdAt),
+          updatedAt: new Date(notification.updatedAt),
+          expiresAt: notification.expiresAt ? new Date(notification.expiresAt) : null,
+          readAt: notification.readAt ? new Date(notification.readAt) : null,
+        })),
+      }
     },
     enabled: !!session?.user?.id,
     // Chỉ polling nếu không có socket connection (disablePolling = false)
@@ -72,8 +90,25 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async ({ id, isRead = true }: { id: string; isRead?: boolean }) => {
-      const response = await apiClient.patch<Notification>(apiRoutes.notifications.markRead(id), { isRead })
-      return response.data
+      const response = await apiClient.patch<{
+        success: boolean
+        data?: Notification
+        error?: string
+        message?: string
+      }>(apiRoutes.notifications.markRead(id), { isRead })
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể cập nhật thông báo")
+      }
+
+      return {
+        ...payload,
+        createdAt: new Date(payload.createdAt),
+        updatedAt: new Date(payload.updatedAt),
+        expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : null,
+        readAt: payload.readAt ? new Date(payload.readAt) : null,
+      }
     },
     onSuccess: () => {
       // Invalidate cả user và admin notifications vì thay đổi trạng thái đọc ảnh hưởng đến cả 2
@@ -111,10 +146,18 @@ export function useMarkAllAsRead() {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post<{ success: boolean; count: number }>(
-        apiRoutes.notifications.markAllRead
-      )
-      return response.data
+      const response = await apiClient.post<{
+        success: boolean
+        data?: { count: number }
+        error?: string
+        message?: string
+      }>(apiRoutes.notifications.markAllRead)
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể đánh dấu tất cả đã đọc")
+      }
+      return payload
     },
     onSuccess: () => {
       // Invalidate cả user và admin notifications vì đánh dấu tất cả đã đọc ảnh hưởng đến cả 2
@@ -131,10 +174,18 @@ export function useDeleteAllNotifications() {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await apiClient.delete<{ success: boolean; count: number; message: string }>(
-        apiRoutes.notifications.deleteAll
-      )
-      return response.data
+      const response = await apiClient.delete<{
+        success: boolean
+        data?: { count: number }
+        error?: string
+        message?: string
+      }>(apiRoutes.notifications.deleteAll)
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể xóa tất cả thông báo")
+      }
+      return payload
     },
     onSuccess: () => {
       // Invalidate cả user và admin notifications vì xóa tất cả ảnh hưởng đến cả 2

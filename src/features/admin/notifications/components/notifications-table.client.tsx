@@ -217,21 +217,31 @@ export function NotificationsTableClient({
       // Không cần invalidate trong loader - loader sẽ được gọi khi refreshKey thay đổi
 
       const response = await apiClient.get<{
-        data: NotificationRow[]
-        pagination: {
-          page: number
-          limit: number
-          total: number
-          totalPages: number
+        success: boolean
+        data: {
+          data: NotificationRow[]
+          pagination: {
+            page: number
+            limit: number
+            total: number
+            totalPages: number
+          }
         }
+        error?: string
+        message?: string
       }>(url)
 
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không nhận được dữ liệu thông báo")
+      }
+
       return {
-        rows: response.data.data,
-        page: response.data.pagination.page,
-        limit: response.data.pagination.limit,
-        total: response.data.pagination.total,
-        totalPages: response.data.pagination.totalPages,
+        rows: payload.data,
+        page: payload.pagination.page,
+        limit: payload.pagination.limit,
+        total: payload.pagination.total,
+        totalPages: payload.pagination.totalPages,
       }
     },
     []
@@ -561,4 +571,3 @@ export function NotificationsTableClient({
     </>
   )
 }
-
