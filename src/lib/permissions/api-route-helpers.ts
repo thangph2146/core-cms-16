@@ -2,6 +2,7 @@
  * API Route Helpers - Utilities để extract và generate API routes từ ROUTE_CONFIG
  */
 
+import { stripApiBase } from "@/lib/config/api-paths"
 import { ROUTE_CONFIG, type RoutePermissionConfig } from "./route-config"
 import type { HttpMethod } from "./route-config"
 
@@ -36,67 +37,67 @@ export function getResourceApiRoute(
 
   if (action === "detail") {
     const route = routes.find((r) => r.method === method && r.path.includes("/[id]") && !r.path.includes("/restore") && !r.path.includes("/hard-delete") && !r.path.includes("/approve") && !r.path.includes("/unapprove") && !r.path.includes("/assign") && r.path.endsWith("/[id]"))
-    return route?.path.replace("/api", "") // Remove /api prefix vì apiClient đã có baseURL
+    return route ? stripApiBase(route.path) : undefined // Remove /api prefix vì apiClient đã có baseURL
   }
 
   if (action === "create" || action === "send") {
     const route = routes.find((r) => r.method === "POST" && r.path === `/api/admin/${resourceName}`)
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "list") {
     const route = routes.find((r) => r.method === "GET" && r.path === `/api/admin/${resourceName}`)
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "update") {
     const route = routes.find((r) => r.method === "PUT" && r.path.includes("/[id]") && !r.path.includes("/restore") && !r.path.includes("/hard-delete") && !r.path.includes("/approve") && !r.path.includes("/unapprove") && !r.path.includes("/assign") && r.path.endsWith("/[id]"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "delete") {
     const route = routes.find((r) => r.method === "DELETE" && r.path.includes("/[id]") && !r.path.includes("/hard-delete") && r.path.endsWith("/[id]"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "restore") {
     const route = routes.find((r) => r.method === "POST" && r.path.includes("/[id]/restore"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "hard-delete") {
     const route = routes.find((r) => r.method === "DELETE" && r.path.includes("/[id]/hard-delete"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "bulk") {
     const route = routes.find((r) => r.method === "POST" && r.path.includes("/bulk"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "approve") {
     const route = routes.find((r) => r.method === "POST" && r.path.includes("/[id]/approve"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "unapprove") {
     const route = routes.find((r) => r.method === "POST" && r.path.includes("/[id]/unapprove"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "assign") {
     const route = routes.find((r) => r.method === "POST" && r.path.includes("/[id]/assign"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   if (action === "search") {
     const route = routes.find((r) => r.method === "GET" && r.path.includes("/search"))
-    return route?.path.replace("/api", "")
+    return route ? stripApiBase(route.path) : undefined
   }
 
   // Default: find by method
   const route = routes.find((r) => r.method === method)
-  return route?.path.replace("/api", "")
+  return route ? stripApiBase(route.path) : undefined
 }
 
 /**
@@ -161,4 +162,3 @@ export function generateResourceApiRoutes(resourceName: string) {
     },
   }
 }
-

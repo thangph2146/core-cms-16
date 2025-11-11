@@ -555,6 +555,33 @@ export async function listGroups(input: ListGroupsInput) {
 
   const total = await prisma.groupMember.count({ where })
 
+  const groupIds = groupMembers.map((gm) => gm.group.id)
+  let unreadCountMap = new Map<string, number>()
+  if (groupIds.length > 0) {
+    const unreadCounts = await prisma.message.groupBy({
+      by: ["groupId"],
+      where: {
+        groupId: { in: groupIds },
+        deletedAt: null,
+        senderId: { not: input.userId },
+        reads: {
+          none: {
+            userId: input.userId,
+          },
+        },
+      },
+      _count: {
+        _all: true,
+      },
+    })
+
+    unreadCountMap = new Map(
+      unreadCounts
+        .filter((item): item is typeof item & { groupId: string } => Boolean(item.groupId))
+        .map((item) => [item.groupId, item._count._all])
+    )
+  }
+
   return {
     data: groupMembers.map((gm) => ({
       id: gm.group.id,
@@ -577,6 +604,7 @@ export async function listGroups(input: ListGroupsInput) {
       })),
       lastMessage: gm.group.messages[0] || null,
       memberCount: gm.group.members.length,
+      unreadCount: unreadCountMap.get(gm.group.id) ?? 0,
     })),
     pagination: {
       page,
@@ -658,4 +686,3 @@ export async function getGroup(groupId: string, userId: string) {
 
 // Re-export helpers
 export { mapMessageRecord, mapConversationRecord, type MessageWithRelations } from "./helpers"
-

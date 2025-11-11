@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react"
 import { io, type Socket } from "socket.io-client"
 import { logger } from "@/lib/config"
+import { withApiBase } from "@/lib/config/api-paths"
 
 export interface UseSocketOptions {
   userId?: string | null
@@ -134,9 +135,10 @@ async function ensureServerBootstrap(): Promise<boolean> {
     logger.info("Bắt đầu bootstrap Socket.IO server")
     bootstrapPromise = (async () => {
       try {
-        logger.debug("Đang gọi /api/socket để khởi tạo server")
-        const { apiClient } = await import("@/lib/api/axios")
         const { apiRoutes } = await import("@/lib/api/routes")
+        const socketEndpoint = withApiBase(apiRoutes.socket)
+        logger.debug(`Đang gọi ${socketEndpoint} để khởi tạo server`)
+        const { apiClient } = await import("@/lib/api/axios")
         await apiClient.get(apiRoutes.socket)
         // Axios tự động throw error cho status >= 400
         // Nếu đến đây thì đã thành công
@@ -206,7 +208,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
 
       // Import apiRoutes để sử dụng socket path
       const { apiRoutes } = await import("@/lib/api/routes")
-      const socketPath = `/api${apiRoutes.socket}`
+      const socketPath = withApiBase(apiRoutes.socket)
 
       logger.info("Đang tạo socket connection", {
         userId,

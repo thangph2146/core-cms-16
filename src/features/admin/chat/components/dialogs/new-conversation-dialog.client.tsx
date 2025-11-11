@@ -24,6 +24,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader2, User } from "lucide-react"
 import { requestJson } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 import type { Contact } from "@/components/chat/types"
 
 interface UserOption {
@@ -49,7 +50,7 @@ export function NewConversationDialog({ onSelectUser, existingContactIds = [] }:
     setIsLoading(true)
     try {
       const { apiRoutes } = await import("@/lib/api/routes")
-      const res = await requestJson<UserOption[]>(`/api${apiRoutes.adminUsers.search(query)}`)
+      const res = await requestJson<UserOption[]>(withApiBase(apiRoutes.adminUsers.search(query)))
       if (!res.ok) throw new Error(res.error || "Failed to search users")
       const data = Array.isArray(res.data) ? res.data : []
       const filtered = data.filter(

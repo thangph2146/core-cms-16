@@ -4,7 +4,7 @@
  */
 
 import type { Contact, Message } from "@/components/chat/types"
-import { isMessageReadByUser } from "@/components/chat/utils/message-helpers"
+import { calculateUnreadCount } from "./use-chat-helpers"
 
 /**
  * Create optimistic message
@@ -121,7 +121,7 @@ export function applyReadStatus(
     contactId: string
     messageId: string
     isRead: boolean
-    currentUserId?: string
+    currentUserId: string
     readers?: { id: string; name: string | null; email: string; avatar: string | null }[]
     mode: "socket" | "optimistic"
   }
@@ -134,8 +134,6 @@ export function applyReadStatus(
     if (idx === -1) return contact
 
     const prev = contact.messages[idx]
-    const wasRead = currentUserId ? isMessageReadByUser(prev, currentUserId) : prev.isRead
-
     let next: Message = prev
     const isGroupMessage = !!prev.groupId
 
@@ -157,13 +155,14 @@ export function applyReadStatus(
     const updatedMessages = [...contact.messages]
     updatedMessages[idx] = next
 
-    const nowRead = currentUserId ? isMessageReadByUser(next, currentUserId) : isRead
-    const unreadCount = wasRead === nowRead
-      ? contact.unreadCount
-      : nowRead
-        ? Math.max(0, contact.unreadCount - 1)
-        : contact.unreadCount + 1
+    const contactWithUpdates: Contact = {
+      ...contact,
+      messages: updatedMessages,
+    }
 
-    return { ...contact, messages: updatedMessages, unreadCount }
+    return {
+      ...contactWithUpdates,
+      unreadCount: calculateUnreadCount(contactWithUpdates, currentUserId),
+    }
   })
 }

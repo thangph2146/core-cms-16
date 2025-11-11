@@ -14,10 +14,10 @@ export function updateMessageReadStatus(
   contactId: string,
   messageId: string | undefined,
   isRead: boolean,
-  readers?: { id: string; name: string | null; email: string; avatar: string | null }[],
-  currentUserId?: string
+  readers: { id: string; name: string | null; email: string; avatar: string | null }[] | undefined,
+  currentUserId: string | undefined
 ): Contact[] {
-  if (!messageId) return contacts
+  if (!messageId || !currentUserId) return contacts
   return applyReadStatus(contacts, {
     contactId,
     messageId,

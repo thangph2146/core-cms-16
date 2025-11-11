@@ -25,6 +25,7 @@ import { Loader2, UserPlus, UserMinus, ShieldCheck } from "lucide-react"
 import type { Group, GroupRole } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
 import { requestJson, toJsonBody } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 import { useToast } from "@/hooks/use-toast"
 
 interface UserOption {
@@ -63,9 +64,9 @@ export function ManageMembersDialog({
     setIsLoading(true)
     try {
       const { apiRoutes } = await import("@/lib/api/routes")
-      const response = await fetch(`/api${apiRoutes.adminUsers.search(query)}`)
-      if (!response.ok) throw new Error("Failed to search users")
-      const data = await response.json()
+      const response = await requestJson<UserOption[]>(withApiBase(apiRoutes.adminUsers.search(query)))
+      if (!response.ok) throw new Error(response.error || "Failed to search users")
+      const data = Array.isArray(response.data) ? response.data : []
       
       const existingMemberIds = group?.members.map((m) => m.userId) || []
       const filtered = data.filter(
@@ -95,7 +96,7 @@ export function ManageMembersDialog({
 
     setIsProcessing(userId)
     try {
-      const res = await requestJson(`/api${apiRoutes.adminGroups.addMembers(group.id)}`, {
+      const res = await requestJson(withApiBase(apiRoutes.adminGroups.addMembers(group.id)), {
         method: "POST",
         ...toJsonBody({ memberIds: [userId] }),
       })
@@ -123,7 +124,7 @@ export function ManageMembersDialog({
 
     setIsProcessing(memberId)
     try {
-      const res = await requestJson(`/api${apiRoutes.adminGroups.removeMember(group.id, memberId)}`, {
+      const res = await requestJson(withApiBase(apiRoutes.adminGroups.removeMember(group.id, memberId)), {
         method: "DELETE",
       })
       if (!res.ok) throw new Error(res.error || "Failed to remove member")
@@ -147,7 +148,7 @@ export function ManageMembersDialog({
 
     setIsProcessing(memberId)
     try {
-      const res = await requestJson(`/api${apiRoutes.adminGroups.updateMemberRole(group.id, memberId)}`, {
+      const res = await requestJson(withApiBase(apiRoutes.adminGroups.updateMemberRole(group.id, memberId)), {
         method: "PATCH",
         ...toJsonBody({ role: newRole }),
       })

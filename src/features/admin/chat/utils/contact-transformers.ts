@@ -53,6 +53,7 @@ export interface GroupListItemLike {
   members: GroupMemberLike[]
   memberCount?: number
   lastMessage?: MessageSummaryLike | null
+  unreadCount?: number
 }
 
 function parseDate(value: DateLike): Date | undefined {
@@ -145,7 +146,9 @@ export function mapGroupListItemToContact({
     memberCount: groupData.memberCount ?? groupMembers.length,
   }
 
-  const unreadCount = mappedMessages.filter((msg) => isMessageUnreadByUser(msg, currentUserId)).length
+  const unreadCountFromServer = typeof groupData.unreadCount === "number" ? groupData.unreadCount : undefined
+  const calculatedUnread = mappedMessages.filter((msg) => isMessageUnreadByUser(msg, currentUserId)).length
+  const unreadCount = unreadCountFromServer ?? calculatedUnread
 
   return {
     id: groupData.id,

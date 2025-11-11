@@ -27,6 +27,7 @@ import { Loader2, Users } from "lucide-react"
 import type { Group, GroupMember } from "@/components/chat/types"
 import { useToast } from "@/hooks/use-toast"
 import { requestJson, toJsonBody } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 
 interface UserOption {
   id: string
@@ -55,7 +56,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
     setIsLoading(true)
     try {
       const { apiRoutes } = await import("@/lib/api/routes")
-      const res = await requestJson<UserOption[]>(`/api${apiRoutes.adminUsers.search(query)}`)
+      const res = await requestJson<UserOption[]>(withApiBase(apiRoutes.adminUsers.search(query)))
       if (!res.ok) throw new Error(res.error || "Failed to search users")
       const data = Array.isArray(res.data) ? res.data : []
       const filtered = data.filter((u: UserOption) => u.id !== currentUser?.id)
@@ -89,7 +90,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
     setIsCreating(true)
     try {
       const { apiRoutes } = await import("@/lib/api/routes")
-      const res = await requestJson(`/api${apiRoutes.adminGroups.create}`, {
+      const res = await requestJson(withApiBase(apiRoutes.adminGroups.create), {
         method: "POST",
         ...toJsonBody({
           name: groupName.trim(),

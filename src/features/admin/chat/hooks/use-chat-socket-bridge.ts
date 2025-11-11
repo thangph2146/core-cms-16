@@ -23,6 +23,7 @@ import {
   filterContactInState,
 } from "./use-chat-socket-helpers"
 import { isMessageUnreadByUser } from "@/components/chat/utils/message-helpers"
+import { calculateUnreadCount } from "./use-chat-helpers"
 import { logger } from "@/lib/config"
 
 interface UseChatSocketBridgeProps {
@@ -123,17 +124,49 @@ export function useChatSocketBridge({
           onMessageReceived?.(payload.id, contactId, newMessage)
         }
 
-        return prev.map((contact) => {
+        let contactFound = false
+        const updatedContacts = prev.map((contact) => {
           if (contact.id !== contactId) return contact
+          contactFound = true
 
-          return {
+          const contactWithMessage: Contact = {
             ...contact,
             messages: [...contact.messages, newMessage],
             lastMessage: newMessage.content,
             lastMessageTime: newMessage.timestamp,
-            unreadCount: isUnread && !isCurrentChat ? contact.unreadCount + 1 : contact.unreadCount,
+          }
+
+          return {
+            ...contactWithMessage,
+            unreadCount: calculateUnreadCount(contactWithMessage, currentUserId),
           }
         })
+
+        if (contactFound) {
+          return updatedContacts
+        }
+
+        // If contact not found (new conversation), create placeholder contact
+        const placeholder: Contact = {
+          id: contactId,
+          name: payload.groupId
+            ? "Nhóm mới"
+            : payload.fromUserId === currentUserId
+              ? payload.toUserId || "Liên hệ mới"
+              : payload.fromUserId || "Liên hệ mới",
+          email: undefined,
+          image: null,
+          lastMessage: newMessage.content,
+          lastMessageTime: newMessage.timestamp,
+          unreadCount: isUnread ? 1 : 0,
+          isOnline: false,
+          messages: [newMessage],
+          type: payload.groupId ? "GROUP" : "PERSONAL",
+          group: undefined,
+          isDeleted: false,
+        }
+
+        return [placeholder, ...prev]
       })
     })
 
@@ -309,4 +342,3 @@ export function useChatSocketBridge({
 
   return { socket }
 }
-

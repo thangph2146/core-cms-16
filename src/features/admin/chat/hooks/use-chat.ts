@@ -20,6 +20,8 @@ import {
   updateMessageReadStatusOptimistic,
 } from "./use-chat-message-helpers"
 import { isMessageReadByUser } from "@/components/chat/utils/message-helpers"
+import { requestJson } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 
 interface UseChatProps {
   contacts: Contact[]
@@ -123,9 +125,13 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
       const checkGroupExists = async () => {
         try {
           const { apiRoutes } = await import("@/lib/api/routes")
-          const response = await fetch(`/api${apiRoutes.adminGroups.detail(currentChat.id)}`)
+          const res = await requestJson(withApiBase(apiRoutes.adminGroups.detail(currentChat.id)))
           if (!isMounted) return
-          setIsGroupDeleted(response.status === 404)
+          if (!res.ok && res.status === 0) {
+            setIsGroupDeleted(immediateState)
+            return
+          }
+          setIsGroupDeleted(res.status === 404)
         } catch {
           if (!isMounted) return
           setIsGroupDeleted(immediateState)

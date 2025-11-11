@@ -3,8 +3,9 @@
  */
 import axios from "axios"
 import { logger } from "@/lib/config"
+import { apiPathConfig } from "@/lib/config/api-paths"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || apiPathConfig.basePath
 
 // Tạo axios instance
 export const apiClient = axios.create({
@@ -71,4 +72,3 @@ apiClient.interceptors.response.use(
 )
 
 export default apiClient
-

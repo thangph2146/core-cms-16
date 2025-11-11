@@ -17,6 +17,8 @@ import { Loader2 } from "lucide-react"
 import type { Group } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
+import { withApiBase } from "@/lib/config/api-paths"
+import { requestJson, toJsonBody } from "@/lib/api/client"
 
 interface EditGroupDialogProps {
   open: boolean
@@ -43,18 +45,16 @@ export function EditGroupDialog({ open, onOpenChange, group, onSuccess }: EditGr
 
     setIsSaving(true)
     try {
-      const response = await fetch(`/api${apiRoutes.adminGroups.update(group.id)}`, {
+      const response = await requestJson(withApiBase(apiRoutes.adminGroups.update(group.id)), {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        ...toJsonBody({
           name: groupName.trim(),
           description: groupDescription.trim() || undefined,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to update group" }))
-        throw new Error(errorData.error || "Failed to update group")
+        throw new Error(response.error || "Failed to update group")
       }
 
       toast({
@@ -106,4 +106,3 @@ export function EditGroupDialog({ open, onOpenChange, group, onSuccess }: EditGr
     </Dialog>
   )
 }
-

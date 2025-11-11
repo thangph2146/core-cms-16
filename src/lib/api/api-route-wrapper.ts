@@ -9,7 +9,7 @@ import type { Permission } from "@/lib/permissions"
 import { canPerformAnyAction } from "@/lib/permissions"
 import { getApiRoutePermissions, type HttpMethod } from "@/lib/permissions"
 import { withSecurity } from "./security"
-import { logger } from "@/lib/config"
+import { logger, createErrorResponse } from "@/lib/config"
 import type { ApiRouteContext } from "./types"
 
 export interface ApiRouteOptions {
@@ -57,7 +57,7 @@ export function createApiRoute(
             method: req.method,
             error: error instanceof Error ? error.message : String(error),
           })
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+          return createErrorResponse("Unauthorized", { status: 401 })
         }
       }
 
@@ -91,7 +91,7 @@ export function createApiRoute(
             requiredPermissions,
             userPermissions: permissionsList,
           })
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+          return createErrorResponse("Forbidden", { status: 403 })
         }
       }
 
@@ -120,7 +120,7 @@ export function createApiRoute(
             : error.message
           : "Internal server error"
 
-      return NextResponse.json({ error: errorMessage }, { status: 500 })
+      return createErrorResponse(errorMessage, { status: 500, error: error instanceof Error ? error.name : undefined })
     }
   }
 

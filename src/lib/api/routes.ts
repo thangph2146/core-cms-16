@@ -11,6 +11,8 @@
  */
 
 import { appFeatures } from "@/lib/config/app-features"
+import { prismaResourceMap } from "@/lib/config/resource-map"
+import { stripApiBase } from "@/lib/config/api-paths"
 import { generateResourceApiRoutes, getResourceApiRoute, getResourceAdminApiRoutes } from "@/lib/permissions/api-route-helpers"
 
 type ResourceRouteBuilder = ReturnType<typeof generateResourceApiRoutes>
@@ -29,12 +31,24 @@ const getResourceRoutesOrFallback = (key: string, resourceName: string): Resourc
   return featureResourceRoutes[key] ?? generateResourceApiRoutes(resourceName)
 }
 
+const prismaResourceRoutes = prismaResourceMap.reduce<Record<string, ResourceRouteBuilder>>((acc, resource) => {
+  if (resource.enabled === false) {
+    return acc
+  }
+  acc[resource.key] = getResourceRoutesOrFallback(resource.key, resource.resourceName)
+  return acc
+}, {})
+
 /**
  * API Routes cho từng feature
  * Không include `/api` prefix vì apiClient đã có baseURL
  * Admin resources được generate từ route-config.ts
  */
 export const apiRoutes = {
+  // Resource routes driven by Prisma schema + route-config
+  ...featureResourceRoutes,
+  ...prismaResourceRoutes,
+
   // Auth
   auth: {
     signIn: "/auth/sign-in",
@@ -81,17 +95,6 @@ export const apiRoutes = {
     },
   },
 
-  // Spread standard resource routes registered từ feature config
-  ...featureResourceRoutes,
-
-  // Explicitly add resource routes to ensure TypeScript recognizes them
-  categories: getResourceRoutesOrFallback("categories", "categories"),
-  tags: getResourceRoutesOrFallback("tags", "tags"),
-  roles: getResourceRoutesOrFallback("roles", "roles"),
-  users: getResourceRoutesOrFallback("users", "users"),
-  students: getResourceRoutesOrFallback("students", "students"),
-  sessions: getResourceRoutesOrFallback("sessions", "sessions"),
-
   // Contact Requests - thêm custom actions
   contactRequests: {
     ...getResourceRoutesOrFallback("contactRequests", "contact-requests"),
@@ -120,7 +123,8 @@ export const apiRoutes = {
     list: (params?: { page?: number; limit?: number; search?: string; otherUserId?: string }) => {
       // Get route từ route-config
       const routes = getResourceAdminApiRoutes("conversations")
-      const route = routes.find((r: { method?: string; path: string }) => r.method === "GET")?.path.replace("/api", "") || "/admin/conversations"
+      const adminRoute = routes.find((r: { method?: string; path: string }) => r.method === "GET")?.path
+      const route = adminRoute ? stripApiBase(adminRoute) : "/admin/conversations"
       const searchParams = new URLSearchParams()
       if (params?.page) searchParams.set("page", params.page.toString())
       if (params?.limit) searchParams.set("limit", params.limit.toString())
@@ -136,7 +140,8 @@ export const apiRoutes = {
     search: (query: string) => {
       // Get route từ route-config
       const routes = getResourceAdminApiRoutes("users")
-      const route = routes.find((r: { path: string }) => r.path.includes("/search"))?.path.replace("/api", "") || "/admin/users/search"
+      const adminRoute = routes.find((r: { path: string }) => r.path.includes("/search"))?.path
+      const route = adminRoute ? stripApiBase(adminRoute) : "/admin/users/search"
       return `${route}?q=${encodeURIComponent(query)}`
     },
   },

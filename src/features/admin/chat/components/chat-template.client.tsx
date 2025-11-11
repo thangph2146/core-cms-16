@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/chat/components/empty-state"
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
 import { requestJson } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 import { getCurrentUserRole, createGroupContact } from "./chat-template-helpers"
 import { useGroupActions } from "../hooks/use-group-actions"
 import { filterContacts } from "@/components/chat/utils/contact-helpers"
@@ -71,13 +72,12 @@ export function ChatTemplate({
       const { apiRoutes } = await import("@/lib/api/routes")
       const listRoute = apiRoutes.adminGroups.list({ page: 1, limit: 50 })
       const separator = listRoute.includes("?") ? "&" : "?"
-      const response = await fetch(`/api${listRoute}${separator}includeDeleted=true`)
-      if (response.ok) {
-        const result = await response.json()
-        const deletedGroups = result.data || []
-        
-        // Map deleted groups to Contact format
-        const deletedGroupContacts: Contact[] = (deletedGroups as GroupListItemLike[])
+      const requestUrl = `${listRoute}${separator}includeDeleted=true`
+      const response = await requestJson<{ data?: GroupListItemLike[] } | GroupListItemLike[]>(withApiBase(requestUrl))
+      if (response.ok && response.data) {
+        const responseData = response.data
+        const payload = Array.isArray(responseData) ? responseData : responseData?.data || []
+        const deletedGroupContacts: Contact[] = (payload as GroupListItemLike[])
           .filter((groupData) => Boolean(groupData.deletedAt))
           .map((groupData) =>
             mapGroupListItemToContact({
@@ -87,15 +87,9 @@ export function ChatTemplate({
             })
           )
         
-        // Replace all deleted groups in contactsState (not merge, to remove hard-deleted groups)
         setContactsState((prev) => {
-          // Keep all PERSONAL contacts (they don't have isDeleted)
           const personalContacts = prev.filter((c) => c.type === "PERSONAL")
-          // Keep active groups (not deleted)
           const activeGroups = prev.filter((c) => c.type === "GROUP" && !c.isDeleted)
-          
-          // Replace all deleted groups with fresh data from server
-          // This ensures hard-deleted groups are removed
           return [...personalContacts, ...activeGroups, ...deletedGroupContacts]
         })
       }
@@ -145,9 +139,11 @@ export function ChatTemplate({
       const { apiRoutes } = await import("@/lib/api/routes")
 
       // Build endpoints
-      const convUrl = `/api${apiRoutes.adminConversations.list({ page: 1, limit: 50, search: q })}`
+      const convUrl = withApiBase(apiRoutes.adminConversations.list({ page: 1, limit: 50, search: q }))
       const groupsBase = apiRoutes.adminGroups.list({ page: 1, limit: 50, search: q })
-      const groupsUrl = `/api${groupsBase}${groupsBase.includes("?") ? "&" : "?"}includeDeleted=${filterType === "DELETED"}`
+      const groupsUrl = withApiBase(
+        `${groupsBase}${groupsBase.includes("?") ? "&" : "?"}includeDeleted=${filterType === "DELETED"}`
+      )
 
       const [convRes, groupsRes] = await Promise.all([
         requestJson(convUrl),
@@ -386,7 +382,7 @@ export function ChatTemplate({
                 if (contact.type !== "GROUP" && (!contact.messages || contact.messages.length === 0)) {
                   try {
                     const { apiRoutes } = await import("@/lib/api/routes")
-                    const url = `/api${apiRoutes.adminConversations.list({ otherUserId: contact.id })}`
+                    const url = withApiBase(apiRoutes.adminConversations.list({ otherUserId: contact.id }))
                     const res = await requestJson(url)
                     if (res.ok && Array.isArray(res.data)) {
                       const { mapMessageDetailToMessage } = await import("../utils/contact-transformers")

@@ -14,6 +14,7 @@ import { Loader2, AlertTriangle, Trash } from "lucide-react"
 import type { Group } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
 import { requestJson } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 import { useToast } from "@/hooks/use-toast"
 import { HardDeleteGroupDialog } from "./hard-delete-group-dialog.client"
 
@@ -34,7 +35,7 @@ export function DeleteGroupDialog({ open, onOpenChange, group, onSuccess }: Dele
 
     setIsDeleting(true)
     try {
-      const res = await requestJson(`/api${apiRoutes.adminGroups.delete(group.id)}`, { method: "DELETE" })
+      const res = await requestJson(withApiBase(apiRoutes.adminGroups.delete(group.id)), { method: "DELETE" })
       if (!res.ok) throw new Error(res.error || "Failed to delete group")
       toast({ title: "Thành công", description: res.message || "Đã xóa nhóm (có thể khôi phục)" })
 

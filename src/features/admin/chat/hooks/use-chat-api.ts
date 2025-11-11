@@ -5,6 +5,7 @@
 
 import { toast } from "@/hooks/use-toast"
 import { requestJson, toJsonBody } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 
 /**
  * Parse API error response
@@ -26,7 +27,7 @@ async function parseErrorResponse(response: Response, defaultMessage: string): P
  */
 export async function markMessageAPI(messageId: string, isRead: boolean): Promise<void> {
   const { apiRoutes } = await import("@/lib/api/routes")
-  const res = await requestJson(`/api${apiRoutes.adminMessages.markRead(messageId)}`, {
+  const res = await requestJson(withApiBase(apiRoutes.adminMessages.markRead(messageId)), {
     method: "PATCH",
     ...toJsonBody({ isRead }),
   })
@@ -45,7 +46,7 @@ export async function sendMessageAPI(params: {
   parentId?: string
 }): Promise<{ id: string; timestamp: string }> {
   const { apiRoutes } = await import("@/lib/api/routes")
-  const res = await requestJson<{ id: string; timestamp: string }>(`/api${apiRoutes.adminMessages.send}`, {
+  const res = await requestJson<{ id: string; timestamp: string }>(withApiBase(apiRoutes.adminMessages.send), {
     method: "POST",
     ...toJsonBody({
       content: params.content,

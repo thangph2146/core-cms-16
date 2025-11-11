@@ -2,6 +2,8 @@
 
 import { ChatTemplate } from "./chat-template.client"
 import type { ChatFilterType, Contact, Message } from "@/components/chat/types"
+import { requestJson } from "@/lib/api/client"
+import { withApiBase } from "@/lib/config/api-paths"
 
 /**
  * Messages Page Client Component
@@ -28,11 +30,8 @@ function MessagesPageClient({
     // Optionally fetch messages for new conversation
     try {
       const { apiRoutes } = await import("@/lib/api/routes")
-      const response = await fetch(`/api${apiRoutes.adminConversations.list({ otherUserId: contact.id })}`)
-      if (response.ok) {
-        await response.json()
-        // Messages will be handled by the chat hook
-      }
+      await requestJson(withApiBase(apiRoutes.adminConversations.list({ otherUserId: contact.id })))
+      // Messages will be handled by the chat hook
     } catch (error) {
       console.error("Error fetching messages for new conversation:", error)
     }

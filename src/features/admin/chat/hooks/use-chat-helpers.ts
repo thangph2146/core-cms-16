@@ -6,6 +6,8 @@
 import type { Contact, Message } from "@/components/chat/types"
 import { TEXTAREA_MIN_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "@/components/chat/constants"
 import { isMessageUnreadByUser, isMessageReadByUser } from "@/components/chat/utils/message-helpers"
+import { withApiBase } from "@/lib/config/api-paths"
+import { requestJson } from "@/lib/api/client"
 
 const ESTIMATED_REPLY_BANNER_HEIGHT = 48
 const ADJUSTMENT_PX = 5
@@ -60,17 +62,19 @@ async function markConversationAsReadAPI(contactId: string, contactType?: "PERSO
   try {
     const { apiRoutes } = await import("@/lib/api/routes")
     // For groups: use group mark-read endpoint; personal uses conversations
-    const endpoint = contactType === "GROUP"
-      ? `/api${apiRoutes.adminGroups.markRead(contactId)}`
-      : `/api${apiRoutes.adminConversations.markRead(contactId)}`
+    const endpoint = withApiBase(
+      contactType === "GROUP"
+        ? apiRoutes.adminGroups.markRead(contactId)
+        : apiRoutes.adminConversations.markRead(contactId)
+    )
     
-    const response = await fetch(endpoint, {
+    const res = await requestJson(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     })
-    if (!response.ok) {
+    if (!res.ok) {
       const { logger } = await import("@/lib/config")
-      logger.error("Failed to mark conversation as read", { contactId, contactType, status: response.status })
+      logger.error("Failed to mark conversation as read", { contactId, contactType, status: res.status })
     }
   } catch (error) {
     const { logger } = await import("@/lib/config")

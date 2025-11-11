@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
 import { apiClient } from "@/lib/api/axios"
+import { stripApiBase } from "@/lib/config/api-paths"
 import type { AxiosResponse } from "axios"
 
 export interface UseResourceFormSubmitOptions {
@@ -178,9 +179,9 @@ export function useResourceFormSubmit({
           } else if (response.data?.data?.id) {
             // Auto-generate detail path from API route
             if (typeof apiRoute === "string") {
-              const resourcePath = apiRoute
-                .replace("/api/admin/", "/admin/")
-                .replace("/create", "")
+              const normalizedRoute = stripApiBase(apiRoute)
+              const resourcePath = normalizedRoute
+                .replace(/\/create$/, "")
                 .replace(/\/update\([^)]+\)/, "")
                 .replace(/\/\d+$/, "")
               detailPath = `${resourcePath}/${response.data.data.id}`
@@ -222,4 +223,3 @@ export function useResourceFormSubmit({
 
   return { handleSubmit }
 }
-

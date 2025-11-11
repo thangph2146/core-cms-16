@@ -5,6 +5,8 @@
 
 import type { Contact, Group, GroupRole } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
+import { withApiBase } from "@/lib/config/api-paths"
+import { requestJson } from "@/lib/api/client"
 
 /**
  * Get current user role in a group
@@ -43,13 +45,11 @@ export function createGroupContact(group: Group): Contact {
  */
 export async function refreshGroupData(groupId: string): Promise<Group | null> {
   try {
-    const response = await fetch(`/api${apiRoutes.adminGroups.detail(groupId)}`)
-    
+    const response = await requestJson<Group>(withApiBase(apiRoutes.adminGroups.detail(groupId)))
     if (response.status === 404 || !response.ok) {
       return null
     }
-
-    return await response.json()
+    return (response.data as Group) ?? null
   } catch (error) {
     const { logger } = await import("@/lib/config")
     logger.error("Error refreshing group data", error)
@@ -83,4 +83,3 @@ export function updateContactWithGroupData(
     }
   })
 }
-
