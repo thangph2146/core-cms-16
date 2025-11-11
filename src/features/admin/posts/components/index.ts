@@ -10,4 +10,7 @@ export type { PostsTableClientProps } from "../types"
 export { PostDetail, type PostDetailProps } from "./post-detail"
 export { PostDetailClient } from "./post-detail.client"
 export type { PostDetailClientProps, PostDetailData } from "./post-detail.client"
+export { PostEdit, type PostEditProps } from "./post-edit"
+export { PostEditClient } from "./post-edit.client"
+export type { PostEditClientProps, PostEditData } from "./post-edit.client"
 

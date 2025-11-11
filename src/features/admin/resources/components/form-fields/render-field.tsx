@@ -15,6 +15,8 @@ import { CheckboxField } from "./checkbox-field"
 import { SwitchField } from "./switch-field"
 import { SelectField } from "./select-field"
 import { MultipleSelectField } from "./multiple-select-field"
+import { ImageField } from "./image-field"
+import { EditorField } from "./editor-field"
 import type { ResourceFormField } from "../resource-form"
 
 interface RenderFieldProps<T> {
@@ -128,6 +130,27 @@ export function renderFieldInput<T>({
           error={error}
           onChange={onChange}
           isPending={isPending}
+        />
+      )
+
+    case "image":
+      return (
+        <ImageField
+          value={fieldValue}
+          onChange={onChange}
+          placeholder={field.placeholder}
+          error={error}
+          disabled={field.disabled || isPending}
+        />
+      )
+
+    case "editor":
+      return (
+        <EditorField
+          value={fieldValue}
+          onChange={onChange}
+          error={error}
+          disabled={field.disabled || isPending}
         />
       )
 

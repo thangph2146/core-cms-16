@@ -164,7 +164,7 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
         }
 
         return (
-          <div className="space-y-4">
+          <div className="max-w-5xl mx-auto space-y-4">
             {editorState ? (
                 <Editor
                   editorSerializedState={editorState}

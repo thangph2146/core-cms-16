@@ -136,7 +136,7 @@ export async function getPostColumnOptions(
     .filter((item): item is { label: string; value: string } => item !== null)
 }
 
-export async function getPostById(id: string): Promise<ListedPost | null> {
+export async function getPostById(id: string): Promise<PostDetail | null> {
   const post = await prisma.post.findUnique({
     where: { id },
     include: {
@@ -154,7 +154,10 @@ export async function getPostById(id: string): Promise<ListedPost | null> {
     return null
   }
 
-  return mapPostRecord(post)
+  return {
+    ...mapPostRecord(post),
+    content: post.content,
+  }
 }
 
 // Re-export helpers for convenience
