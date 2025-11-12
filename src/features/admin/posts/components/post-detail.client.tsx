@@ -73,134 +73,128 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
         const postData = data as PostDetailData
 
         return (
-          <Card className="border border-border/50 bg-card">
-            <CardContent>
-              <div className="space-y-6">
-                {/* Image, Title, Description Section */}
-                <div className="space-y-4">
-                  {/* Image */}
-                  {postData.image && (
-                    <div className="w-full">
-                      <img
-                        src={postData.image}
-                        alt={postData.title}
-                        className="w-full h-auto rounded-lg border border-border object-cover"
-                        style={{ maxHeight: "400px" }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Title */}
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground leading-tight">
-                      {postData.title || "Chưa có tiêu đề"}
-                    </h2>
-                  </div>
-
-                  {/* Excerpt/Description */}
-                  {postData.excerpt && (
-                    <div className="text-base leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                      {postData.excerpt}
-                    </div>
-                  )}
+          <div className="space-y-6">
+            {/* Image, Title, Description Section */}
+            <div className="space-y-4">
+              {/* Image */}
+              {postData.image && (
+                <div className="w-full">
+                  <img
+                    src={postData.image}
+                    alt={postData.title}
+                    className="w-full h-auto rounded-lg border border-border object-cover"
+                    style={{ maxHeight: "400px" }}
+                  />
                 </div>
+              )}
 
-                <Separator />
+              {/* Title */}
+              <div>
+                <h2 className="text-2xl font-bold text-foreground leading-tight">
+                  {postData.title || "Chưa có tiêu đề"}
+                </h2>
+              </div>
 
-                {/* General Information Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Slug */}
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <Hash className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-muted-foreground mb-1.5">Slug</div>
-                      <div className="text-sm font-medium text-foreground font-mono break-all">
-                        {postData.slug || "—"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Author */}
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-muted-foreground mb-1.5">Tác giả</div>
-                      <div className="space-y-0.5">
-                        <div className="text-sm font-medium text-foreground">
-                          {postData.author.name || "N/A"}
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-1">
-                          {postData.author.email}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                    {/* Published Status */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-                    <FieldItem icon={postData.published ? Eye : EyeOff} label="Trạng thái">
-                      <div className="flex items-center gap-2">
-                        {postData.published ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                            <span className="text-sm font-medium text-foreground">Đã xuất bản</span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                            <span className="text-sm font-medium text-foreground">Bản nháp</span>
-                          </>
-                        )}
-                      </div>
-                    </FieldItem>
-
-                    {postData.publishedAt && (
-                      <FieldItem icon={Calendar} label="Ngày xuất bản">
-                        <div className="text-sm font-medium text-foreground">
-                          {formatDateVi(postData.publishedAt)}
-                        </div>
-                      </FieldItem>
-                    )}
-                  </div>
+              {/* Excerpt/Description */}
+              {postData.excerpt && (
+                <div className="text-base leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                  {postData.excerpt}
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-6">
-                
+            <Separator />
 
-                  <Separator />
-
-                  {/* Timestamps */}
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FieldItem icon={Clock} label="Ngày tạo">
-                      <div className="text-sm font-medium text-foreground">
-                        {formatDateVi(postData.createdAt)}
-                      </div>
-                    </FieldItem>
-
-                    <FieldItem icon={Clock} label="Cập nhật lần cuối">
-                      <div className="text-sm font-medium text-foreground">
-                        {formatDateVi(postData.updatedAt)}
-                      </div>
-                    </FieldItem>
+            {/* General Information Grid */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Slug */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <Hash className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">Slug</div>
+                  <div className="text-sm font-medium text-foreground font-mono break-all">
+                    {postData.slug || "—"}
                   </div>
-
-                  {postData.deletedAt && (
-                    <>
-                      <Separator />
-                      <FieldItem icon={Clock} label="Ngày xóa">
-                        <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
-                          {formatDateVi(postData.deletedAt)}
-                        </div>
-                      </FieldItem>
-                    </>
-                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Author */}
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">Tác giả</div>
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium text-foreground">
+                      {postData.author.name || "N/A"}
+                    </div>
+                    <div className="text-xs text-muted-foreground line-clamp-1">
+                      {postData.author.email}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Published Status */}
+              <div className="grid gap-4">
+                <FieldItem icon={postData.published ? Eye : EyeOff} label="Trạng thái">
+                  <div className="flex items-center gap-2">
+                    {postData.published ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                        <span className="text-sm font-medium text-foreground">Đã xuất bản</span>
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-foreground">Bản nháp</span>
+                      </>
+                    )}
+                  </div>
+                </FieldItem>
+
+              </div>
+            </div>
+
+            <div className="space-y-6">
+
+              {/* Timestamps */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                {postData.publishedAt && (
+                  <FieldItem icon={Calendar} label="Ngày xuất bản">
+                    <div className="text-sm font-medium text-foreground">
+                      {formatDateVi(postData.publishedAt)}
+                    </div>
+                  </FieldItem>
+                )}
+                <FieldItem icon={Clock} label="Ngày tạo">
+                  <div className="text-sm font-medium text-foreground">
+                    {formatDateVi(postData.createdAt)}
+                  </div>
+                </FieldItem>
+
+                <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                  <div className="text-sm font-medium text-foreground">
+                    {formatDateVi(postData.updatedAt)}
+                  </div>
+                </FieldItem>
+              </div>
+
+              {postData.deletedAt && (
+                <>
+                  <Separator />
+                  <FieldItem icon={Clock} label="Ngày xóa">
+                    <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                      {formatDateVi(postData.deletedAt)}
+                    </div>
+                  </FieldItem>
+                </>
+              )}
+            </div>
+          </div>
         )
       },
     },
