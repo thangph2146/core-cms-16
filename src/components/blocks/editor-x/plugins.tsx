@@ -104,6 +104,7 @@ import { TABLE } from "@/components/editor/transformers/markdown-table-transform
 import { TWEET } from "@/components/editor/transformers/markdown-tweet-transformer"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 const placeholder = "Press / for commands..."
 const maxLength = 500
@@ -168,7 +169,7 @@ export function Plugins({ readOnly = false }: { readOnly?: boolean }) {
         )}
       </ToolbarPlugin>
       )}
-      <ScrollArea className="relative h-[calc(68dvh)] overflow-y-auto">
+      <ScrollArea className={cn("relative", readOnly ? "" : "h-[calc(68dvh)] overflow-y-auto")}>
         <div className="relative">
         {!readOnly && <AutoFocusPlugin />}
         <RichTextPlugin
