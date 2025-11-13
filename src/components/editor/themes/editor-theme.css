@@ -109,7 +109,7 @@
 
 /* Layout Item Styles - Ensure items don't overflow */
 [data-lexical-layout-item="true"],
-div.border.border-dashed.px-4.py-2 {
+div.border.border-dashed {
   min-width: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -119,20 +119,20 @@ div.border.border-dashed.px-4.py-2 {
 
 /* Hide border and padding when editor is read-only */
 .editor-readonly [data-lexical-layout-item="true"],
-.editor-readonly div.border.border-dashed.px-4.py-2,
+.editor-readonly div.border.border-dashed,
 [data-editor-readonly="true"] [data-lexical-layout-item="true"],
-[data-editor-readonly="true"] div.border.border-dashed.px-4.py-2,
+[data-editor-readonly="true"] div.border.border-dashed,
 [contenteditable="false"] [data-lexical-layout-item="true"],
-[contenteditable="false"] div.border.border-dashed.px-4.py-2,
+[contenteditable="false"] div.border.border-dashed,
 [aria-readonly="true"] [data-lexical-layout-item="true"],
-[aria-readonly="true"] div.border.border-dashed.px-4.py-2 {
+[aria-readonly="true"] div.border.border-dashed {
   border: none !important;
   padding: 0 !important;
 }
 
 /* Ensure images inside layout items are responsive and respect text-align */
 [data-lexical-layout-item="true"] img,
-div.border.border-dashed.px-4.py-2 img {
+div.border.border-dashed img {
   max-width: 100% !important;
   width: 100% !important;
   height: auto !important;
@@ -142,55 +142,55 @@ div.border.border-dashed.px-4.py-2 img {
 
 /* Support text-align for images in layout items */
 [data-lexical-layout-item="true"] p[style*="text-align: left"],
-div.border.border-dashed.px-4.py-2 p[style*="text-align: left"] {
+div.border.border-dashed p[style*="text-align: left"] {
   text-align: left !important;
 }
 
 [data-lexical-layout-item="true"] p[style*="text-align: center"],
-div.border.border-dashed.px-4.py-2 p[style*="text-align: center"] {
+div.border.border-dashed p[style*="text-align: center"] {
   text-align: center !important;
 }
 
 [data-lexical-layout-item="true"] p[style*="text-align: right"],
-div.border.border-dashed.px-4.py-2 p[style*="text-align: right"] {
+div.border.border-dashed p[style*="text-align: right"] {
   text-align: right !important;
 }
 
 /* Ensure image wrapper respects parent text-align */
 [data-lexical-layout-item="true"] p[style*="text-align: left"] .editor-image,
-div.border.border-dashed.px-4.py-2 p[style*="text-align: left"] .editor-image {
+div.border.border-dashed p[style*="text-align: left"] .editor-image {
   margin-left: 0 !important;
   margin-right: auto !important;
 }
 
 [data-lexical-layout-item="true"] p[style*="text-align: center"] .editor-image,
-div.border.border-dashed.px-4.py-2 p[style*="text-align: center"] .editor-image {
+div.border.border-dashed p[style*="text-align: center"] .editor-image {
   margin-left: auto !important;
   margin-right: auto !important;
 }
 
 [data-lexical-layout-item="true"] p[style*="text-align: right"] .editor-image,
-div.border.border-dashed.px-4.py-2 p[style*="text-align: right"] .editor-image {
+div.border.border-dashed p[style*="text-align: right"] .editor-image {
   margin-left: auto !important;
   margin-right: 0 !important;
 }
 
 /* Ensure all content inside layout items scales properly */
 [data-lexical-layout-item="true"] *,
-div.border.border-dashed.px-4.py-2 * {
+div.border.border-dashed * {
   max-width: 100% !important;
 }
 
 /* Ensure image wrapper scales */
 [data-lexical-layout-item="true"] .editor-image,
-div.border.border-dashed.px-4.py-2 .editor-image {
+div.border.border-dashed .editor-image {
   max-width: 100% !important;
   width: 100% !important;
   display: inline-block !important;
 }
 
 [data-lexical-layout-item="true"] .editor-image > div,
-div.border.border-dashed.px-4.py-2 .editor-image > div {
+div.border.border-dashed .editor-image > div {
   max-width: 100% !important;
   width: 100% !important;
   display: block !important;
@@ -198,7 +198,7 @@ div.border.border-dashed.px-4.py-2 .editor-image > div {
 
 /* Force images to respect container width */
 [data-lexical-layout-item="true"] .editor-image img,
-div.border.border-dashed.px-4.py-2 .editor-image img {
+div.border.border-dashed .editor-image img {
   max-width: 100% !important;
   width: 100% !important;
   height: auto !important;

@@ -299,9 +299,21 @@ export default function ImageComponent({
   const activeEditorRef = useRef<LexicalEditor | null>(null)
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
   const isEditable = useLexicalEditable()
+  // Khởi tạo hasCaptionContent dựa trên showCaption để đảm bảo đúng ngay từ đầu
+  // Nếu showCaption = false, hasCaptionContent luôn = false
   const [hasCaptionContent, setHasCaptionContent] = useState<boolean>(false)
   // Local state để track showCaption và sync với node
   const [localShowCaption, setLocalShowCaption] = useState<boolean>(showCaption)
+  
+  // Sync hasCaptionContent với showCaption khi mount hoặc showCaption thay đổi
+  // Đảm bảo khi showCaption = false, hasCaptionContent cũng = false
+  useEffect(() => {
+    if (!showCaption) {
+      setHasCaptionContent(false)
+      // Đảm bảo localShowCaption cũng = false
+      setLocalShowCaption(false)
+    }
+  }, [showCaption])
   const responsiveDimensions = useResponsiveImageDimensions({
     editor,
     imageRef,
@@ -323,6 +335,10 @@ export default function ImageComponent({
     if (!isUpdatingCaptionRef.current && lastShowCaptionRef.current !== showCaption) {
       setLocalShowCaption(showCaption)
       lastShowCaptionRef.current = showCaption
+      // Đồng thời sync hasCaptionContent
+      if (!showCaption) {
+        setHasCaptionContent(false)
+      }
     }
     // Reset flag sau khi sync
     isUpdatingCaptionRef.current = false
@@ -585,11 +601,15 @@ export default function ImageComponent({
         const text = raw.replace(/[\u200B\u00A0\s]+/g, "")
         return text.length > 0
       })
-      setHasCaptionContent(hasContent)
+      // Chỉ set hasCaptionContent = true nếu showCaption = true
+      // Nếu showCaption = false, luôn set hasCaptionContent = false
+      setHasCaptionContent(showCaption && hasContent)
     }
 
-    // compute on mount
-    computeHasContent()
+    // compute on mount - delay một chút để đảm bảo caption đã được clear nếu showCaption = false
+    setTimeout(() => {
+      computeHasContent()
+    }, 0)
 
     const unregister = caption.registerUpdateListener(() => {
       computeHasContent()
@@ -608,12 +628,16 @@ export default function ImageComponent({
 
   const draggable = isSelected && $isNodeSelection(selection) && !isResizing
   const isFocused = (isSelected || isResizing) && isEditable
-  // Sử dụng localShowCaption thay vì showCaption prop để đảm bảo UI update ngay lập tức
-  // Trong chế độ edit: chỉ hiển thị khi localShowCaption = true
-  // Trong chế độ read-only: chỉ hiển thị khi có nội dung
-  const shouldRenderCaption = isEditable 
-    ? (localShowCaption && captionsEnabled) 
-    : hasCaptionContent
+  // QUAN TRỌNG: Chỉ hiển thị caption khi showCaption = true (từ node state)
+  // Không hiển thị caption nếu showCaption = false, bất kể có content hay không
+  // Trong chế độ edit: chỉ hiển thị khi showCaption = true, localShowCaption = true và captionsEnabled = true
+  // Trong chế độ read-only: chỉ hiển thị khi showCaption = true và hasCaptionContent = true
+  // Luôn check showCaption prop trước để đảm bảo đúng với node state
+  const shouldRenderCaption = showCaption && (
+    isEditable 
+      ? (localShowCaption && captionsEnabled) 
+      : hasCaptionContent
+  )
   return (
     <Suspense fallback={null}>
       <>
