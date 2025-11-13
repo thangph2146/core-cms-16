@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import * as React from "react"
 import {
   JSX,
@@ -48,7 +49,6 @@ import {
   getImageAspectRatio,
 } from "@/components/editor/editor-ui/image-sizing"
 import { $isImageNode } from "@/components/editor/nodes/image-node"
-import { useCollaborationContextSafe } from "@/components/editor/editor-hooks/use-collaboration-context-safe"
 import { cn } from "@/lib/utils"
 
 const imageCache = new Set()
@@ -98,7 +98,7 @@ function LazyImage({
   src,
   width,
   height,
-  maxWidth,
+  maxWidth: _maxWidth,
   onError,
 }: {
   altText: string
@@ -157,26 +157,60 @@ function useResponsiveImageDimensions({
       return
     }
 
-    const image = imageRef.current
-    if (!image) {
-      setDimensions({ width, height })
-      return
-    }
+    let cancelScheduledUpdate: null | (() => void) = null
+    const cleanupTasks: Array<() => void> = []
+    const scheduleDimensionsUpdate = (next: {
+      width: DimensionValue
+      height: DimensionValue
+    }) => {
+      if (cancelScheduledUpdate) {
+        cancelScheduledUpdate()
+      }
 
-    // Nếu width và height đã được set cụ thể (không phải "inherit"), 
-    // không tự động điều chỉnh để cho phép resize không giới hạn
-    if (typeof width === "number" && typeof height === "number") {
-      setDimensions({ width, height })
-      return
+      const applyNext = () => {
+        cancelScheduledUpdate = null
+        setDimensions((prev) => {
+          if (prev.width === next.width && prev.height === next.height) {
+            return prev
+          }
+          return next
+        })
+      }
+
+      if (
+        typeof window !== "undefined" &&
+        typeof window.requestAnimationFrame === "function"
+      ) {
+        const frameId = window.requestAnimationFrame(applyNext)
+        cancelScheduledUpdate = () => window.cancelAnimationFrame(frameId)
+      } else {
+        const timeoutId = setTimeout(applyNext)
+        cancelScheduledUpdate = () => clearTimeout(timeoutId)
+      }
     }
 
     const editorRoot = editor.getRootElement()
+    const image = imageRef.current
+
+    if (!image) {
+      scheduleDimensionsUpdate({ width, height })
+      return () => {
+        cancelScheduledUpdate?.()
+      }
+    }
+
+    if (typeof width === "number" && typeof height === "number") {
+      scheduleDimensionsUpdate({ width, height })
+      return () => {
+        cancelScheduledUpdate?.()
+      }
+    }
 
     const updateDimensions = () => {
       const containerWidth = getContainerWidth(image, editorRoot)
 
       if (!containerWidth) {
-        setDimensions({ width, height })
+        scheduleDimensionsUpdate({ width, height })
         return
       }
 
@@ -195,8 +229,6 @@ function useResponsiveImageDimensions({
         baseHeight = ratio > 0 ? Math.round(baseWidth / ratio) : "inherit"
       }
 
-      // Nếu fullWidth => luôn bám theo container width
-      // Nếu không: chỉ scale down khi vượt quá container
       let nextWidth: DimensionValue = baseWidth
       let nextHeight: DimensionValue = baseHeight
 
@@ -228,15 +260,7 @@ function useResponsiveImageDimensions({
         }
       }
 
-      setDimensions((prev) => {
-        if (prev.width === nextWidth && prev.height === nextHeight) {
-          return prev
-        }
-        return {
-          width: nextWidth,
-          height: nextHeight,
-        }
-      })
+      scheduleDimensionsUpdate({ width: nextWidth, height: nextHeight })
     }
 
     updateDimensions()
@@ -249,16 +273,19 @@ function useResponsiveImageDimensions({
       if (image.parentElement) {
         resizeObserver.observe(image.parentElement)
       }
-      return () => {
+      cleanupTasks.push(() => {
         resizeObserver.disconnect()
-      }
+      })
+    } else if (typeof window !== "undefined") {
+      window.addEventListener("resize", updateDimensions)
+      cleanupTasks.push(() => {
+        window.removeEventListener("resize", updateDimensions)
+      })
     }
 
-    if (typeof window !== "undefined") {
-      window.addEventListener("resize", updateDimensions)
-      return () => {
-        window.removeEventListener("resize", updateDimensions)
-      }
+    return () => {
+      cancelScheduledUpdate?.()
+      cleanupTasks.forEach((task) => task())
     }
   }, [editor, height, imageRef, isResizing, width, fullWidth])
 
@@ -282,17 +309,26 @@ function useImageCaptionControls({
   const lastShowCaptionRef = useRef(showCaption)
 
   useEffect(() => {
-    if (!showCaption) {
-      setHasCaptionContent(false)
-      setLocalShowCaption(false)
-    } else if (
-      !isUpdatingCaptionRef.current &&
-      lastShowCaptionRef.current !== showCaption
-    ) {
-      setLocalShowCaption(showCaption)
-      lastShowCaptionRef.current = showCaption
+    let timeout: TimeoutHandle | null = null
+    timeout = setTimeout(() => {
+      if (!showCaption) {
+        setHasCaptionContent(false)
+        setLocalShowCaption(false)
+      } else if (
+        !isUpdatingCaptionRef.current &&
+        lastShowCaptionRef.current !== showCaption
+      ) {
+        setLocalShowCaption(showCaption)
+        lastShowCaptionRef.current = showCaption
+      }
+      isUpdatingCaptionRef.current = false
+    }, 0)
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout)
+      }
     }
-    isUpdatingCaptionRef.current = false
   }, [showCaption])
 
   const setShowCaption = useCallback(
@@ -560,6 +596,7 @@ function useImageNodeInteractions({
   }, [
     clearSelection,
     editor,
+    imageRef,
     isResizing,
     isSelected,
     nodeKey,
@@ -578,6 +615,7 @@ function BrokenImage(): JSX.Element {
   return (
     <img
       src={""}
+      alt=""
       style={{
         height: 200,
         opacity: 0.2,
@@ -637,8 +675,6 @@ export default function ImageComponent({
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [isResizing, setIsResizing] = useState<boolean>(false)
   const resizeTimeoutRef = useRef<TimeoutHandle | null>(null)
-  // Safely get collaboration context - may not exist if collaboration is not enabled
-  const { isCollabActive } = useCollaborationContextSafe()
   const [editor] = useLexicalComposerContext()
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
   const isEditable = useLexicalEditable()
