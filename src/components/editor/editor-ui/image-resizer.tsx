@@ -272,37 +272,6 @@ export function MediaResizer({
     }
   }
 
-  const handleFullWidthResize = useCallback(() => {
-    const media = mediaRef.current
-    if (!media) {
-      return
-    }
-
-    unlockImageBoundaries(media)
-    const containerWidth = getContainerWidth(media, editor.getRootElement())
-    if (!containerWidth || containerWidth <= 0) {
-      return
-    }
-
-    const ratio = getImageAspectRatio(media)
-    if (ratio <= 0) {
-      return
-    }
-
-    // Prefer a persistent full-width mode when supported by caller
-    if (onSetFullWidth) {
-      onSetFullWidth()
-      return
-    }
-
-    // Fallback: set width to container width (one-shot)
-    const width = containerWidth
-    const height = width / ratio
-    media.style.width = `${width}px`
-    media.style.height = `${height}px`
-    onResizeEnd(width, height)
-  }, [editor, mediaRef, onResizeEnd, onSetFullWidth])
-
   return (
     <>
       <div ref={controlWrapperRef}>
@@ -380,16 +349,6 @@ export function MediaResizer({
             )}
           </Button>
         )}
-        <Button
-          className="image-full-width-button"
-          type="button"
-          variant={"outline"}
-          size="sm"
-          onClick={handleFullWidthResize}
-        >
-          <Maximize className="mr-1.5 size-4" />
-          Full Width
-        </Button>
       </div>
     </>
   )

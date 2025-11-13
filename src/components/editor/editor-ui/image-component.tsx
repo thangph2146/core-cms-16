@@ -299,20 +299,20 @@ export default function ImageComponent({
   const activeEditorRef = useRef<LexicalEditor | null>(null)
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
   const isEditable = useLexicalEditable()
-  // Khởi tạo hasCaptionContent dựa trên showCaption để đảm bảo đúng ngay từ đầu
-  // Nếu showCaption = false, hasCaptionContent luôn = false
   const [hasCaptionContent, setHasCaptionContent] = useState<boolean>(false)
-  // Local state để track showCaption và sync với node
   const [localShowCaption, setLocalShowCaption] = useState<boolean>(showCaption)
-  
-  // Sync hasCaptionContent với showCaption khi mount hoặc showCaption thay đổi
-  // Đảm bảo khi showCaption = false, hasCaptionContent cũng = false
+  const isUpdatingCaptionRef = useRef(false)
+  const lastShowCaptionRef = useRef(showCaption)
+
   useEffect(() => {
     if (!showCaption) {
       setHasCaptionContent(false)
-      // Đảm bảo localShowCaption cũng = false
       setLocalShowCaption(false)
+    } else if (!isUpdatingCaptionRef.current && lastShowCaptionRef.current !== showCaption) {
+      setLocalShowCaption(showCaption)
+      lastShowCaptionRef.current = showCaption
     }
+    isUpdatingCaptionRef.current = false
   }, [showCaption])
   const responsiveDimensions = useResponsiveImageDimensions({
     editor,
@@ -322,27 +322,6 @@ export default function ImageComponent({
     isResizing,
     fullWidth,
   })
-
-  // Sync localShowCaption với prop showCaption khi node thay đổi từ bên ngoài
-  // Sử dụng ref để track xem có đang trong quá trình update từ component này không
-  const isUpdatingCaptionRef = useRef(false)
-  const lastShowCaptionRef = useRef(showCaption)
-  
-  useEffect(() => {
-    // Chỉ sync nếu:
-    // 1. Không phải đang update từ component này
-    // 2. Prop thực sự thay đổi (không phải do re-render)
-    if (!isUpdatingCaptionRef.current && lastShowCaptionRef.current !== showCaption) {
-      setLocalShowCaption(showCaption)
-      lastShowCaptionRef.current = showCaption
-      // Đồng thời sync hasCaptionContent
-      if (!showCaption) {
-        setHasCaptionContent(false)
-      }
-    }
-    // Reset flag sau khi sync
-    isUpdatingCaptionRef.current = false
-  }, [showCaption])
 
   const $onDelete = useCallback(
     (payload: KeyboardEvent) => {
@@ -532,14 +511,11 @@ export default function ImageComponent({
   ])
 
   const setShowCaption = (show: boolean) => {
-    // Đánh dấu đang update từ component này để tránh sync ngược lại
     isUpdatingCaptionRef.current = true
     lastShowCaptionRef.current = show
     
-    // Update local state ngay lập tức để UI phản hồi nhanh
     setLocalShowCaption(show)
     
-    // Khi remove caption, cập nhật hasCaptionContent ngay lập tức
     if (!show) {
       setHasCaptionContent(false)
     }
@@ -549,7 +525,6 @@ export default function ImageComponent({
       if ($isImageNode(node)) {
         node.setShowCaption(show)
         
-        // Xóa nội dung caption khi remove (set show = false)
         if (!show) {
           caption.update(() => {
             const root = $getRoot()
@@ -589,8 +564,6 @@ export default function ImageComponent({
     })
   }
 
-  // Bridge nested caption editor updates to the parent editor so that
-  // outer OnChange subscribers (e.g., form save) get the latest caption state.
   useEffect(() => {
     const computeHasContent = () => {
       const state = caption.getEditorState()
@@ -601,19 +574,15 @@ export default function ImageComponent({
         const text = raw.replace(/[\u200B\u00A0\s]+/g, "")
         return text.length > 0
       })
-      // Chỉ set hasCaptionContent = true nếu showCaption = true
-      // Nếu showCaption = false, luôn set hasCaptionContent = false
       setHasCaptionContent(showCaption && hasContent)
     }
 
-    // compute on mount - delay một chút để đảm bảo caption đã được clear nếu showCaption = false
     setTimeout(() => {
       computeHasContent()
     }, 0)
 
     const unregister = caption.registerUpdateListener(() => {
       computeHasContent()
-      // Trigger a benign mutation on the ImageNode to mark the outer editor state dirty
       editor.update(() => {
         const node = $getNodeByKey(nodeKey)
         if ($isImageNode(node)) {
@@ -628,11 +597,6 @@ export default function ImageComponent({
 
   const draggable = isSelected && $isNodeSelection(selection) && !isResizing
   const isFocused = (isSelected || isResizing) && isEditable
-  // QUAN TRỌNG: Chỉ hiển thị caption khi showCaption = true (từ node state)
-  // Không hiển thị caption nếu showCaption = false, bất kể có content hay không
-  // Trong chế độ edit: chỉ hiển thị khi showCaption = true, localShowCaption = true và captionsEnabled = true
-  // Trong chế độ read-only: chỉ hiển thị khi showCaption = true và hasCaptionContent = true
-  // Luôn check showCaption prop trước để đảm bảo đúng với node state
   const shouldRenderCaption = showCaption && (
     isEditable 
       ? (localShowCaption && captionsEnabled) 

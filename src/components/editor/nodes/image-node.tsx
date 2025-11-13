@@ -5,6 +5,7 @@ import type {
   DOMConversionOutput,
   DOMExportOutput,
   EditorConfig,
+  EditorState,
   LexicalEditor,
   LexicalNode,
   NodeKey,
@@ -24,6 +25,8 @@ import {
 
 const ImageComponent = React.lazy(() => import("../editor-ui/image-component"))
 
+const WHITESPACE_REGEX = /[\u200B\u00A0\s]+/g
+
 export interface ImagePayload {
   altText: string
   caption?: LexicalEditor
@@ -35,6 +38,25 @@ export interface ImagePayload {
   width?: number
   captionsEnabled?: boolean
   fullWidth?: boolean
+}
+
+function editorStateHasContent(editorState: EditorState): boolean {
+  return editorState.read(() => {
+    const root = $getRoot()
+    const text = root.getTextContent().replace(WHITESPACE_REGEX, "")
+    return text.length > 0
+  })
+}
+
+function captionHasContent(editor: LexicalEditor): boolean {
+  return editorStateHasContent(editor.getEditorState())
+}
+
+function clearCaption(editor: LexicalEditor): void {
+  editor.update(() => {
+    const root = $getRoot()
+    root.clear()
+  })
 }
 
 function isGoogleDocCheckboxImg(img: HTMLImageElement): boolean {
@@ -102,55 +124,30 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   }
 
   static importJSON(serializedNode: SerializedImageNode): ImageNode {
-    const { altText, height, width, maxWidth, caption, src, showCaption } =
+    const { altText, height, width, maxWidth, caption, src, showCaption, fullWidth } =
       serializedNode
-    // Đảm bảo showCaption có giá trị mặc định là false nếu không có trong data
-    // Điều này xử lý trường hợp data cũ không có field showCaption
-    const shouldShowCaption = showCaption === true
-    
+
     const node = $createImageNode({
       altText,
       height,
       maxWidth,
-      showCaption: shouldShowCaption,
+      showCaption: showCaption === true,
       src,
       width,
-      fullWidth: serializedNode.fullWidth,
+      fullWidth,
     })
-    const nestedEditor = node.__caption
-    
-    // Chỉ restore caption content nếu showCaption = true VÀ caption có content thực sự
-    // Nếu showCaption = false hoặc caption trống, giữ caption editor trống và set showCaption = false
-    if (shouldShowCaption && caption?.editorState) {
-      const editorState = nestedEditor.parseEditorState(caption.editorState)
-      // Kiểm tra caption có content thực sự không (không chỉ whitespace)
-      const hasRealContent = editorState.read(() => {
-        const root = $getRoot()
-        const raw = root.getTextContent()
-        const text = raw.replace(/[\u200B\u00A0\s]+/g, "")
-        return text.length > 0
-      })
-      
-      if (hasRealContent) {
-        nestedEditor.setEditorState(editorState)
-      } else {
-        // Nếu showCaption = true nhưng caption trống hoặc chỉ có whitespace
-        // Set showCaption = false và clear caption editor
-        node.setShowCaption(false)
-        nestedEditor.update(() => {
-          const root = $getRoot()
-          root.clear()
-        })
+
+    if (showCaption === true && caption?.editorState) {
+      const parsedState = node.__caption.parseEditorState(caption.editorState)
+
+      if (editorStateHasContent(parsedState)) {
+        node.__caption.setEditorState(parsedState)
+        return node
       }
-    } else {
-      // Nếu showCaption = false hoặc không có caption data
-      // Đảm bảo caption editor trống và showCaption = false
-      node.setShowCaption(false)
-      nestedEditor.update(() => {
-        const root = $getRoot()
-        root.clear()
-      })
     }
+
+    node.__showCaption = false
+    clearCaption(node.__caption)
     return node
   }
 
@@ -208,45 +205,12 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   }
 
   exportJSON(): SerializedImageNode {
-    // Kiểm tra caption editor có content không
-    // LƯU Ý: exportJSON() có thể được gọi trong read-only mode,
-    // nên không được modify node state (không dùng getWritable() hoặc update())
-    const currentState = this.__caption.getEditorState()
-    const hasContent = currentState.read(() => {
-      const root = $getRoot()
-      const raw = root.getTextContent()
-      const text = raw.replace(/[\u200B\u00A0\s]+/g, "")
-      return text.length > 0
-    })
-    
-    // Đồng bộ showCaption với caption content khi serialize:
-    // - Nếu caption trống, return showCaption = false (ưu tiên cao nhất)
-    // - Nếu showCaption = false, vẫn return showCaption = false
-    // - Chỉ return showCaption = true nếu cả showCaption = true VÀ có content
-    // KHÔNG modify node state ở đây, chỉ return giá trị đúng cho serialization
-    let finalShowCaption = this.__showCaption
-    
-    if (!hasContent) {
-      // Nếu caption trống, force showCaption = false trong serialized data
-      // Điều này đảm bảo data consistency khi lưu vào database
-      finalShowCaption = false
-    } else if (!this.__showCaption) {
-      // Nếu showCaption = false nhưng caption có content
-      // Vẫn return showCaption = false (theo node state)
-      // Caption content sẽ được clear ở nơi khác (trong setShowCaption)
-      finalShowCaption = false
-    }
-    
-    // Serialize caption editor
-    // Nếu finalShowCaption = false, caption sẽ được serialize nhưng sẽ bị ignore khi import
-    const serializedCaption = this.__caption.toJSON()
-    
     return {
       altText: this.getAltText(),
-      caption: serializedCaption,
+      caption: this.__caption.toJSON(),
       height: this.__height === "inherit" ? 0 : this.__height,
       maxWidth: this.__maxWidth,
-      showCaption: finalShowCaption,
+      showCaption: this.__showCaption && captionHasContent(this.__caption),
       src: this.getSrc(),
       type: "image",
       version: 1,
