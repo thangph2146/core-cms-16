@@ -17,7 +17,9 @@ import {
   YouTubeNode,
 } from "@/components/editor/nodes/embeds/youtube-node"
 
-export type InsertYouTubePayload = string | { id: string; width?: number; height?: number; maxWidth?: number }
+export type InsertYouTubePayload =
+  | string
+  | { id: string; width?: number; height?: number; maxWidth?: number; fullWidth?: boolean }
 
 export const INSERT_YOUTUBE_COMMAND: LexicalCommand<InsertYouTubePayload> =
   createCommand("INSERT_YOUTUBE_COMMAND")
@@ -40,7 +42,8 @@ export function YouTubePlugin(): JSX.Element | null {
                 payload.id,
                 payload.width,
                 payload.height,
-                payload.maxWidth
+                payload.maxWidth,
+                payload.fullWidth
               )
         $insertNodeToNearestRoot(youTubeNode)
 

@@ -33,6 +33,7 @@ export interface ImagePayload {
   src: string
   width?: number
   captionsEnabled?: boolean
+  fullWidth?: boolean
 }
 
 function isGoogleDocCheckboxImg(img: HTMLImageElement): boolean {
@@ -63,6 +64,7 @@ export type SerializedImageNode = Spread<
     showCaption: boolean
     src: string
     width?: number
+    fullWidth?: boolean
   },
   SerializedLexicalNode
 >
@@ -77,6 +79,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   __caption: LexicalEditor
   // Captions cannot yet be used within editor cells
   __captionsEnabled: boolean
+  __fullWidth: boolean
 
   static getType(): string {
     return "image"
@@ -92,6 +95,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
       node.__showCaption,
       node.__caption,
       node.__captionsEnabled,
+      node.__fullWidth,
       node.__key
     )
   }
@@ -106,6 +110,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
       showCaption,
       src,
       width,
+      fullWidth: serializedNode.fullWidth,
     })
     const nestedEditor = node.__caption
     const editorState = nestedEditor.parseEditorState(caption.editorState)
@@ -147,6 +152,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     showCaption?: boolean,
     caption?: LexicalEditor,
     captionsEnabled?: boolean,
+    fullWidth?: boolean,
     key?: NodeKey
   ) {
     super(key)
@@ -163,6 +169,8 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
         nodes: [RootNode, TextNode, ParagraphNode],
       })
     this.__captionsEnabled = captionsEnabled || captionsEnabled === undefined
+    // Default image to full width if not specified for consistency with YouTube
+    this.__fullWidth = fullWidth === undefined ? true : !!fullWidth
   }
 
   exportJSON(): SerializedImageNode {
@@ -176,6 +184,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
       type: "image",
       version: 1,
       width: this.__width === "inherit" ? 0 : this.__width,
+      fullWidth: this.__fullWidth || undefined,
     }
   }
 
@@ -191,6 +200,11 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
   setShowCaption(showCaption: boolean): void {
     const writable = this.getWritable()
     writable.__showCaption = showCaption
+  }
+
+  setFullWidth(fullWidth: boolean): void {
+    const writable = this.getWritable()
+    writable.__fullWidth = fullWidth
   }
 
   // View
@@ -230,6 +244,7 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
           showCaption={this.__showCaption}
           caption={this.__caption}
           captionsEnabled={this.__captionsEnabled}
+          fullWidth={this.__fullWidth}
           resizable={true}
         />
       </Suspense>
@@ -246,6 +261,7 @@ export function $createImageNode({
   width,
   showCaption,
   caption,
+  fullWidth,
   key,
 }: ImagePayload): ImageNode {
   return $applyNodeReplacement(
@@ -258,6 +274,7 @@ export function $createImageNode({
       showCaption,
       caption,
       captionsEnabled,
+      fullWidth,
       key
     )
   )

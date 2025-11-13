@@ -36,11 +36,9 @@ import {
   KEY_DELETE_COMMAND,
   KEY_ENTER_COMMAND,
   KEY_ESCAPE_COMMAND,
-  ParagraphNode,
-  RootNode,
   SELECTION_CHANGE_COMMAND,
-  TextNode,
 } from "lexical"
+import { $getRoot } from "lexical"
 
 // import brokenImage from '@/registry/new-york-v4/editor/images/image-broken.svg';
 import { ContentEditable } from "@/components/editor/editor-ui/content-editable"
@@ -120,12 +118,14 @@ function useResponsiveImageDimensions({
   imageRef,
   width,
   isResizing,
+  fullWidth,
 }: {
   editor: LexicalEditor
   height: DimensionValue
   imageRef: { current: null | HTMLImageElement }
   width: DimensionValue
   isResizing: boolean
+  fullWidth?: boolean
 }) {
   const [dimensions, setDimensions] = useState<{
     width: DimensionValue
@@ -178,12 +178,28 @@ function useResponsiveImageDimensions({
         baseHeight = ratio > 0 ? Math.round(baseWidth / ratio) : "inherit"
       }
 
-      // Chỉ tự động scale down nếu width là "inherit" (chưa được resize thủ công)
-      // Nếu width đã được set cụ thể, giữ nguyên để cho phép resize không giới hạn
+      // Nếu fullWidth => luôn bám theo container width
+      // Nếu không: chỉ scale down khi vượt quá container
       let nextWidth: DimensionValue = baseWidth
       let nextHeight: DimensionValue = baseHeight
 
-      if (width === "inherit" && typeof baseWidth === "number" && baseWidth > containerWidth) {
+      if (fullWidth) {
+        nextWidth = containerWidth
+        if (typeof baseHeight === "number") {
+          const ratio =
+            typeof baseWidth === "number" && baseWidth > 0
+              ? baseWidth / baseHeight
+              : getImageAspectRatio(image)
+          nextHeight = Math.max(Math.round(containerWidth / ratio), 1)
+        } else if (baseHeight === "inherit") {
+          const ratio = getImageAspectRatio(image)
+          nextHeight = ratio > 0 ? Math.max(Math.round(containerWidth / ratio), 1) : baseHeight
+        }
+      } else if (
+        width === "inherit" &&
+        typeof baseWidth === "number" &&
+        baseWidth > containerWidth
+      ) {
         const scale = containerWidth / baseWidth
         nextWidth = containerWidth
         if (typeof baseHeight === "number") {
@@ -227,7 +243,7 @@ function useResponsiveImageDimensions({
         window.removeEventListener("resize", updateDimensions)
       }
     }
-  }, [editor, height, imageRef, isResizing, width])
+  }, [editor, height, imageRef, isResizing, width, fullWidth])
 
   return dimensions
 }
@@ -257,6 +273,7 @@ export default function ImageComponent({
   showCaption,
   caption,
   captionsEnabled,
+  fullWidth,
 }: {
   altText: string
   caption: LexicalEditor
@@ -268,6 +285,7 @@ export default function ImageComponent({
   src: string
   width: "inherit" | number
   captionsEnabled: boolean
+  fullWidth: boolean
 }): JSX.Element {
   const imageRef = useRef<null | HTMLImageElement>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
@@ -281,13 +299,34 @@ export default function ImageComponent({
   const activeEditorRef = useRef<LexicalEditor | null>(null)
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
   const isEditable = useLexicalEditable()
+  const [hasCaptionContent, setHasCaptionContent] = useState<boolean>(false)
+  // Local state để track showCaption và sync với node
+  const [localShowCaption, setLocalShowCaption] = useState<boolean>(showCaption)
   const responsiveDimensions = useResponsiveImageDimensions({
     editor,
     imageRef,
     width,
     height,
     isResizing,
+    fullWidth,
   })
+
+  // Sync localShowCaption với prop showCaption khi node thay đổi từ bên ngoài
+  // Sử dụng ref để track xem có đang trong quá trình update từ component này không
+  const isUpdatingCaptionRef = useRef(false)
+  const lastShowCaptionRef = useRef(showCaption)
+  
+  useEffect(() => {
+    // Chỉ sync nếu:
+    // 1. Không phải đang update từ component này
+    // 2. Prop thực sự thay đổi (không phải do re-render)
+    if (!isUpdatingCaptionRef.current && lastShowCaptionRef.current !== showCaption) {
+      setLocalShowCaption(showCaption)
+      lastShowCaptionRef.current = showCaption
+    }
+    // Reset flag sau khi sync
+    isUpdatingCaptionRef.current = false
+  }, [showCaption])
 
   const $onDelete = useCallback(
     (payload: KeyboardEvent) => {
@@ -476,11 +515,31 @@ export default function ImageComponent({
     setSelected,
   ])
 
-  const setShowCaption = () => {
+  const setShowCaption = (show: boolean) => {
+    // Đánh dấu đang update từ component này để tránh sync ngược lại
+    isUpdatingCaptionRef.current = true
+    lastShowCaptionRef.current = show
+    
+    // Update local state ngay lập tức để UI phản hồi nhanh
+    setLocalShowCaption(show)
+    
+    // Khi remove caption, cập nhật hasCaptionContent ngay lập tức
+    if (!show) {
+      setHasCaptionContent(false)
+    }
+    
     editor.update(() => {
       const node = $getNodeByKey(nodeKey)
       if ($isImageNode(node)) {
-        node.setShowCaption(true)
+        node.setShowCaption(show)
+        
+        // Xóa nội dung caption khi remove (set show = false)
+        if (!show) {
+          caption.update(() => {
+            const root = $getRoot()
+            root.clear()
+          })
+        }
       }
     })
   }
@@ -505,12 +564,35 @@ export default function ImageComponent({
 
   const onResizeStart = () => {
     setIsResizing(true)
+    // Exiting full-width mode on manual resize
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey)
+      if ($isImageNode(node)) {
+        node.setFullWidth(false)
+      }
+    })
   }
 
   // Bridge nested caption editor updates to the parent editor so that
   // outer OnChange subscribers (e.g., form save) get the latest caption state.
   useEffect(() => {
+    const computeHasContent = () => {
+      const state = caption.getEditorState()
+      const hasContent = state.read(() => {
+        const root = $getRoot()
+        const raw = root.getTextContent()
+        // Remove normal whitespace, NBSP, and zero-width chars
+        const text = raw.replace(/[\u200B\u00A0\s]+/g, "")
+        return text.length > 0
+      })
+      setHasCaptionContent(hasContent)
+    }
+
+    // compute on mount
+    computeHasContent()
+
     const unregister = caption.registerUpdateListener(() => {
+      computeHasContent()
       // Trigger a benign mutation on the ImageNode to mark the outer editor state dirty
       editor.update(() => {
         const node = $getNodeByKey(nodeKey)
@@ -526,6 +608,12 @@ export default function ImageComponent({
 
   const draggable = isSelected && $isNodeSelection(selection) && !isResizing
   const isFocused = (isSelected || isResizing) && isEditable
+  // Sử dụng localShowCaption thay vì showCaption prop để đảm bảo UI update ngay lập tức
+  // Trong chế độ edit: chỉ hiển thị khi localShowCaption = true
+  // Trong chế độ read-only: chỉ hiển thị khi có nội dung
+  const shouldRenderCaption = isEditable 
+    ? (localShowCaption && captionsEnabled) 
+    : hasCaptionContent
   return (
     <Suspense fallback={null}>
       <>
@@ -550,7 +638,7 @@ export default function ImageComponent({
           )}
         </div>
 
-        {showCaption && (
+        {shouldRenderCaption && (
           <div className={cn("image-caption-container mt-2 block min-w-[100px] overflow-hidden p-0", isEditable ? "border-1 rounded-md bg-white/90" : "border-0 bg-transparent")}>
             <LexicalNestedComposer initialEditor={caption}>
               <AutoFocusPlugin />
@@ -573,15 +661,22 @@ export default function ImageComponent({
         )}
         {resizable && $isNodeSelection(selection) && isFocused && (
           <ImageResizer
-            showCaption={showCaption}
+            showCaption={localShowCaption}
             setShowCaption={setShowCaption}
             editor={editor}
             buttonRef={buttonRef}
-            imageRef={imageRef}
-            maxWidth={maxWidth}
+            mediaRef={imageRef}
             onResizeStart={onResizeStart}
             onResizeEnd={onResizeEnd}
             captionsEnabled={!isLoadError && captionsEnabled}
+            onSetFullWidth={() => {
+              editor.update(() => {
+                const node = $getNodeByKey(nodeKey)
+                if ($isImageNode(node)) {
+                  node.setFullWidth(true)
+                }
+              })
+            }}
           />
         )}
       </>

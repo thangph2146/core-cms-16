@@ -204,3 +204,19 @@ div.border.border-dashed.px-4.py-2 .editor-image img {
   height: auto !important;
   object-fit: contain !important;
 }
+
+/* Generic responsive media inside editor content */
+.ContentEditable__root img {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+.ContentEditable__root .editor-image,
+.ContentEditable__root .editor-image > div {
+  max-width: 100% !important;
+}
+
+.ContentEditable__root iframe {
+  max-width: 100% !important;
+  width: 100% !important;
+}

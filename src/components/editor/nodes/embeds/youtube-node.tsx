@@ -32,6 +32,7 @@ type YouTubeComponentProps = Readonly<{
   width: "inherit" | number
   height: "inherit" | number
   maxWidth: number
+  fullWidth: boolean
   editor: LexicalEditor
 }>
 
@@ -43,6 +44,7 @@ function YouTubeComponent({
   width,
   height,
   maxWidth,
+  fullWidth,
   editor,
 }: YouTubeComponentProps) {
   const isEditable = useLexicalEditable()
@@ -50,12 +52,29 @@ function YouTubeComponent({
   const [isResizing, setIsResizing] = React.useState(false)
   const wrapperRef = React.useRef<HTMLDivElement | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement | null>(null)
-  const aspect = 9 / 16
-  const actualWidth = typeof width === "number" ? width : maxWidth
-  const actualHeight =
+  const updateNode = React.useCallback(
+    (updater: (node: YouTubeNode) => void) => {
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey)
+        if (node instanceof YouTubeNode) {
+          updater(node)
+        }
+      })
+    },
+    [editor, nodeKey]
+  )
+  // YouTube videos have 16:9 aspect ratio (width:height)
+  const aspectRatio = 16 / 9
+  const actualWidth: number = typeof width === "number" ? width : maxWidth
+  const actualHeight: number =
     typeof height === "number"
       ? height
-      : Math.round(actualWidth * aspect)
+      : Math.round(actualWidth / aspectRatio)
+  // CSS aspect-ratio expects width/height, not height/width
+  const cssAspectRatio =
+    typeof width === "number" && typeof height === "number" && height > 0
+      ? width / height
+      : aspectRatio
   const isFocused = (isSelected || isResizing) && isEditable
   return (
     <BlockWithAlignableContents
@@ -64,8 +83,12 @@ function YouTubeComponent({
       nodeKey={nodeKey}
     >
       <div
-        style={{ width: actualWidth, height: actualHeight }}
-        className="relative inline-block"
+        style={{
+          width: fullWidth ? "100%" : actualWidth,
+          height: fullWidth ? undefined : actualHeight,
+          aspectRatio: cssAspectRatio,
+        }}
+        className="relative block"
         ref={wrapperRef}
       >
         <iframe
@@ -76,27 +99,24 @@ function YouTubeComponent({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen={true}
           title="YouTube video"
-        className="block"
+          className="block absolute inset-0 h-full w-full"
         />
         {isFocused && (
           <ImageResizer
             editor={editor}
             buttonRef={buttonRef}
-            imageRef={wrapperRef as unknown as { current: null | HTMLImageElement }}
-            maxWidth={maxWidth}
-            onResizeStart={() => setIsResizing(true)}
+            mediaRef={wrapperRef}
+            onResizeStart={() => {
+              setIsResizing(true)
+              updateNode((node) => node.setFullWidth(false))
+            }}
             onResizeEnd={(nextWidth, nextHeight) => {
               setTimeout(() => setIsResizing(false), 200)
-              editor.update(() => {
-                const node = $getNodeByKey(nodeKey)
-                if (node instanceof YouTubeNode) {
-                  node.setWidthAndHeight(nextWidth, nextHeight)
-                }
-              })
+              updateNode((node) => node.setWidthAndHeight(nextWidth, nextHeight))
             }}
-            showCaption={false}
-            setShowCaption={() => {}}
-            captionsEnabled={false}
+            onSetFullWidth={() => {
+              updateNode((node) => node.setFullWidth(true))
+            }}
           />
         )}
       </div>
@@ -110,6 +130,7 @@ export type SerializedYouTubeNode = Spread<
     width?: number
     height?: number
     maxWidth?: number
+    fullWidth?: boolean
   },
   SerializedDecoratorBlockNode
 >
@@ -130,6 +151,7 @@ export class YouTubeNode extends DecoratorBlockNode {
   __width: "inherit" | number
   __height: "inherit" | number
   __maxWidth: number
+  __fullWidth: boolean
 
   static getType(): string {
     return "youtube"
@@ -142,6 +164,7 @@ export class YouTubeNode extends DecoratorBlockNode {
       node.__width,
       node.__height,
       node.__maxWidth,
+      node.__fullWidth,
       node.__key
     )
   }
@@ -151,7 +174,8 @@ export class YouTubeNode extends DecoratorBlockNode {
       serializedNode.videoID,
       serializedNode.width,
       serializedNode.height,
-      serializedNode.maxWidth ?? 640
+      serializedNode.maxWidth ?? 640,
+      serializedNode.fullWidth
     )
     node.setFormat(serializedNode.format)
     return node
@@ -167,6 +191,7 @@ export class YouTubeNode extends DecoratorBlockNode {
       height:
         this.__height === "inherit" ? undefined : (this.__height as number),
       maxWidth: this.__maxWidth,
+      fullWidth: this.__fullWidth || undefined,
     }
   }
 
@@ -176,6 +201,7 @@ export class YouTubeNode extends DecoratorBlockNode {
     width?: "inherit" | number,
     height?: "inherit" | number,
     maxWidth: number = 640,
+    fullWidth?: boolean,
     key?: NodeKey
   ) {
     super(format, key)
@@ -183,6 +209,8 @@ export class YouTubeNode extends DecoratorBlockNode {
     this.__width = width ?? "inherit"
     this.__height = height ?? "inherit"
     this.__maxWidth = maxWidth
+    // Default to full width if not specified to keep consistent across views
+    this.__fullWidth = fullWidth === undefined ? true : !!fullWidth
   }
 
   exportDOM(): DOMExportOutput {
@@ -254,6 +282,7 @@ export class YouTubeNode extends DecoratorBlockNode {
         width={this.__width}
         height={this.__height}
         maxWidth={this.__maxWidth}
+        fullWidth={this.__fullWidth}
         editor={_editor}
       />
     )
@@ -264,15 +293,21 @@ export class YouTubeNode extends DecoratorBlockNode {
     writable.__width = width
     writable.__height = height
   }
+
+  setFullWidth(fullWidth: boolean) {
+    const writable = this.getWritable()
+    writable.__fullWidth = fullWidth
+  }
 }
 
 export function $createYouTubeNode(
   videoID: string,
   width?: number,
   height?: number,
-  maxWidth?: number
+  maxWidth?: number,
+  fullWidth?: boolean
 ): YouTubeNode {
-  return new YouTubeNode(videoID, undefined, width, height, maxWidth)
+  return new YouTubeNode(videoID, undefined, width, height, maxWidth, fullWidth)
 }
 
 export function $isYouTubeNode(

@@ -2,6 +2,7 @@ import * as React from "react"
 import { JSX, useCallback, useRef } from "react"
 import { calculateZoomLevel } from "@lexical/utils"
 import type { LexicalEditor } from "lexical"
+import { ImagePlus, ImageMinus, Maximize } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -25,27 +26,33 @@ const Direction = {
   west: 1 << 2,
 }
 
-export function ImageResizer({
+export interface MediaResizerProps {
+  editor: LexicalEditor
+  buttonRef: { current: null | HTMLButtonElement }
+  mediaRef: { current: null | HTMLElement }
+  onResizeEnd: (width: "inherit" | number, height: "inherit" | number) => void
+  onResizeStart: () => void
+  showCaption?: boolean
+  setShowCaption?: (show: boolean) => void
+  captionsEnabled?: boolean
+  onSetFullWidth?: () => void
+}
+
+/**
+ * MediaResizer - Universal resizer for media elements (images, videos, etc.)
+ * Supports both images with captions and videos without captions
+ */
+export function MediaResizer({
   onResizeStart,
   onResizeEnd,
   buttonRef,
-  imageRef,
-  maxWidth,
+  mediaRef,
   editor,
-  showCaption,
+  showCaption = false,
   setShowCaption,
-  captionsEnabled,
-}: {
-  editor: LexicalEditor
-  buttonRef: { current: null | HTMLButtonElement }
-  imageRef: { current: null | HTMLImageElement }
-  maxWidth?: number
-  onResizeEnd: (width: "inherit" | number, height: "inherit" | number) => void
-  onResizeStart: () => void
-  setShowCaption: (show: boolean) => void
-  showCaption: boolean
-  captionsEnabled: boolean
-}): JSX.Element {
+  captionsEnabled = false,
+  onSetFullWidth,
+}: MediaResizerProps): JSX.Element {
   const controlWrapperRef = useRef<HTMLDivElement>(null)
   const userSelect = useRef({
     priority: "",
@@ -81,8 +88,8 @@ export function ImageResizer({
   const minHeight = 100
 
   React.useEffect(() => {
-    if (imageRef.current) {
-      unlockImageBoundaries(imageRef.current)
+    if (mediaRef.current) {
+      unlockImageBoundaries(mediaRef.current)
     }
   })
 
@@ -144,41 +151,41 @@ export function ImageResizer({
       return
     }
 
-    const image = imageRef.current
+    const media = mediaRef.current
     const controlWrapper = controlWrapperRef.current
 
-    if (image !== null && controlWrapper !== null) {
+    if (media !== null && controlWrapper !== null) {
       event.preventDefault()
-      unlockImageBoundaries(image)
-      const { width, height } = image.getBoundingClientRect()
-      const zoom = calculateZoomLevel(image)
+      unlockImageBoundaries(media)
+      const { width, height } = media.getBoundingClientRect()
+      const zoom = calculateZoomLevel(media)
       const positioning = positioningRef.current
       positioning.startWidth = width
       positioning.startHeight = height
-      positioning.ratio = getImageAspectRatio(image)
+      positioning.ratio = getImageAspectRatio(media)
       positioning.currentWidth = width
       positioning.currentHeight = height
       positioning.startX = event.clientX / zoom
       positioning.startY = event.clientY / zoom
       positioning.isResizing = true
       positioning.direction = direction
-      // Luôn cho phép resize không giới hạn khi resize thủ công
-      // Container width chỉ được sử dụng cho full width button
-      positioning.maxWidthLimit = Infinity
+      // Giới hạn theo bề rộng container để không vượt quá parent
+      const containerWidth = getContainerWidth(media, editor.getRootElement())
+      positioning.maxWidthLimit = containerWidth || Infinity
 
       setStartCursor(direction)
       onResizeStart()
 
       controlWrapper.classList.add("touch-action-none")
-      image.style.height = `${height}px`
-      image.style.width = `${width}px`
+      media.style.height = `${height}px`
+      media.style.width = `${width}px`
 
       document.addEventListener("pointermove", handlePointerMove)
       document.addEventListener("pointerup", handlePointerUp)
     }
   }
   const handlePointerMove = (event: PointerEvent) => {
-    const image = imageRef.current
+    const media = mediaRef.current
     const positioning = positioningRef.current
 
     const isHorizontal =
@@ -186,8 +193,8 @@ export function ImageResizer({
     const isVertical =
       positioning.direction & (Direction.south | Direction.north)
 
-    if (image !== null && positioning.isResizing) {
-      const zoom = calculateZoomLevel(image)
+    if (media !== null && positioning.isResizing) {
+      const zoom = calculateZoomLevel(media)
       // Corner cursor
       if (isHorizontal && isVertical) {
         let diff = Math.floor(positioning.startX - event.clientX / zoom)
@@ -200,8 +207,8 @@ export function ImageResizer({
         )
 
         const height = width / positioning.ratio
-        image.style.width = `${width}px`
-        image.style.height = `${height}px`
+        media.style.width = `${width}px`
+        media.style.height = `${height}px`
         positioning.currentHeight = height
         positioning.currentWidth = width
       } else if (isVertical) {
@@ -214,8 +221,12 @@ export function ImageResizer({
           maxHeightContainer
         )
 
-        image.style.height = `${height}px`
+        // Calculate width based on aspect ratio to maintain proportions
+        const width = height * positioning.ratio
+        media.style.height = `${height}px`
+        media.style.width = `${width}px`
         positioning.currentHeight = height
+        positioning.currentWidth = width
       } else {
         let diff = Math.floor(positioning.startX - event.clientX / zoom)
         diff = positioning.direction & Direction.east ? -diff : diff
@@ -226,16 +237,20 @@ export function ImageResizer({
           positioning.maxWidthLimit || Infinity
         )
 
-        image.style.width = `${width}px`
+        // Calculate height based on aspect ratio to maintain proportions
+        const height = width / positioning.ratio
+        media.style.width = `${width}px`
+        media.style.height = `${height}px`
         positioning.currentWidth = width
+        positioning.currentHeight = height
       }
     }
   }
   const handlePointerUp = () => {
-    const image = imageRef.current
+    const media = mediaRef.current
     const positioning = positioningRef.current
     const controlWrapper = controlWrapperRef.current
-    if (image !== null && controlWrapper !== null && positioning.isResizing) {
+    if (media !== null && controlWrapper !== null && positioning.isResizing) {
       const width = positioning.currentWidth
       const height = positioning.currentHeight
       positioning.startWidth = 0
@@ -258,29 +273,35 @@ export function ImageResizer({
   }
 
   const handleFullWidthResize = useCallback(() => {
-    const image = imageRef.current
-    if (!image) {
+    const media = mediaRef.current
+    if (!media) {
       return
     }
 
-    unlockImageBoundaries(image)
-    const containerWidth = getContainerWidth(image, editor.getRootElement())
+    unlockImageBoundaries(media)
+    const containerWidth = getContainerWidth(media, editor.getRootElement())
     if (!containerWidth || containerWidth <= 0) {
       return
     }
 
-    const ratio = getImageAspectRatio(image)
+    const ratio = getImageAspectRatio(media)
     if (ratio <= 0) {
       return
     }
 
-    // Set width to container width (full width)
+    // Prefer a persistent full-width mode when supported by caller
+    if (onSetFullWidth) {
+      onSetFullWidth()
+      return
+    }
+
+    // Fallback: set width to container width (one-shot)
     const width = containerWidth
     const height = width / ratio
-    image.style.width = `${width}px`
-    image.style.height = `${height}px`
+    media.style.width = `${width}px`
+    media.style.height = `${height}px`
     onResizeEnd(width, height)
-  }, [editor, imageRef, onResizeEnd])
+  }, [editor, mediaRef, onResizeEnd, onSetFullWidth])
 
   return (
     <>
@@ -335,28 +356,44 @@ export function ImageResizer({
       />
       </div>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        {!showCaption && captionsEnabled && (
+        {setShowCaption && captionsEnabled && (
           <Button
             className="image-caption-button"
             ref={buttonRef}
             type="button"
             variant={"outline"}
+            size="sm"
             onClick={() => {
               setShowCaption(!showCaption)
             }}
           >
-            Add Caption
+            {showCaption ? (
+              <>
+                <ImageMinus className="mr-1.5 size-4" />
+                Remove Caption
+              </>
+            ) : (
+              <>
+                <ImagePlus className="mr-1.5 size-4" />
+                Add Caption
+              </>
+            )}
           </Button>
         )}
         <Button
           className="image-full-width-button"
           type="button"
           variant={"outline"}
+          size="sm"
           onClick={handleFullWidthResize}
         >
-          Full width
+          <Maximize className="mr-1.5 size-4" />
+          Full Width
         </Button>
       </div>
     </>
   )
 }
+
+// Backward compatibility: export as ImageResizer for existing code
+export const ImageResizer = MediaResizer

@@ -1,5 +1,6 @@
 export const unlockImageBoundaries = (image: HTMLElement) => {
-  image.style.setProperty("max-width", "none", "important")
+  // Không cho phép vượt quá container: luôn giữ max-width = 100%
+  image.style.setProperty("max-width", "100%", "important")
   image.style.setProperty("max-height", "none", "important")
 }
 

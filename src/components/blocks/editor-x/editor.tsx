@@ -39,7 +39,7 @@ export function Editor({
   return (
     <div
       className={cn(
-        "bg-background rounded-lg border shadow",
+        "bg-background rounded-lg border shadow w-full",
         readOnly && "border-none shadow-none"
       )}
     >

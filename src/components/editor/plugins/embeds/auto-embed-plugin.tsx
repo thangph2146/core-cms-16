@@ -136,15 +136,17 @@ const debounce = (callback: (text: string) => void, delay: number) => {
   }
 }
 
-export function AutoEmbedDialog({
+// Dialog content component that doesn't depend on context
+function AutoEmbedDialogContent({
   embedConfig,
   onClose,
+  editor,
 }: {
   embedConfig: CustomEmbedConfig
   onClose: () => void
+  editor: LexicalEditor
 }): JSX.Element {
   const [text, setText] = useState("")
-  const [editor] = useLexicalComposerContext()
   const [embedResult, setEmbedResult] = useState<EmbedMatchResult | null>(null)
 
   const validateText = useMemo(
@@ -196,6 +198,47 @@ export function AutoEmbedDialog({
         </DialogFooter>
       </div>
     </div>
+  )
+}
+
+// Wrapper that uses context for AutoEmbedPlugin
+export function AutoEmbedDialog({
+  embedConfig,
+  onClose,
+  editor,
+}: {
+  embedConfig: CustomEmbedConfig
+  onClose: () => void
+  editor?: LexicalEditor
+}): JSX.Element {
+  const [editorFromContext] = useLexicalComposerContext()
+  const activeEditor = editor ?? editorFromContext
+  
+  return (
+    <AutoEmbedDialogContent 
+      embedConfig={embedConfig} 
+      onClose={onClose} 
+      editor={activeEditor}
+    />
+  )
+}
+
+// Standalone version that doesn't use context (for toolbar usage)
+export function AutoEmbedDialogStandalone({
+  embedConfig,
+  onClose,
+  editor,
+}: {
+  embedConfig: CustomEmbedConfig
+  onClose: () => void
+  editor: LexicalEditor
+}): JSX.Element {
+  return (
+    <AutoEmbedDialogContent 
+      embedConfig={embedConfig} 
+      onClose={onClose} 
+      editor={editor}
+    />
   )
 }
 
