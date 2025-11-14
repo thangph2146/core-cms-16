@@ -18,7 +18,7 @@ const ROLE_RESOURCE_SEGMENTS: Record<string, string> = {
   [DEFAULT_ROLES.EDITOR.name]: DEFAULT_ROLES.EDITOR.name,
   [DEFAULT_ROLES.AUTHOR.name]: DEFAULT_ROLES.AUTHOR.name,
   [DEFAULT_ROLES.USER.name]: DEFAULT_ROLES.USER.name,
-  parent: "parent",
+  [DEFAULT_ROLES.PARENT.name]: DEFAULT_ROLES.PARENT.name,
 }
 
 const SEGMENT_PATTERN = /^\/([^/]+)(.*)$/

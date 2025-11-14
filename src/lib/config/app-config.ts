@@ -99,10 +99,6 @@ export interface AppBranding {
 }
 
 const ROLE_BRANDING_MAP: Record<string, AppBranding> = {
-  parent: {
-    name: "CMS Phụ huynh",
-    description: "Hệ thống quản lý dành riêng cho phụ huynh",
-  },
   [DEFAULT_ROLES.SUPER_ADMIN.name]: {
     name: "CMS Siêu Quản Trị",
     description: "Toàn quyền cấu hình và giám sát hệ thống",
@@ -122,6 +118,10 @@ const ROLE_BRANDING_MAP: Record<string, AppBranding> = {
   [DEFAULT_ROLES.USER.name]: {
     name: "CMS Người Dùng",
     description: "Trung tâm cập nhật thông tin và tương tác nội bộ",
+  },
+  [DEFAULT_ROLES.PARENT.name]: {
+    name: "CMS Phụ huynh",
+    description: "Hệ thống quản lý dành riêng cho phụ huynh",
   },
 }
 

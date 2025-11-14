@@ -275,11 +275,11 @@ const ROLE_NAMES = {
   EDITOR: DEFAULT_ROLES.EDITOR.name,
   AUTHOR: DEFAULT_ROLES.AUTHOR.name,
   USER: DEFAULT_ROLES.USER.name,
-  PARENT: "parent",
+  PARENT: DEFAULT_ROLES.PARENT.name,
 } as const
 
 type RoleKey = keyof typeof ROLE_NAMES
-type DefaultRoleKey = Exclude<RoleKey, "PARENT">
+type DefaultRoleKey = RoleKey
 
 const ROLE_DESCRIPTIONS: Record<RoleKey, string> = {
   SUPER_ADMIN: "Toàn quyền hệ thống, có thể thực hiện mọi thao tác.",
@@ -308,24 +308,7 @@ const defaultRoleConfigs: RoleConfig<DefaultRoleKey>[] = (
   permissions: [...role.permissions],
 }))
 
-const roleConfigs: RoleConfig[] = [
-  ...defaultRoleConfigs,
-  {
-    key: "PARENT",
-    name: ROLE_NAMES.PARENT,
-    displayName: "Parent",
-    description: ROLE_DESCRIPTIONS.PARENT,
-    permissions: [
-      PERMISSIONS.DASHBOARD_VIEW,
-      PERMISSIONS.STUDENTS_VIEW,
-      PERMISSIONS.CONTACT_REQUESTS_VIEW,
-      PERMISSIONS.CONTACT_REQUESTS_UPDATE,
-      PERMISSIONS.MESSAGES_VIEW,
-      PERMISSIONS.MESSAGES_SEND,
-      PERMISSIONS.NOTIFICATIONS_VIEW,
-    ],
-  },
-]
+const roleConfigs: RoleConfig[] = defaultRoleConfigs
 
 const resetDatabase = async () => {
   await prisma.$transaction(async (tx) => {

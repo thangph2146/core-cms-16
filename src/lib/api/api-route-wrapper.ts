@@ -88,8 +88,14 @@ export function createApiRoute(
             path: req.nextUrl.pathname,
             method: req.method,
             userId: session?.user?.id,
+            userEmail: session?.user?.email,
+            roles: roles.map((r) => r.name),
             requiredPermissions,
             userPermissions: permissionsList,
+            hasRequiredPermission: requiredPermissions.map((perm) => ({
+              permission: perm,
+              has: permissionsList.includes(perm),
+            })),
           })
           return createErrorResponse("Forbidden", { status: 403 })
         }
