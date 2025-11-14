@@ -73,6 +73,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
   
   // Get all options from groups
   const allPermissionsOptions = permissionsGroups.flatMap((group) => group.options)
+  
 
   const detailFields: ResourceDetailField<RoleDetailData>[] = []
 
@@ -186,7 +187,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
                         <CommandInput placeholder="Tìm kiếm quyền..." className="h-9" />
                         <CommandList>
                           <CommandEmpty>Không tìm thấy quyền.</CommandEmpty>
-                          {permissionsGroups.map((group) => {
+                          {permissionsGroups.map((group, groupIndex) => {
                             const groupSelectedCount = group.options.filter((opt) =>
                               selectedValues.includes(String(opt.value))
                             ).length
@@ -194,14 +195,14 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
                             if (groupSelectedCount === 0) return null
 
                             return (
-                              <CommandGroup key={group.label} heading={group.label}>
-                                {group.options.map((option) => {
+                              <CommandGroup key={`${groupIndex}-${group.label}`} heading={group.label}>
+                                {group.options.map((option, optionIndex) => {
                                   const isSelected = selectedValues.includes(String(option.value))
                                   if (!isSelected) return null
                                   
                                   return (
                                     <CommandItem
-                                      key={option.value}
+                                      key={`${groupIndex}-${optionIndex}-${option.value}`}
                                       value={String(option.value)}
                                       disabled
                                       className="cursor-default"

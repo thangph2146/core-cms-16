@@ -5,9 +5,9 @@
  * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
  */
 import { validatePagination, buildPagination, type ResourcePagination } from "@/features/admin/resources/server"
-import type { Prisma } from "@prisma/client"
-import { NotificationKind } from "@prisma/client"
+import { Prisma, NotificationKind } from "@prisma/client"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config/logger"
 
 export interface ListNotificationsInput {
   page?: number
@@ -50,22 +50,59 @@ function isValidKind(value: string): value is NotificationKind {
 function buildWhereClause(params: ListNotificationsInput): Prisma.NotificationWhereInput {
   const where: Prisma.NotificationWhereInput = {}
 
-  if (params.userId) where.userId = params.userId
-  if (params.isRead !== undefined) where.isRead = params.isRead
-
+  // Chỉ hiển thị thông báo hệ thống (SYSTEM) và thông báo cá nhân (MESSAGE và các loại khác ngoài SYSTEM)
+  // Luôn yêu cầu userId để chỉ hiển thị thông báo cá nhân của user đó
+  // Thông báo hệ thống (SYSTEM) được hiển thị cho tất cả users
+  
+  // Nếu có filter kind cụ thể, sử dụng filter đó (để giữ tính năng filter theo kind)
   if (params.kind && isValidKind(params.kind)) {
     where.kind = params.kind
+    // Nếu có userId và filter kind cụ thể, chỉ hiển thị notifications của user đó
+    if (params.userId && params.kind !== NotificationKind.SYSTEM) {
+      where.userId = params.userId
+    }
+  } else {
+    // Nếu không có filter kind cụ thể, áp dụng logic chỉ hiển thị SYSTEM và thông báo cá nhân
+    // Luôn yêu cầu userId để chỉ hiển thị thông báo cá nhân của user đó
+    if (params.userId) {
+      // Chỉ hiển thị: SYSTEM (tất cả) hoặc các loại khác ngoài SYSTEM mà user sở hữu
+      where.OR = [
+        { kind: NotificationKind.SYSTEM }, // Tất cả thông báo hệ thống
+        {
+          userId: params.userId,
+          kind: { not: NotificationKind.SYSTEM }, // Thông báo cá nhân của user này
+        },
+      ]
+    } else {
+      // Nếu không có userId, chỉ hiển thị thông báo hệ thống
+      // (Trường hợp này không nên xảy ra vì API route luôn truyền userId)
+      where.kind = NotificationKind.SYSTEM
+    }
   }
+
+  if (params.isRead !== undefined) where.isRead = params.isRead
 
   if (params.search) {
     const searchValue = params.search.trim()
     if (searchValue.length > 0) {
-      where.OR = [
-        { title: { contains: searchValue, mode: "insensitive" } },
-        { description: { contains: searchValue, mode: "insensitive" } },
-        { user: { email: { contains: searchValue, mode: "insensitive" } } },
-        { user: { name: { contains: searchValue, mode: "insensitive" } } },
+      // Kết hợp search với existing OR clause
+      const searchConditions: Prisma.NotificationWhereInput[] = [
+        { title: { contains: searchValue, mode: Prisma.QueryMode.insensitive } },
+        { description: { contains: searchValue, mode: Prisma.QueryMode.insensitive } },
+        { user: { email: { contains: searchValue, mode: Prisma.QueryMode.insensitive } } },
+        { user: { name: { contains: searchValue, mode: Prisma.QueryMode.insensitive } } },
       ]
+      
+      // Nếu đã có OR clause (từ logic filter kind), kết hợp với AND
+      if (where.OR) {
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions },
+        ]
+        delete where.OR
+      } else {
+        where.OR = searchConditions
+      }
     }
   }
 
@@ -76,10 +113,50 @@ function buildWhereClause(params: ListNotificationsInput): Prisma.NotificationWh
 
       switch (key) {
         case "userId":
+          // Nếu đã có OR clause, cần kết hợp với AND
+          if (where.OR && !params.kind) {
+            // Đã xử lý trong OR clause ở trên, bỏ qua
+            break
+          }
           where.userId = value
           break
+        case "userEmail":
+          // Filter theo email của user thông qua relation
+          // Nếu đã có OR clause, cần kết hợp với AND
+          if (where.OR && !params.kind) {
+            const existingAND = Array.isArray(where.AND) ? where.AND : []
+            where.AND = [
+              ...existingAND,
+              { OR: where.OR },
+              {
+                user: {
+                  email: {
+                    equals: value,
+                    mode: Prisma.QueryMode.insensitive,
+                  },
+                },
+              },
+            ]
+            delete where.OR
+          } else {
+            where.user = {
+              email: {
+                equals: value,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            }
+          }
+          break
         case "kind":
-          if (isValidKind(value)) where.kind = value
+          if (isValidKind(value)) {
+            // Nếu đã có OR clause, thay thế bằng filter kind cụ thể
+            if (where.OR && !params.kind) {
+              delete where.OR
+              where.kind = value as NotificationKind
+            } else {
+              where.kind = value as NotificationKind
+            }
+          }
           break
         case "isRead":
           where.isRead = value === "true"
@@ -100,6 +177,19 @@ export async function listNotifications(params: ListNotificationsInput = {}): Pr
   const { page, limit } = validatePagination(params.page, params.limit, 100)
   const where = buildWhereClause(params)
 
+  logger.debug("Querying notifications from database", {
+    params: {
+      page,
+      limit,
+      search: params.search,
+      filters: params.filters,
+      userId: params.userId,
+      kind: params.kind,
+      isRead: params.isRead,
+    },
+    whereClause: JSON.stringify(where, null, 2),
+  })
+
   const [notifications, total] = await Promise.all([
     prisma.notification.findMany({
       where,
@@ -118,6 +208,26 @@ export async function listNotifications(params: ListNotificationsInput = {}): Pr
     }),
     prisma.notification.count({ where }),
   ])
+
+  // Log kết quả từ database
+  logger.info("Notifications queried from database", {
+    totalInDatabase: total,
+    returnedCount: notifications.length,
+    page,
+    limit,
+    notifications: notifications.map((n) => ({
+      id: n.id,
+      userId: n.userId,
+      userEmail: n.user.email,
+      kind: n.kind,
+      title: n.title,
+      isRead: n.isRead,
+    })),
+    kindDistribution: notifications.reduce((acc, n) => {
+      acc[n.kind] = (acc[n.kind] || 0) + 1
+      return acc
+    }, {} as Record<string, number>),
+  })
 
   return {
     data: notifications.map((n) => ({

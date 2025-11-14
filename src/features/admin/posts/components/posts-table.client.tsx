@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
+import { AxiosError } from "axios"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -14,11 +15,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Switch } from "@/components/ui/switch"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { sanitizeSearchQuery } from "@/lib/api/validation"
 
 import type { PostRow, PostsResponse, PostsTableClientProps } from "../types"
 
@@ -49,7 +52,9 @@ export function PostsTableClient({
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
+  const canToggleStatus = canManage || canRestore
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -63,6 +68,48 @@ export function PostsTableClient({
       setFeedback(null)
     }
   }, [])
+
+  const handleTogglePublished = useCallback(
+    async (row: PostRow, newStatus: boolean, refresh: () => void) => {
+      if (!canToggleStatus) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền thay đổi trạng thái xuất bản")
+        return
+      }
+
+      setTogglingPosts((prev) => {
+        const next = new Set(prev)
+        next.add(row.id)
+        return next
+      })
+
+      try {
+        await apiClient.put(apiRoutes.posts.update(row.id), {
+          published: newStatus,
+        })
+
+        showFeedback(
+          "success",
+          "Cập nhật thành công",
+          `Bài viết "${row.title}" đã được ${newStatus ? "xuất bản" : "chuyển sang bản nháp"}.`,
+        )
+        refresh()
+      } catch (error) {
+        console.error("Error toggling post publish status:", error)
+        showFeedback(
+          "error",
+          "Lỗi cập nhật",
+          `Không thể ${newStatus ? "xuất bản" : "chuyển sang bản nháp"} bài viết. Vui lòng thử lại.`,
+        )
+      } finally {
+        setTogglingPosts((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
+      }
+    },
+    [canToggleStatus, showFeedback],
+  )
 
   const dateFormatter = useMemo(
     () =>
@@ -151,20 +198,33 @@ export function PostsTableClient({
         },
         className: "w-[120px]",
         headerClassName: "w-[120px]",
-        cell: (row) =>
-          row.deletedAt ? (
-            <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
-              Đã xóa
-            </span>
-          ) : row.published ? (
-            <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-              Đã xuất bản
-            </span>
-          ) : (
-            <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
-              Bản nháp
-            </span>
-          ),
+        cell: (row) => {
+          if (row.deletedAt) {
+            return (
+              <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
+                Đã xóa
+              </span>
+            )
+          }
+
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={row.published}
+                disabled={togglingPosts.has(row.id) || !canToggleStatus}
+                onCheckedChange={(checked) => {
+                  const refresh = tableRefreshRef.current
+                  if (!refresh) return
+                  handleTogglePublished(row, checked, refresh)
+                }}
+                aria-label={row.published ? "Chuyển thành bản nháp" : "Xuất bản bài viết"}
+              />
+              <span className="text-xs text-muted-foreground">
+                {row.published ? "Đã xuất bản" : "Bản nháp"}
+              </span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: "publishedAt",
@@ -204,7 +264,18 @@ export function PostsTableClient({
         },
       },
     ],
-    [dateFormatter, titleFilter.options, titleFilter.onSearchChange, titleFilter.isLoading, slugFilter.options, slugFilter.onSearchChange, slugFilter.isLoading],
+    [
+      dateFormatter,
+      titleFilter.options,
+      titleFilter.onSearchChange,
+      titleFilter.isLoading,
+      slugFilter.options,
+      slugFilter.onSearchChange,
+      slugFilter.isLoading,
+      togglingPosts,
+      canToggleStatus,
+      handleTogglePublished,
+    ],
   )
 
   const deletedColumns = useMemo<DataTableColumn<PostRow>[]>(
@@ -236,35 +307,61 @@ export function PostsTableClient({
   const loader = useCallback(
     async (query: DataTableQueryState, view: ResourceViewMode<PostRow>) => {
       // Build base URL with apiRoutes
-      const baseUrl = apiRoutes.posts.list({
-        page: query.page,
-        limit: query.limit,
+      const safePage = Number.isFinite(query.page) && query.page > 0 ? query.page : 1
+      const safeLimit = Number.isFinite(query.limit) && query.limit > 0 ? query.limit : 10
+      const trimmedSearch = typeof query.search === "string" ? query.search.trim() : ""
+      const searchValidation =
+        trimmedSearch.length > 0 ? sanitizeSearchQuery(trimmedSearch, 200) : { valid: true, value: "" }
+      if (!searchValidation.valid) {
+        throw new Error(searchValidation.error || "Từ khóa tìm kiếm không hợp lệ. Vui lòng thử lại.")
+      }
+
+      const requestParams: Record<string, string> = {
+        page: safePage.toString(),
+        limit: safeLimit.toString(),
         status: view.status ?? "active",
-        search: query.search.trim() || undefined,
-      })
-      
-      // Add filter params to URL if needed
-      const filterParams = new URLSearchParams()
+      }
+      if (searchValidation.value) {
+        requestParams.search = searchValidation.value
+      }
+
       Object.entries(query.filters).forEach(([key, value]) => {
-        if (value) {
-          filterParams.set(`filter[${key}]`, value)
+        if (value !== undefined && value !== null) {
+          const normalized = `${value}`.trim()
+          if (normalized) {
+            const filterValidation = sanitizeSearchQuery(normalized, 100)
+            if (filterValidation.valid && filterValidation.value) {
+              requestParams[`filter[${key}]`] = filterValidation.value
+            } else if (!filterValidation.valid) {
+              throw new Error(filterValidation.error || "Giá trị bộ lọc không hợp lệ. Vui lòng thử lại.")
+            }
+          }
         }
       })
       
-      // Combine base URL with filter params
-      const filterString = filterParams.toString()
-      const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
-      
-      const response = await apiClient.get<PostsResponse>(url)
-      const payload = response.data
+      try {
+        const response = await apiClient.get<PostsResponse>(apiRoutes.posts.list(), {
+          params: requestParams,
+        })
+        const payload = response.data
 
-      return {
-        rows: payload.data,
-        page: payload.pagination.page,
-        limit: payload.pagination.limit,
-        total: payload.pagination.total,
-        totalPages: payload.pagination.totalPages,
-      } satisfies DataTableResult<PostRow>
+        return {
+          rows: payload.data,
+          page: payload.pagination.page,
+          limit: payload.pagination.limit,
+          total: payload.pagination.total,
+          totalPages: payload.pagination.totalPages,
+        } satisfies DataTableResult<PostRow>
+      } catch (error) {
+        console.error("Failed to load posts", error)
+        if (error instanceof AxiosError) {
+          const apiMessage =
+            (error.response?.data as { error?: string } | undefined)?.error ||
+            error.message
+          throw new Error(apiMessage || "Không thể tải danh sách bài viết. Vui lòng thử lại sau.")
+        }
+        throw new Error("Không thể tải danh sách bài viết. Vui lòng thử lại sau.")
+      }
     },
     [],
   )
@@ -667,4 +764,3 @@ export function PostsTableClient({
     </>
   )
 }
-

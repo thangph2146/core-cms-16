@@ -53,9 +53,18 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
 
   // Group permissions by resource
   const grouped: Record<string, Array<{ label: string; value: string }>> = {}
+  // Track unique permission values to avoid duplicates
+  const seenValues = new Set<string>()
 
   Object.entries(PERMISSIONS).forEach(([_key, value]) => {
-    const [resource, action] = String(value).split(":")
+    const permissionValue = String(value)
+    
+    // Skip if we've already seen this permission value
+    if (seenValues.has(permissionValue)) {
+      return
+    }
+    
+    const [resource, action] = permissionValue.split(":")
     if (!grouped[resource]) {
       grouped[resource] = []
     }
@@ -67,8 +76,11 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
     
     grouped[resource].push({
       label,
-      value: String(value),
+      value: permissionValue,
     })
+    
+    // Mark this permission value as seen
+    seenValues.add(permissionValue)
   })
 
   // Sort options within each group and sort groups

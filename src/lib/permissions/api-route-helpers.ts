@@ -107,7 +107,9 @@ export function generateResourceApiRoutes(resourceName: string) {
   const basePath = `/admin/${resourceName}`
   
   // Get routes từ ROUTE_CONFIG
-  const listRoute = getResourceApiRoute(resourceName, "GET")
+  const rawListRoute = getResourceApiRoute(resourceName, "GET")
+  const listRoute =
+    rawListRoute && rawListRoute.includes("/options") ? undefined : rawListRoute
   const createRoute = getResourceApiRoute(resourceName, "POST", "create")
   const detailRoute = getResourceApiRoute(resourceName, "GET", "detail")
   const updateRoute = getResourceApiRoute(resourceName, "PUT", "update")

@@ -51,6 +51,16 @@ import {
 import { $isImageNode } from "@/components/editor/nodes/image-node"
 import { cn } from "@/lib/utils"
 import { useEditorContainer } from "@/components/editor/context/editor-container-context"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  InsertImageDialog,
+  InsertImagePayload,
+} from "@/components/editor/plugins/images-plugin"
 
 const imageCache = new Set()
 const RESIZE_HANDLE_HIDE_DELAY = 200
@@ -692,6 +702,7 @@ export default function ImageComponent({
   const resizeTimeoutRef = useRef<TimeoutHandle | null>(null)
   const [editor] = useLexicalComposerContext()
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
   const isEditable = useLexicalEditable()
   const editorContainer = useEditorContainer()
   const {
@@ -723,6 +734,12 @@ export default function ImageComponent({
     nodeKey,
     showCaption,
   })
+
+  useEffect(() => {
+    if (!isEditable && isReplaceDialogOpen) {
+      setIsReplaceDialogOpen(false)
+    }
+  }, [isEditable, isReplaceDialogOpen])
 
   useEffect(() => {
     return () => {
@@ -760,6 +777,25 @@ export default function ImageComponent({
       }
     })
   }, [editor, nodeKey])
+
+  const handleReplaceImage = useCallback(
+    (payload: InsertImagePayload) => {
+      if (!payload?.src) {
+        return
+      }
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey)
+        if ($isImageNode(node)) {
+          node.setSrc(payload.src)
+          if (payload.altText !== undefined) {
+            node.setAltText(payload.altText)
+          }
+          node.setWidthAndHeight("inherit", "inherit")
+        }
+      })
+    },
+    [editor, nodeKey]
+  )
 
   const draggable = isSelected && $isNodeSelection(selection) && !isResizing
   const isFocused = (isSelected || isResizing) && isEditable
@@ -825,8 +861,31 @@ export default function ImageComponent({
                 }
               })
             }}
+            onReplaceMedia={
+              isEditable
+                ? () => setIsReplaceDialogOpen(true)
+                : undefined
+            }
           />
         )}
+        <Dialog
+          open={isReplaceDialogOpen}
+          onOpenChange={(open) => setIsReplaceDialogOpen(open)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change image</DialogTitle>
+            </DialogHeader>
+            <InsertImageDialog
+              activeEditor={editor}
+              onClose={() => setIsReplaceDialogOpen(false)}
+              onInsert={(payload, close) => {
+                handleReplaceImage(payload)
+                close()
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </>
     </Suspense>
   )

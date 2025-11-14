@@ -91,18 +91,32 @@ export const getAllPermissionsCached = cache(async () => {
     manage: "Quản lý",
   }
 
+  // Track unique permission values to avoid duplicates
+  const seenValues = new Set<string>()
+  
   return Object.entries(PERMISSIONS)
     .map(([_key, value]) => {
-      const [resource, action] = String(value).split(":")
+      const permissionValue = String(value)
+      
+      // Skip if we've already seen this permission value
+      if (seenValues.has(permissionValue)) {
+        return null
+      }
+      
+      const [resource, action] = permissionValue.split(":")
       const resourceLabel = resourceLabels[resource] || resource
       const actionLabel = actionLabels[action] || action
       const label = `${actionLabel} - ${resourceLabel}`
       
+      // Mark this permission value as seen
+      seenValues.add(permissionValue)
+      
       return {
         label,
-        value: String(value),
+        value: permissionValue,
       }
     })
+    .filter((item): item is { label: string; value: string } => item !== null)
     .sort((a, b) => a.label.localeCompare(b.label))
 })
 

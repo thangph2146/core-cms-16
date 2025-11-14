@@ -402,8 +402,9 @@ export async function markNotificationAsUnread(notificationId: string, userId: s
 }
 
 /**
- * Delete notification - chỉ cho phép user xóa notification của chính mình
- * Best Practice: Ownership verification trước khi delete
+ * Delete notification - chỉ cho phép user xóa notification cá nhân của chính mình
+ * Thông báo hệ thống (SYSTEM) không bao giờ được xóa
+ * Best Practice: Ownership verification và kind check trước khi delete
  */
 export async function deleteNotification(notificationId: string, userId: string) {
   // Validate input
@@ -414,7 +415,7 @@ export async function deleteNotification(notificationId: string, userId: string)
   // Verify notification exists and belongs to user
   const notification = await prisma.notification.findUnique({
     where: { id: notificationId },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, kind: true },
   })
 
   if (!notification) {
@@ -431,6 +432,16 @@ export async function deleteNotification(notificationId: string, userId: string)
     throw new Error("Forbidden: You can only delete your own notifications")
   }
 
+  // Không cho phép xóa thông báo hệ thống
+  if (notification.kind === NotificationKind.SYSTEM) {
+    logger.warn("User attempted to delete system notification", {
+      notificationId,
+      userId,
+      kind: notification.kind,
+    })
+    throw new Error("Forbidden: System notifications cannot be deleted")
+  }
+
   const deleted = await prisma.notification.delete({
     where: { id: notificationId },
   })
@@ -438,6 +449,7 @@ export async function deleteNotification(notificationId: string, userId: string)
   logger.info("Notification deleted", {
     notificationId,
     userId,
+    kind: notification.kind,
   })
 
   // Emit socket event để remove từ cache
@@ -539,8 +551,9 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
 }
 
 /**
- * Bulk delete notifications - chỉ cho phép user xóa notifications của chính mình
- * Best Practice: Ownership verification trước khi delete
+ * Bulk delete notifications - chỉ cho phép user xóa notifications cá nhân của chính mình
+ * Thông báo hệ thống (SYSTEM) không bao giờ được xóa
+ * Best Practice: Ownership verification và kind check trước khi delete
  */
 export async function bulkDelete(notificationIds: string[], userId: string) {
   // Validate input
@@ -555,7 +568,7 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
   // Verify all notifications belong to user
   const notifications = await prisma.notification.findMany({
     where: { id: { in: notificationIds } },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, kind: true },
   })
 
   const invalidNotifications = notifications.filter((n) => n.userId !== userId)
@@ -568,12 +581,60 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
     throw new Error("Forbidden: You can only delete your own notifications")
   }
 
+  // Filter out system notifications - không cho phép xóa
+  const systemNotifications = notifications.filter((n) => n.kind === NotificationKind.SYSTEM)
+  if (systemNotifications.length > 0) {
+    logger.warn("User attempted to delete system notifications", {
+      userId,
+      systemCount: systemNotifications.length,
+      totalCount: notificationIds.length,
+    })
+    // Chỉ xóa các notifications không phải SYSTEM
+    const deletableNotifications = notifications.filter((n) => n.kind !== NotificationKind.SYSTEM)
+    const deletableIds = deletableNotifications.map((n) => n.id)
+
+    if (deletableIds.length === 0) {
+      throw new Error("Forbidden: System notifications cannot be deleted")
+    }
+
+    // Xóa chỉ các notifications có thể xóa được
+    const result = await prisma.notification.deleteMany({
+      where: { 
+        id: { in: deletableIds },
+        userId, // Double check: chỉ delete notifications của user này
+        kind: { not: NotificationKind.SYSTEM }, // Triple check: không xóa SYSTEM
+      },
+    })
+
+    logger.info("Bulk notifications deleted (some system notifications were skipped)", {
+      userId,
+      count: result.count,
+      skippedSystemCount: systemNotifications.length,
+      totalRequested: notificationIds.length,
+    })
+
+    // Emit socket event để remove từ cache
+    const io = getSocketServer()
+    if (io && result.count > 0) {
+      try {
+        io.to(`user:${userId}`).emit("notifications:deleted", { ids: deletableIds })
+        logger.debug("Socket notifications deletion emitted", { userId, count: result.count })
+      } catch (error) {
+        logger.error("Failed to emit socket notifications deletion", error instanceof Error ? error : new Error(String(error)))
+      }
+    }
+
+    return { count: result.count }
+  }
+
+  // Nếu không có SYSTEM notifications, xóa bình thường
   const ownNotificationIds = notifications.map((n) => n.id)
 
   const result = await prisma.notification.deleteMany({
     where: { 
       id: { in: ownNotificationIds },
       userId, // Double check: chỉ delete notifications của user này
+      kind: { not: NotificationKind.SYSTEM }, // Triple check: không xóa SYSTEM
     },
   })
 

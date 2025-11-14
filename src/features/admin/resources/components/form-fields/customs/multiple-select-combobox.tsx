@@ -194,7 +194,7 @@ export function MultipleSelectCombobox<T>({
                       const isSelected = selectedValues.includes(String(option.value))
                       return (
                         <CommandItem
-                          key={option.value}
+                          key={`${group.label}-${option.value}`}
                           value={String(option.value)}
                           onSelect={() => handleToggle(option.value)}
                         >

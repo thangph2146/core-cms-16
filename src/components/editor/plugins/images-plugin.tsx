@@ -162,9 +162,11 @@ export function InsertImageUploadedDialogBody({
 export function InsertImageDialog({
   activeEditor,
   onClose,
+  onInsert,
 }: {
   activeEditor: LexicalEditor
   onClose: () => void
+  onInsert?: (payload: InsertImagePayload, close: () => void) => void
 }): JSX.Element {
   const hasModifier = useRef(false)
 
@@ -180,6 +182,10 @@ export function InsertImageDialog({
   }, [activeEditor])
 
   const onClick = (payload: InsertImagePayload) => {
+    if (onInsert) {
+      onInsert(payload, onClose)
+      return
+    }
     activeEditor.dispatchCommand(INSERT_IMAGE_COMMAND, payload)
     onClose()
   }

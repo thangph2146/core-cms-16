@@ -7,12 +7,15 @@
  * - page: page number (default: 1)
  * - limit: number of notifications per page (default: 10)
  * - search: search term to filter notifications
+ * - filter[column]: column filters (userEmail, kind, isRead)
  */
 import { NextRequest } from "next/server"
 import { auth } from "@/lib/auth/auth"
 import { isSuperAdmin } from "@/lib/permissions"
 import { listNotificationsCached } from "@/features/admin/notifications/server/cache"
 import { createErrorResponse, createSuccessResponse } from "@/lib/config"
+import { sanitizeSearchQuery } from "@/lib/api/validation"
+import { logger } from "@/lib/config/logger"
 
 async function getAdminNotificationsHandler(req: NextRequest) {
   const session = await auth()
@@ -24,8 +27,9 @@ async function getAdminNotificationsHandler(req: NextRequest) {
   const roles = session?.roles ?? []
   const isSuperAdminUser = isSuperAdmin(roles)
   
-  // Nếu không phải super admin, chỉ được xem notifications của chính họ
-  const userId = isSuperAdminUser ? undefined : session.user.id
+  // Luôn truyền userId để chỉ hiển thị thông báo cá nhân của user đang đăng nhập
+  // Thông báo hệ thống (SYSTEM) sẽ được hiển thị cho tất cả users
+  const userId = session.user.id
 
   const searchParams = req.nextUrl.searchParams
   
@@ -46,18 +50,61 @@ async function getAdminNotificationsHandler(req: NextRequest) {
     return createErrorResponse("Limit must be a number between 1 and 100", { status: 400 })
   }
 
-  // Parse search
-  const search = searchParam?.trim() || ""
+  // Parse and sanitize search
+  const searchValidation = sanitizeSearchQuery(searchParam || "", 200)
+  if (!searchValidation.valid) {
+    return createErrorResponse(searchValidation.error || "Invalid search query", { status: 400 })
+  }
+
+  // Parse column filters
+  const columnFilters: Record<string, string> = {}
+  searchParams.forEach((value, key) => {
+    if (key.startsWith("filter[")) {
+      const columnKey = key.replace("filter[", "").replace("]", "")
+      const sanitizedValue = sanitizeSearchQuery(value, 100)
+      if (sanitizedValue.valid && sanitizedValue.value) {
+        columnFilters[columnKey] = sanitizedValue.value
+      }
+    }
+  })
 
   try {
     // Sử dụng cached query function để fetch notifications
     // Nếu userId được truyền, chỉ fetch notifications của user đó
     // Nếu không (super admin), fetch tất cả notifications
+    logger.debug("Fetching admin notifications", {
+      page,
+      limit,
+      search: searchValidation.value || undefined,
+      filters: Object.keys(columnFilters).length > 0 ? columnFilters : undefined,
+      userId,
+      isSuperAdmin: isSuperAdminUser,
+    })
+
     const result = await listNotificationsCached({
       page,
       limit,
-      search: search || undefined,
+      search: searchValidation.value || undefined,
+      filters: Object.keys(columnFilters).length > 0 ? columnFilters : undefined,
       userId,
+    })
+
+    // Log kết quả
+    logger.info("Admin notifications fetched successfully", {
+      totalNotifications: result.data.length,
+      pagination: result.pagination,
+      notifications: result.data.map((n) => ({
+        id: n.id,
+        userId: n.userId,
+        userEmail: n.user.email,
+        kind: n.kind,
+        title: n.title,
+        isRead: n.isRead,
+      })),
+      kindDistribution: result.data.reduce((acc, n) => {
+        acc[n.kind] = (acc[n.kind] || 0) + 1
+        return acc
+      }, {} as Record<string, number>),
     })
 
     return createSuccessResponse({
@@ -78,7 +125,7 @@ async function getAdminNotificationsHandler(req: NextRequest) {
       pagination: result.pagination,
     })
   } catch (error) {
-    console.error("Error fetching admin notifications:", error)
+    logger.error("Error fetching admin notifications", error instanceof Error ? error : new Error(String(error)))
     return createErrorResponse("Internal server error", { status: 500 })
   }
 }

@@ -22,7 +22,7 @@ export function NavMain({ items = [] }: { items?: MenuItem[] }) {
       <SidebarMenu>
         {items.map((item) => (
           <NavMainItem
-            key={item.title}
+            key={item.url}
             title={item.title}
             url={item.url}
             icon={item.icon}

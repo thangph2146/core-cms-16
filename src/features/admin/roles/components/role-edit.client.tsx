@@ -7,11 +7,13 @@
 
 "use client"
 
+import * as React from "react"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
-import { getBaseRoleFields, getRoleFormSections, type RoleFormData } from "../form-fields"
+import { getBaseRoleFields, getRoleFormSections, getAllPermissionsOptionGroups, type RoleFormData } from "../form-fields"
 import type { RoleRow } from "../types"
+import { logger } from "@/lib/config/logger"
 
 interface RoleEditData extends RoleRow {
   permissions: string[]
@@ -43,6 +45,63 @@ export function RoleEditClient({
 }: RoleEditClientProps) {
   // Capture role for use in hook callbacks
   const currentRole = role
+
+  // Get grouped permissions để kiểm tra
+  const permissionsGroups = getAllPermissionsOptionGroups()
+  
+  // Get all options from groups
+  const allPermissionsOptions = permissionsFromServer.length > 0 
+    ? permissionsFromServer 
+    : permissionsGroups.flatMap((group) => group.options)
+  
+  // Debug: Kiểm tra duplicate (chỉ log khi có vấn đề)
+  React.useEffect(() => {
+    logger.debug("=== DEBUG allPermissionsOptions (RoleEdit) ===", {
+      totalOptions: allPermissionsOptions.length,
+      source: permissionsFromServer.length > 0 ? "fromServer" : "fromGroups",
+      allOptions: allPermissionsOptions,
+    })
+    
+    // Check for duplicate values
+    const valueCounts = new Map<string, number>()
+    allPermissionsOptions.forEach((opt) => {
+      const count = valueCounts.get(opt.value) || 0
+      valueCounts.set(opt.value, count + 1)
+    })
+    
+    const duplicates = Array.from(valueCounts.entries()).filter(([_, count]) => count > 1)
+    if (duplicates.length > 0) {
+      logger.warn("⚠️ Duplicate permission values found (RoleEdit)", {
+        duplicates: duplicates.map(([value, count]) => ({ value, count })),
+        totalDuplicates: duplicates.length,
+      })
+    }
+    
+    logger.debug("=== DEBUG permissionsGroups (RoleEdit) ===", {
+      totalGroups: permissionsGroups.length,
+      groups: permissionsGroups.map((g, i) => ({ 
+        index: i, 
+        label: g.label, 
+        optionsCount: g.options.length,
+        options: g.options.map(opt => ({ value: opt.value, label: opt.label }))
+      })),
+    })
+    
+    // Check for duplicate group labels
+    const labelCounts = new Map<string, number>()
+    permissionsGroups.forEach((group) => {
+      const count = labelCounts.get(group.label) || 0
+      labelCounts.set(group.label, count + 1)
+    })
+    
+    const duplicateLabels = Array.from(labelCounts.entries()).filter(([_, count]) => count > 1)
+    if (duplicateLabels.length > 0) {
+      logger.warn("⚠️ Duplicate group labels found (RoleEdit)", {
+        duplicateLabels: duplicateLabels.map(([label, count]) => ({ label, count })),
+        totalDuplicateLabels: duplicateLabels.length,
+      })
+    }
+  }, [allPermissionsOptions, permissionsGroups, permissionsFromServer])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.roles.update(id),

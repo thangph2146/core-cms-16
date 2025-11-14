@@ -92,11 +92,72 @@ async function getUserNotificationsHandler(req: NextRequest) {
   })
 }
 
+async function deleteNotificationsHandler(req: NextRequest) {
+  const session = await auth()
+
+  if (!session?.user?.id) {
+    return createErrorResponse("Unauthorized", { status: 401 })
+  }
+
+  let body: { ids?: unknown }
+  try {
+    body = await req.json()
+  } catch {
+    return createErrorResponse("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.", { status: 400 })
+  }
+
+  const { ids } = body
+
+  // Validate ids array
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return createErrorResponse("Danh sách ID thông báo không hợp lệ", { status: 400 })
+  }
+
+  if (ids.length > 100) {
+    return createErrorResponse("Chỉ có thể xóa tối đa 100 thông báo một lúc", { status: 400 })
+  }
+
+  // Validate all IDs are strings
+  for (const id of ids) {
+    if (typeof id !== "string" || !id.trim()) {
+      return createErrorResponse(`ID không hợp lệ: ${id}`, { status: 400 })
+    }
+  }
+
+  try {
+    const { bulkDelete } = await import("@/features/admin/notifications/server/mutations")
+    const result = await bulkDelete(ids as string[], session.user.id)
+    return createSuccessResponse({ success: true, count: result.count })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Internal server error"
+    
+    // Handle specific error cases
+    if (errorMessage.includes("cannot be deleted")) {
+      return createErrorResponse("Thông báo hệ thống không thể xóa", { status: 403 })
+    }
+    if (errorMessage.includes("Forbidden") || errorMessage.includes("only delete")) {
+      return createErrorResponse("Bạn chỉ có thể xóa thông báo của chính mình", { status: 403 })
+    }
+    
+    console.error("Error deleting notifications:", error)
+    return createErrorResponse("Internal server error", { status: 500 })
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     return await getUserNotificationsHandler(req)
   } catch (error) {
     console.error("Error fetching notifications:", error)
+    return createErrorResponse("Internal server error", { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    return await deleteNotificationsHandler(req)
+  } catch (error) {
+    console.error("Error deleting notifications:", error)
     return createErrorResponse("Internal server error", { status: 500 })
   }
 }

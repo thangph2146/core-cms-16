@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react"
-import { Eye, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { Eye, CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
@@ -22,7 +23,7 @@ import { ResourceTableClient } from "@/features/admin/resources/components/resou
 import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
-import { useAdminNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { useAdminNotificationsSocketBridge, useDeleteNotification } from "@/hooks/use-notifications"
 import { logger } from "@/lib/config"
 import type { NotificationRow } from "../types"
 
@@ -208,10 +209,29 @@ export function NotificationsTableClient({
   const loader: ResourceTableLoader<NotificationRow> = useCallback(
     async (query: DataTableQueryState, _view: ResourceViewMode<NotificationRow>) => {
       // Sử dụng apiRoutes để tạo URL đúng
-      const url = apiRoutes.adminNotifications.list({
+      const baseUrl = apiRoutes.adminNotifications.list({
         page: query.page,
         limit: query.limit,
-        search: query.search.trim(),
+        search: query.search.trim() || undefined,
+      })
+
+      // Xử lý filters giống như các table khác
+      const filterParams = new URLSearchParams()
+      Object.entries(query.filters).forEach(([key, value]) => {
+        if (value) {
+          filterParams.set(`filter[${key}]`, value)
+        }
+      })
+
+      const filterString = filterParams.toString()
+      const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
+
+      logger.debug("Loading notifications from API", {
+        url,
+        page: query.page,
+        limit: query.limit,
+        search: query.search.trim() || undefined,
+        filters: query.filters,
       })
 
       // Không cần invalidate trong loader - loader sẽ được gọi khi refreshKey thay đổi
@@ -233,8 +253,30 @@ export function NotificationsTableClient({
 
       const payload = response.data.data
       if (!payload) {
+        logger.error("Failed to load notifications - no payload", {
+          error: response.data.error,
+          message: response.data.message,
+        })
         throw new Error(response.data.error || response.data.message || "Không nhận được dữ liệu thông báo")
       }
+
+      // Log kết quả nhận được từ API
+      logger.info("Notifications loaded successfully (client)", {
+        totalNotifications: payload.data.length,
+        pagination: payload.pagination,
+        notifications: payload.data.map((n) => ({
+          id: n.id,
+          userId: n.userId,
+          userEmail: n.userEmail,
+          kind: n.kind,
+          title: n.title,
+          isRead: n.isRead,
+        })),
+        kindDistribution: payload.data.reduce((acc, n) => {
+          acc[n.kind] = (acc[n.kind] || 0) + 1
+          return acc
+        }, {} as Record<string, number>),
+      })
 
       return {
         rows: payload.data,
@@ -332,6 +374,113 @@ export function NotificationsTableClient({
         }
       } catch {
         showFeedback("error", "Lỗi", "Không thể đánh dấu đã đọc các thông báo.")
+      } finally {
+        setIsProcessing(false)
+      }
+    },
+    [showFeedback, triggerTableRefresh, session?.user?.id]
+  )
+
+  const deleteNotificationMutation = useDeleteNotification()
+
+  // Handler để xóa một notification
+  const handleDeleteSingle = useCallback(
+    async (row: NotificationRow, refresh: () => void) => {
+      // Kiểm tra quyền: chỉ cho phép xóa notification của chính mình
+      const isOwner = session?.user?.id === row.userId
+      
+      if (!isOwner) {
+        showFeedback("error", "Không có quyền", "Bạn chỉ có thể xóa thông báo của chính mình.")
+        return
+      }
+
+      // Kiểm tra không phải thông báo hệ thống
+      if (row.kind === "SYSTEM") {
+        showFeedback("error", "Không thể xóa", "Thông báo hệ thống không thể xóa.")
+        return
+      }
+
+      try {
+        await deleteNotificationMutation.mutateAsync(row.id)
+        showFeedback("success", "Đã xóa thông báo", "Thông báo đã được xóa thành công.")
+        refresh()
+      } catch (error: unknown) {
+        const errorMessage = 
+          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          "Không thể xóa thông báo."
+        showFeedback("error", "Xóa thất bại", errorMessage)
+      }
+    },
+    [showFeedback, session?.user?.id, deleteNotificationMutation]
+  )
+
+  // Handler để xóa nhiều notifications
+  const handleBulkDelete = useCallback(
+    async (ids: string[], rows?: NotificationRow[]) => {
+      if (!session?.user?.id) {
+        showFeedback("error", "Lỗi", "Bạn cần đăng nhập để thực hiện thao tác này.")
+        return
+      }
+
+      // Filter chỉ notifications của chính user và không phải SYSTEM
+      let deletableNotificationIds: string[]
+      let systemCount = 0
+      let otherCount = 0
+
+      if (rows) {
+        // Nếu có rows data, filter theo userId và kind
+        const ownNotifications = rows.filter((row) => row.userId === session.user.id)
+        otherCount = rows.length - ownNotifications.length
+        
+        const nonSystemNotifications = ownNotifications.filter((row) => row.kind !== "SYSTEM")
+        systemCount = ownNotifications.length - nonSystemNotifications.length
+        
+        deletableNotificationIds = nonSystemNotifications.map((row) => row.id)
+      } else {
+        // Nếu không có rows data, gọi API và để server filter
+        deletableNotificationIds = ids
+      }
+
+      if (deletableNotificationIds.length === 0) {
+        if (systemCount > 0) {
+          showFeedback("error", "Không thể xóa", "Thông báo hệ thống không thể xóa.")
+        } else {
+          showFeedback("error", "Không có quyền", "Bạn chỉ có thể xóa thông báo của chính mình.")
+        }
+        return
+      }
+
+      try {
+        setIsProcessing(true)
+        const response = await apiClient.delete<{
+          success: boolean
+          data?: { count: number }
+          error?: string
+          message?: string
+        }>(apiRoutes.notifications.deleteAll, {
+          data: { ids: deletableNotificationIds },
+        })
+
+        const deletedCount = response.data.data?.count || 0
+
+        if (deletedCount > 0) {
+          let message = `Đã xóa ${deletedCount} thông báo.`
+          if (systemCount > 0) {
+            message += ` ${systemCount} thông báo hệ thống đã được bỏ qua.`
+          }
+          if (otherCount > 0) {
+            message += ` ${otherCount} thông báo không thuộc về bạn đã được bỏ qua.`
+          }
+          showFeedback("success", "Đã xóa thông báo", message)
+          triggerTableRefresh()
+        } else {
+          showFeedback("error", "Lỗi", "Không thể xóa các thông báo. Bạn chỉ có thể xóa thông báo cá nhân của chính mình.")
+        }
+      } catch (error: unknown) {
+        const errorMessage = 
+          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          "Không thể xóa các thông báo."
+        showFeedback("error", "Xóa thất bại", errorMessage)
       } finally {
         setIsProcessing(false)
       }
@@ -468,6 +617,7 @@ export function NotificationsTableClient({
       session?.user?.id,
       togglingNotifications,
       handleToggleRead,
+      handleDeleteSingle,
     ]
   )
 
@@ -484,14 +634,24 @@ export function NotificationsTableClient({
             const ownNotificationIds = ownNotifications.map((row) => row.id)
             const otherCount = selectedIds.length - ownNotificationIds.length
 
+            // Filter notifications có thể xóa (không phải SYSTEM)
+            const deletableNotifications = ownNotifications.filter((row) => row.kind !== "SYSTEM")
+            const deletableNotificationIds = deletableNotifications.map((row) => row.id)
+            const systemCount = ownNotifications.length - deletableNotifications.length
+
             // Wrap handlers với refresh function
             const handleBulkMarkAsReadWithRefresh = async () => {
               await handleBulkMarkAsRead(ownNotificationIds, ownNotifications)
               refresh?.() // Trigger table refresh
             }
 
+            const handleBulkDeleteWithRefresh = async () => {
+              await handleBulkDelete(selectedIds, selectedRows)
+              refresh?.() // Trigger table refresh
+            }
+
             return (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -502,9 +662,23 @@ export function NotificationsTableClient({
                   Đánh dấu đã đọc ({ownNotificationIds.length}
                   {otherCount > 0 && ` / ${selectedIds.length}`})
                 </Button>
-                {otherCount > 0 && (
+                {deletableNotificationIds.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleBulkDeleteWithRefresh}
+                    disabled={isProcessing}
+                  >
+                    <Trash2 className="mr-2 h-5 w-5" />
+                    Xóa ({deletableNotificationIds.length}
+                    {systemCount > 0 || otherCount > 0 ? ` / ${selectedIds.length}` : ""})
+                  </Button>
+                )}
+                {(otherCount > 0 || systemCount > 0) && (
                   <span className="text-xs text-muted-foreground flex items-center">
-                    ({otherCount} thông báo không thuộc về bạn)
+                    ({systemCount > 0 && `${systemCount} hệ thống, `}
+                    {otherCount > 0 && `${otherCount} không thuộc về bạn`}
+                    {systemCount > 0 && otherCount === 0 && "không thể xóa"})
                   </span>
                 )}
               </div>
@@ -512,32 +686,75 @@ export function NotificationsTableClient({
           }
         : undefined,
       rowActions: canManage
-        ? (row) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <span className="sr-only">Mở menu</span>
-                  <MoreHorizontal className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => router.push(`/admin/notifications/${row.id}`)}>
+        ? (row) => {
+            const isOwner = session?.user?.id === row.userId
+            const canDelete = isOwner && row.kind !== "SYSTEM"
+            
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <span className="sr-only">Mở menu</span>
+                    <MoreHorizontal className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => router.push(`/admin/notifications/${row.id}`)}>
+                    <Eye className="mr-2 h-5 w-5" />
+                    Xem chi tiết
+                  </DropdownMenuItem>
+                  {canDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (tableRefreshRef.current) {
+                            handleDeleteSingle(row, tableRefreshRef.current)
+                          }
+                        }}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-5 w-5" />
+                        Xóa
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+          }
+        : (row) => {
+            const isOwner = session?.user?.id === row.userId
+            const canDelete = isOwner && row.kind !== "SYSTEM"
+            
+            return (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/admin/notifications/${row.id}`)}
+                >
                   <Eye className="mr-2 h-5 w-5" />
                   Xem chi tiết
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )
-        : (row) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push(`/admin/notifications/${row.id}`)}
-            >
-              <Eye className="mr-2 h-5 w-5" />
-              Xem chi tiết
-            </Button>
-          ),
+                </Button>
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (tableRefreshRef.current) {
+                        handleDeleteSingle(row, tableRefreshRef.current)
+                      }
+                    }}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-5 w-5" />
+                    Xóa
+                  </Button>
+                )}
+              </div>
+            )
+          },
     },
   ]
 

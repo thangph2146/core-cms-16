@@ -89,6 +89,7 @@ export interface MediaResizerProps {
   captionsEnabled?: boolean
   onSetFullWidth?: () => void
   unlockBoundaries?: boolean
+  onReplaceMedia?: () => void
 }
 
 /**
@@ -106,6 +107,7 @@ export function MediaResizer({
   captionsEnabled = false,
   onSetFullWidth: _onSetFullWidth,
   unlockBoundaries = true,
+  onReplaceMedia,
 }: MediaResizerProps): JSX.Element {
   const controlWrapperRef = useRef<HTMLDivElement>(null)
   const userSelect = useRef({
@@ -379,6 +381,17 @@ export function MediaResizer({
         ))}
       </div>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
+        {onReplaceMedia && (
+          <Button
+            className="image-replace-button"
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onReplaceMedia}
+          >
+            Change Image
+          </Button>
+        )}
         {setShowCaption && captionsEnabled && (
           <Button
             className="image-caption-button"
