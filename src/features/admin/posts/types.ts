@@ -17,7 +17,7 @@ export interface PostRow {
   }
 }
 
-export interface PostsTableClientProps extends BaseResourceTableClientProps<PostRow> {}
+export type PostsTableClientProps = BaseResourceTableClientProps<PostRow>
 
 export type PostsResponse = ResourceResponse<PostRow>
 

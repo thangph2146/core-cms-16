@@ -64,11 +64,12 @@ export default async function AdminLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { resource?: string }
+  params: Promise<{ resource?: string }>
 }) {
   // Session được fetch trong NavMainWithMenu để không block layout rendering
   // Layout structure render ngay, menu stream khi ready
-  const resourceParam = params?.resource?.toLowerCase()
+  const resolvedParams = await params
+  const resourceParam = resolvedParams?.resource?.toLowerCase()
   const resourceSegment = resourceParam && resourceParam.length > 0 ? resourceParam : DEFAULT_RESOURCE_SEGMENT
 
   return (

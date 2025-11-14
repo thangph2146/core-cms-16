@@ -270,7 +270,7 @@ export function UsersTableClient({
         },
       },
     ],
-    [dateFormatter, rolesOptions, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, togglingUsers, canManage, handleToggleStatus],
+    [dateFormatter, rolesOptions, emailFilter.options, emailFilter.onSearchChange, emailFilter.isLoading, nameFilter.options, nameFilter.onSearchChange, nameFilter.isLoading, togglingUsers, canManage, handleToggleStatus, showFeedback],
   )
 
   const deletedColumns = useMemo<DataTableColumn<UserRow>[]>(
