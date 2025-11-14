@@ -453,8 +453,11 @@ export function SessionsTableClient({
                       Xem chi tiết
                     </DropdownMenuItem>
                     {canDelete && (
-                      <DropdownMenuItem onClick={() => handleDeleteSingle(row, refresh)}>
-                        <Trash2 className="mr-2 h-5 w-5" />
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteSingle(row, refresh)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
                         Xóa
                       </DropdownMenuItem>
                     )}
