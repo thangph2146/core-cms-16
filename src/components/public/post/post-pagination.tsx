@@ -24,13 +24,13 @@ export function PostPagination({ currentPage, totalPages }: PostPaginationProps)
       params.set("page", page.toString())
     }
     const queryString = params.toString()
-    return `/post${queryString ? `?${queryString}` : ""}`
+    return `/bai-viet${queryString ? `?${queryString}` : ""}`
   }
 
   // Calculate visible page range
   const maxVisible = 5
   let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
-  let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+  const endPage = Math.min(totalPages, startPage + maxVisible - 1)
 
   // Adjust if we're near the end
   if (endPage - startPage < maxVisible - 1) {

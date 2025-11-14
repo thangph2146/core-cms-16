@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { FileText, Filter } from "lucide-react"
+import { Filter } from "lucide-react"
 import { PostList } from "@/features/public/post/components/post-list"
 import { PostCategoryNav } from "@/features/public/post/components/post-category-nav"
 import { PostSort } from "@/features/public/post/components/post-sort"

@@ -1,6 +1,6 @@
 import { PostListSkeleton } from "@/features/public/post/components/post-list"
 import { Skeleton } from "@/components/ui/skeleton"
-import { FileText, Filter } from "lucide-react"
+import { Filter } from "lucide-react"
 
 export default function PostLoading() {
   return (
