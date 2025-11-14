@@ -21,7 +21,7 @@ export function PostCard({ post, className }: PostCardProps) {
   return (
     <article className={cn("group flex flex-col h-full bg-card rounded-lg border overflow-hidden transition-all hover:shadow-lg", className)}>
       <Link 
-        href={`/post/${post.slug}`} 
+        href={`/bai-viet/${post.slug}`} 
         className="flex flex-col flex-1"
       >
         {/* Featured Image */}
