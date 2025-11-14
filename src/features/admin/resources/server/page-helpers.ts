@@ -30,16 +30,20 @@ export function getTablePermissions(
   resourcePermissions: {
     delete: Permission[]
     restore: Permission[]
-    manage: Permission
+    manage: Permission | Permission[]
     create: Permission
   }
 ): TablePermissions {
   const { permissions, roles } = authInfo
 
+  const managePermissions = Array.isArray(resourcePermissions.manage)
+    ? resourcePermissions.manage
+    : [resourcePermissions.manage]
+
   return {
     canDelete: canPerformAnyAction(permissions, roles, resourcePermissions.delete),
     canRestore: canPerformAnyAction(permissions, roles, resourcePermissions.restore),
-    canManage: canPerformAction(permissions, roles, resourcePermissions.manage),
+    canManage: canPerformAnyAction(permissions, roles, managePermissions),
     canCreate: canPerformAction(permissions, roles, resourcePermissions.create),
   }
 }
@@ -55,7 +59,7 @@ export async function getTablePermissionsAsync(
   resourcePermissions: {
     delete: Permission[]
     restore: Permission[]
-    manage: Permission
+    manage: Permission | Permission[]
     create: Permission
   }
 ): Promise<TablePermissions> {

@@ -15,6 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Permission } from "@/lib/permissions"
 import type { ReactNode } from "react"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
@@ -60,17 +61,27 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href={dashboardHref}>
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Command className="size-4" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton size="lg" asChild>
+                  <a href={dashboardHref}>
+                    <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                      <Command className="size-4" />
+                    </div>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium">{brandingName}</span>
+                      <span className="truncate text-xs">{brandingDescription}</span>
+                    </div>
+                  </a>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                <div className="space-y-1">
+                  <p className="font-medium">{brandingName}</p>
+                  <p className="text-xs opacity-90">{brandingDescription}</p>
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{brandingName}</span>
-                  <span className="truncate text-xs">{brandingDescription}</span>
-                </div>
-              </a>
-            </SidebarMenuButton>
+              </TooltipContent>
+            </Tooltip>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

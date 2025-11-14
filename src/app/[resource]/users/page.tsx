@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
-import { PERMISSIONS } from "@/lib/permissions"
+import { PERMISSIONS, type Permission } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { UsersTable } from "@/features/admin/users/components/users-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
@@ -36,7 +36,7 @@ async function UsersTableWithPermissions() {
   const permissions = await getTablePermissionsAsync({
     delete: [PERMISSIONS.USERS_DELETE, PERMISSIONS.USERS_MANAGE],
     restore: [PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_MANAGE],
-    manage: PERMISSIONS.USERS_MANAGE,
+    manage: [PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_MANAGE] as Permission[],
     create: PERMISSIONS.USERS_CREATE,
   })
 

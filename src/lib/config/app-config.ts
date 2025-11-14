@@ -100,28 +100,28 @@ export interface AppBranding {
 
 const ROLE_BRANDING_MAP: Record<string, AppBranding> = {
   [DEFAULT_ROLES.SUPER_ADMIN.name]: {
-    name: "CMS Siêu Quản Trị",
-    description: "Toàn quyền cấu hình và giám sát hệ thống",
+    name: "CMS Super Admin",
+    description: "Hệ thống quản trị tối cao - Toàn quyền hệ thống",
   },
   [DEFAULT_ROLES.ADMIN.name]: {
-    name: "CMS Quản Trị",
-    description: "Quản lý vận hành và dữ liệu nội bộ",
+    name: "CMS Admin",
+    description: "Hệ thống quản trị nội dung và người dùng",
   },
   [DEFAULT_ROLES.EDITOR.name]: {
     name: "CMS Biên Tập",
-    description: "Không gian sáng tạo nội dung và kiểm duyệt",
+    description: "Hệ thống biên tập và xuất bản nội dung",
   },
   [DEFAULT_ROLES.AUTHOR.name]: {
     name: "CMS Tác Giả",
-    description: "Nơi biên soạn và xuất bản bài viết nhanh chóng",
+    description: "Hệ thống quản lý bài viết và nội dung",
   },
   [DEFAULT_ROLES.USER.name]: {
     name: "CMS Người Dùng",
-    description: "Trung tâm cập nhật thông tin và tương tác nội bộ",
+    description: "Hệ thống dành cho người dùng",
   },
   [DEFAULT_ROLES.PARENT.name]: {
-    name: "CMS Phụ huynh",
-    description: "Hệ thống quản lý dành riêng cho phụ huynh",
+    name: "CMS Phụ Huynh",
+    description: "Hệ thống quản lý cho phụ huynh",
   },
 }
 
@@ -137,19 +137,22 @@ export function getAppBranding({
     description: appConfig.description,
   }
 
-  const lookupKeys: string[] = []
-
-  if (resourceSegment) {
-    lookupKeys.push(resourceSegment.toLowerCase())
+  // Ưu tiên check roles trước (chính xác hơn)
+  if (roles && roles.length > 0) {
+    for (const role of roles) {
+      if (role?.name) {
+        const key = role.name.toLowerCase()
+        const branding = ROLE_BRANDING_MAP[key]
+        if (branding) {
+          return branding
+        }
+      }
+    }
   }
 
-  roles?.forEach((role) => {
-    if (role?.name) {
-      lookupKeys.push(role.name.toLowerCase())
-    }
-  })
-
-  for (const key of lookupKeys) {
+  // Nếu không tìm thấy từ roles, thử resourceSegment như fallback
+  if (resourceSegment) {
+    const key = resourceSegment.toLowerCase()
     const branding = ROLE_BRANDING_MAP[key]
     if (branding) {
       return branding
