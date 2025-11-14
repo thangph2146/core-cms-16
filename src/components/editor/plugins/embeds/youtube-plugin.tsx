@@ -35,16 +35,43 @@ export function YouTubePlugin(): JSX.Element | null {
     return editor.registerCommand<InsertYouTubePayload>(
       INSERT_YOUTUBE_COMMAND,
       (payload) => {
-        const youTubeNode =
+        const rootElement = editor.getRootElement()
+        const fallbackWidth =
+          rootElement?.getBoundingClientRect().width ?? 640
+        const resolvedMaxWidth =
+          fallbackWidth > 0 ? Math.round(fallbackWidth) : 640
+        const clampToEditorWidth = (value?: number) => {
+          if (typeof value !== "number") {
+            return value
+          }
+          return Math.min(value, resolvedMaxWidth)
+        }
+        const normalizedPayload =
           typeof payload === "string"
-            ? $createYouTubeNode(payload)
-            : $createYouTubeNode(
-                payload.id,
-                payload.width,
-                payload.height,
-                payload.maxWidth,
-                payload.fullWidth
-              )
+            ? {
+                id: payload,
+                width: undefined,
+                height: undefined,
+                maxWidth: resolvedMaxWidth,
+                fullWidth: false,
+              }
+            : {
+                id: payload.id,
+                width: clampToEditorWidth(payload.width),
+                height: payload.height,
+                maxWidth:
+                  payload.maxWidth !== undefined
+                    ? clampToEditorWidth(payload.maxWidth)
+                    : resolvedMaxWidth,
+                fullWidth: payload.fullWidth ?? false,
+              }
+        const youTubeNode = $createYouTubeNode(
+          normalizedPayload.id,
+          normalizedPayload.width,
+          normalizedPayload.height,
+          normalizedPayload.maxWidth,
+          normalizedPayload.fullWidth
+        )
         $insertNodeToNearestRoot(youTubeNode)
 
         return true

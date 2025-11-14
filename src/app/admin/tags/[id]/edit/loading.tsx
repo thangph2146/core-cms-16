@@ -1,5 +1,5 @@
 import { AdminHeader } from "@/components/headers"
-import { ResourceDetailSkeleton } from "@/components/skeletons"
+import { ResourceFormSkeleton } from "@/components/skeletons"
 
 export default function TagEditPageLoading() {
   return (
@@ -11,7 +11,7 @@ export default function TagEditPageLoading() {
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <ResourceDetailSkeleton showHeader={true} fieldCount={6} sectionCount={1} />
+        <ResourceFormSkeleton fieldCount={6} title={true} showCard={false} />
       </div>
     </>
   )

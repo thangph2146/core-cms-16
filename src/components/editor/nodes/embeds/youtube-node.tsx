@@ -3,7 +3,9 @@ import { JSX } from "react"
 import { BlockWithAlignableContents } from "@lexical/react/LexicalBlockWithAlignableContents"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
+import { mergeRegister } from "@lexical/utils"
 import { ImageResizer } from "@/components/editor/editor-ui/image-resizer"
+import { getContainerWidth } from "@/components/editor/editor-ui/image-sizing"
 import {
   DecoratorBlockNode,
   SerializedDecoratorBlockNode,
@@ -19,7 +21,7 @@ import type {
   NodeKey,
   Spread,
 } from "lexical"
-import { $getNodeByKey } from "lexical"
+import { $getNodeByKey, CLICK_COMMAND, COMMAND_PRIORITY_LOW } from "lexical"
 
 type YouTubeComponentProps = Readonly<{
   className: Readonly<{
@@ -48,10 +50,14 @@ function YouTubeComponent({
   editor,
 }: YouTubeComponentProps) {
   const isEditable = useLexicalEditable()
-  const [isSelected] = useLexicalNodeSelection(nodeKey)
+  const [isSelected, setSelected, clearSelection] =
+    useLexicalNodeSelection(nodeKey)
   const [isResizing, setIsResizing] = React.useState(false)
   const wrapperRef = React.useRef<HTMLDivElement | null>(null)
+  const [wrapperElement, setWrapperElement] =
+    React.useState<HTMLDivElement | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement | null>(null)
+  const [containerWidth, setContainerWidth] = React.useState<number>(maxWidth)
   const updateNode = React.useCallback(
     (updater: (node: YouTubeNode) => void) => {
       editor.update(() => {
@@ -65,17 +71,110 @@ function YouTubeComponent({
   )
   // YouTube videos have 16:9 aspect ratio (width:height)
   const aspectRatio = 16 / 9
-  const actualWidth: number = typeof width === "number" ? width : maxWidth
-  const actualHeight: number =
-    typeof height === "number"
-      ? height
-      : Math.round(actualWidth / aspectRatio)
+  const clampToContainer = React.useCallback(
+    (value: number) => {
+      return Math.min(value, containerWidth || value)
+    },
+    [containerWidth]
+  )
+  React.useEffect(() => {
+    if (!wrapperElement) {
+      return
+    }
+    const editorRoot = editor.getRootElement()
+    const parentElement = wrapperElement.parentElement
+    const getMeasurementTarget = () => parentElement ?? wrapperElement
+    const updateAvailableWidth = () => {
+      const measurementTarget = getMeasurementTarget()
+      const widthValue =
+        getContainerWidth(measurementTarget, editorRoot) || maxWidth
+      if (widthValue > 0) {
+        setContainerWidth((prev) => (prev === widthValue ? prev : widthValue))
+      }
+    }
+    updateAvailableWidth()
+    const hasResizeObserver =
+      typeof window !== "undefined" && typeof ResizeObserver !== "undefined"
+    let observer: ResizeObserver | null = null
+    if (hasResizeObserver) {
+      observer = new ResizeObserver(updateAvailableWidth)
+      observer.observe(wrapperElement)
+      if (parentElement && parentElement !== wrapperElement) {
+        observer.observe(parentElement)
+      }
+      if (editorRoot && editorRoot !== parentElement) {
+        observer.observe(editorRoot)
+      }
+      return () => observer?.disconnect()
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", updateAvailableWidth)
+      return () => window.removeEventListener("resize", updateAvailableWidth)
+    }
+  }, [editor, maxWidth, wrapperElement])
+  React.useEffect(() => {
+    if (!containerWidth) {
+      return
+    }
+    updateNode((node) => {
+      if (node.getMaxWidth() !== containerWidth) {
+        node.setMaxWidth(containerWidth)
+      }
+    })
+  }, [containerWidth, updateNode])
+  const availableWidth = containerWidth || maxWidth
+  const targetWidth =
+    typeof width === "number" ? width : availableWidth
+  const boundedWidth =
+    typeof targetWidth === "number"
+      ? Math.min(targetWidth, availableWidth)
+      : availableWidth
+  const renderedWidth = fullWidth ? availableWidth : boundedWidth
+  const actualHeight: number = Math.round(renderedWidth / aspectRatio)
   // CSS aspect-ratio expects width/height, not height/width
   const cssAspectRatio =
     typeof width === "number" && typeof height === "number" && height > 0
       ? width / height
       : aspectRatio
   const isFocused = (isSelected || isResizing) && isEditable
+  const disablePlaybackInteractions = isEditable
+  const iframeWidth = renderedWidth
+  const iframeHeight = Math.round(iframeWidth / aspectRatio)
+  const handleWrapperRef = React.useCallback((node: HTMLDivElement | null) => {
+    wrapperRef.current = node
+    setWrapperElement(node)
+  }, [])
+  React.useEffect(() => {
+    if (!isEditable) {
+      return
+    }
+    return mergeRegister(
+      editor.registerCommand<MouseEvent>(
+        CLICK_COMMAND,
+        (event) => {
+          const wrapper = wrapperRef.current
+          if (!wrapper || !(event.target instanceof Node)) {
+            return false
+          }
+          if (!wrapper.contains(event.target)) {
+            return false
+          }
+          if (isResizing) {
+            return true
+          }
+          if (event.shiftKey) {
+            setSelected(!isSelected)
+          } else {
+            clearSelection()
+            setSelected(true)
+          }
+          event.preventDefault()
+          return true
+        },
+        COMMAND_PRIORITY_LOW
+      )
+    )
+  }, [clearSelection, editor, isEditable, isResizing, isSelected, setSelected])
   return (
     <BlockWithAlignableContents
       className={className}
@@ -84,35 +183,59 @@ function YouTubeComponent({
     >
       <div
         style={{
-          width: fullWidth ? "100%" : actualWidth,
+          width: fullWidth ? "100%" : boundedWidth,
           height: fullWidth ? undefined : actualHeight,
           aspectRatio: cssAspectRatio,
+          maxWidth: "100%",
         }}
-        className="relative block"
-        ref={wrapperRef}
+        className="relative inline-block"
+        ref={handleWrapperRef}
       >
         <iframe
-          width={actualWidth}
-          height={actualHeight}
+          width={iframeWidth}
+          height={iframeHeight}
           src={`https://www.youtube-nocookie.com/embed/${videoID}`}
           frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow={
+            disablePlaybackInteractions
+              ? "accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              : "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          }
           allowFullScreen={true}
           title="YouTube video"
-          className="block absolute inset-0 h-full w-full"
+          className={`block absolute inset-0 h-full w-full ${
+            disablePlaybackInteractions ? "pointer-events-none" : ""
+          }`}
+          tabIndex={disablePlaybackInteractions ? -1 : undefined}
+          aria-label={
+            disablePlaybackInteractions
+              ? "YouTube video preview disabled while editing"
+              : "YouTube video"
+          }
         />
         {isFocused && (
           <ImageResizer
             editor={editor}
             buttonRef={buttonRef}
             mediaRef={wrapperRef}
+            unlockBoundaries={false}
             onResizeStart={() => {
               setIsResizing(true)
               updateNode((node) => node.setFullWidth(false))
             }}
             onResizeEnd={(nextWidth, nextHeight) => {
               setTimeout(() => setIsResizing(false), 200)
-              updateNode((node) => node.setWidthAndHeight(nextWidth, nextHeight))
+              const finalWidth =
+                typeof nextWidth === "number"
+                  ? clampToContainer(nextWidth)
+                  : nextWidth
+              const finalHeight =
+                typeof finalWidth === "number"
+                  ? Math.round(finalWidth / aspectRatio)
+                  : nextHeight
+              updateNode((node) =>
+                node.setWidthAndHeight(finalWidth, finalHeight)
+              )
             }}
             onSetFullWidth={() => {
               updateNode((node) => node.setFullWidth(true))
@@ -191,7 +314,7 @@ export class YouTubeNode extends DecoratorBlockNode {
       height:
         this.__height === "inherit" ? undefined : (this.__height as number),
       maxWidth: this.__maxWidth,
-      fullWidth: this.__fullWidth || undefined,
+      fullWidth: this.__fullWidth,
     }
   }
 
@@ -209,8 +332,8 @@ export class YouTubeNode extends DecoratorBlockNode {
     this.__width = width ?? "inherit"
     this.__height = height ?? "inherit"
     this.__maxWidth = maxWidth
-    // Default to full width if not specified to keep consistent across views
-    this.__fullWidth = fullWidth === undefined ? true : !!fullWidth
+    // Default to not full width so align controls remain effective
+    this.__fullWidth = fullWidth ?? false
   }
 
   exportDOM(): DOMExportOutput {
@@ -292,6 +415,18 @@ export class YouTubeNode extends DecoratorBlockNode {
     const writable = this.getWritable()
     writable.__width = width
     writable.__height = height
+  }
+  getMaxWidth(): number {
+    return this.__maxWidth
+  }
+
+  setMaxWidth(maxWidth: number) {
+    const writable = this.getWritable()
+    writable.__maxWidth = maxWidth
+  }
+
+  isFullWidth(): boolean {
+    return this.__fullWidth
   }
 
   setFullWidth(fullWidth: boolean) {

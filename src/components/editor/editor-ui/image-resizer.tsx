@@ -87,6 +87,7 @@ export interface MediaResizerProps {
   setShowCaption?: (show: boolean) => void
   captionsEnabled?: boolean
   onSetFullWidth?: () => void
+  unlockBoundaries?: boolean
 }
 
 /**
@@ -103,6 +104,7 @@ export function MediaResizer({
   setShowCaption,
   captionsEnabled = false,
   onSetFullWidth: _onSetFullWidth,
+  unlockBoundaries = true,
 }: MediaResizerProps): JSX.Element {
   const controlWrapperRef = useRef<HTMLDivElement>(null)
   const userSelect = useRef({
@@ -139,10 +141,13 @@ export function MediaResizer({
   const minHeight = 100
 
   React.useEffect(() => {
+    if (!unlockBoundaries) {
+      return
+    }
     if (mediaRef.current) {
       unlockImageBoundaries(mediaRef.current)
     }
-  }, [mediaRef])
+  }, [mediaRef, unlockBoundaries])
 
   const setStartCursor = (direction: number) => {
     const ew = direction === Direction.east || direction === Direction.west
@@ -207,7 +212,9 @@ export function MediaResizer({
 
     if (media !== null && controlWrapper !== null) {
       event.preventDefault()
-      unlockImageBoundaries(media)
+      if (unlockBoundaries) {
+        unlockImageBoundaries(media)
+      }
       const { width, height } = media.getBoundingClientRect()
       const zoom = calculateZoomLevel(media)
       const positioning = positioningRef.current

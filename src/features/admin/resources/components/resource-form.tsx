@@ -476,7 +476,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
           <div className="space-y-1.5 flex-1 min-w-0">
             {backUrl && (
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
                 onClick={() => router.push(backUrl)}
                 className="-ml-2"
