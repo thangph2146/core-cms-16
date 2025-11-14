@@ -9,7 +9,6 @@
 
 import * as React from "react"
 import { ArrowLeft } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +21,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { type ResourceFormSection } from "./resource-form"
+import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
+import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 export interface ResourceDetailField<T = unknown> {
   name: keyof T | string
@@ -87,7 +88,12 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
   detailSections,
   afterSections,
 }: ResourceDetailPageProps<T>) {
-  const router = useRouter()
+  const router = useResourceRouter()
+  const resourceSegment = useResourceSegment()
+  const resolvedBackUrl = React.useMemo(
+    () => (backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined),
+    [backUrl, resourceSegment],
+  )
 
   const allFields = React.useMemo(
     () => Array.isArray(fields) ? fields : fields.fields,
@@ -287,10 +293,10 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
           <CardContent className="pt-6">
             <div className="text-center">
               <p className="text-muted-foreground">Không tìm thấy dữ liệu</p>
-              {backUrl && (
+              {resolvedBackUrl && (
                 <Button
                   variant="outline"
-                  onClick={() => router.push(backUrl)}
+                  onClick={() => router.push(resolvedBackUrl)}
                   className="mt-4"
                 >
                   <ArrowLeft className="mr-2 h-5 w-5" />
@@ -306,11 +312,11 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8 mx-auto w-full max-w-[100%]">
-      {(title || backUrl || actions) && (
+      {(title || resolvedBackUrl || actions) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
           <div className="space-y-1.5 flex-1 min-w-0">
-            {backUrl && (
-              <Button size="sm" onClick={() => router.push(backUrl)} className="-ml-2">
+            {resolvedBackUrl && (
+              <Button size="sm" onClick={() => router.push(resolvedBackUrl)} className="-ml-2">
                 <ArrowLeft className="mr-2 h-5 w-5" />
                 {backLabel}
               </Button>

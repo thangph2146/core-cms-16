@@ -39,6 +39,7 @@ import type { Permission } from "@/lib/permissions"
 import { canPerformAnyAction } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import { useClientOnly } from "@/hooks/use-client-only"
+import { useResourceSegment } from "@/hooks/use-resource-segment"
 
 
 export function NavUser({ className }: { className?: string }) {
@@ -54,6 +55,7 @@ export function NavUser({ className }: { className?: string }) {
   const isMobile = sidebar?.isMobile ?? false
   
   const user = session?.user
+  const resourceSegment = useResourceSegment()
   const primaryRole = session?.roles?.[0]
   
   const getInitials = (name?: string | null) => {
@@ -70,10 +72,10 @@ export function NavUser({ className }: { className?: string }) {
     
     if (!permissions.length) return []
     
-    return getMenuData(permissions).navMain.filter((item) =>
+    return getMenuData(permissions, roles, resourceSegment).navMain.filter((item) =>
       canPerformAnyAction(permissions, roles, [...item.permissions])
     )
-  }, [session?.permissions, session?.roles])
+  }, [session?.permissions, session?.roles, resourceSegment])
   
   // Loading state
   if (status === "loading" || !user) {

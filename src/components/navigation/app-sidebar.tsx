@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Command } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { appConfig, getMenuData } from "@/lib/config"
+import { appConfig, getAppBranding, getMenuData } from "@/lib/config"
 import { NavProjects, NavSecondary, NavUser } from "./"
 import { AppSidebarSkeleton } from "@/components/skeletons"
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import type { Permission } from "@/lib/permissions"
 import type { ReactNode } from "react"
+import { useResourceSegment } from "@/hooks/use-resource-segment"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   navMainSlot?: ReactNode
@@ -26,6 +27,7 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
   // Get session from NextAuth
   const { data: session, status } = useSession()
   const isLoading = status === "loading"
+  const resourceSegment = useResourceSegment()
 
   // Get menu data based on permissions
   const menuData = React.useMemo(() => {
@@ -37,8 +39,21 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
         projects: [],
       }
     }
-    return getMenuData(permissions)
-  }, [session?.permissions])
+    return getMenuData(permissions, session?.roles ?? [], resourceSegment)
+  }, [session?.permissions, session?.roles, resourceSegment])
+
+  const branding = React.useMemo(
+    () =>
+      getAppBranding({
+        roles: session?.roles,
+        resourceSegment,
+      }),
+    [session?.roles, resourceSegment],
+  )
+
+  const brandingName = branding.name ?? appConfig.name
+  const brandingDescription = branding.description ?? appConfig.description
+  const dashboardHref = `/${resourceSegment}/dashboard`
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -46,13 +61,13 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/admin/dashboard">
+              <a href={dashboardHref}>
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{appConfig.name}</span>
-                  <span className="truncate text-xs">{appConfig.description}</span>
+                  <span className="truncate font-medium">{brandingName}</span>
+                  <span className="truncate text-xs">{brandingDescription}</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -76,3 +91,5 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
     </Sidebar>
   )
 }
+
+export default AppSidebar

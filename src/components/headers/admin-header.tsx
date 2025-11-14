@@ -17,6 +17,8 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { NotificationBell } from "@/components/notifications"
 import { ModeToggle } from "@/components/shared"
+import { useResourceSegment } from "@/hooks/use-resource-segment"
+import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 export interface AdminBreadcrumbItem {
   label: string
@@ -30,6 +32,8 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
   const { data: session } = useSession()
+  const resourceSegment = useResourceSegment()
+  const dashboardHref = applyResourceSegmentToPath("/admin/dashboard", resourceSegment)
 
   return (
     <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -42,7 +46,7 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className="hidden md:block">
-              <BreadcrumbLink href="/admin/dashboard">
+              <BreadcrumbLink href={dashboardHref}>
                 Trang quản trị
               </BreadcrumbLink>
             </BreadcrumbItem>
@@ -51,16 +55,19 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
             )}
             {breadcrumbs.map((item, index) => {
               const isLast = index === breadcrumbs.length - 1
+              const resolvedHref = item.href
+                ? applyResourceSegmentToPath(item.href, resourceSegment)
+                : undefined
               return (
                 <React.Fragment key={index}>
                   {index > 0 && (
                     <BreadcrumbSeparator className="hidden md:block" />
                   )}
                   <BreadcrumbItem className={item.isActive ? "" : "hidden md:block"}>
-                    {isLast || !item.href ? (
+                    {isLast || !resolvedHref ? (
                       <BreadcrumbPage>{item.label}</BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink href={item.href}>
+                      <BreadcrumbLink href={resolvedHref}>
                         {item.label}
                       </BreadcrumbLink>
                     )}

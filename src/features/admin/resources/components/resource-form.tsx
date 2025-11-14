@@ -8,7 +8,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
 import { Loader2, Save, ArrowLeft, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +36,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { renderFieldInput } from "./form-fields"
+import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 export interface ResourceFormField<T = unknown> {
   name: keyof T | string
@@ -113,7 +114,9 @@ export function ResourceForm<T extends Record<string, unknown>>({
   open = true,
   onOpenChange,
 }: ResourceFormProps<T>) {
-  const router = useRouter()
+  const router = useResourceRouter()
+  const resourceSegment = useResourceSegment()
+  const resolvedBackUrl = backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined
   const [isPending, setIsPending] = useState(false)
   const [formData, setFormData] = useState<Partial<T>>(() => {
     const initial: Partial<T> = {}
@@ -201,8 +204,8 @@ export function ResourceForm<T extends Record<string, unknown>>({
       onCancel()
     } else if (variant === "dialog" || variant === "sheet") {
       onOpenChange?.(false)
-    } else if (backUrl) {
-      router.push(backUrl)
+    } else if (resolvedBackUrl) {
+      router.push(resolvedBackUrl)
     }
   }
 
@@ -381,7 +384,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
         onClick={handleCancel}
         disabled={isPending}
       >
-        {variant === "page" && backUrl ? (
+        {variant === "page" && resolvedBackUrl ? (
           <>
             <ArrowLeft className="mr-2 h-5 w-5" />
             {cancelLabel}
@@ -471,14 +474,14 @@ export function ResourceForm<T extends Record<string, unknown>>({
   return (
     <div className={cn("flex flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8 mx-auto w-full max-w-[100%]", className)}>
       {/* Header */}
-      {(title || backUrl) && (
+      {(title || resolvedBackUrl) && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
           <div className="space-y-1.5 flex-1 min-w-0">
-            {backUrl && (
+            {resolvedBackUrl && (
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => router.push(backUrl)}
+                onClick={() => router.push(resolvedBackUrl)}
                 className="-ml-2"
               >
                 <ArrowLeft className="mr-2 h-5 w-5" />

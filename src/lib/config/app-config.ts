@@ -6,6 +6,8 @@
  * - Open Graph và Twitter Card support
  * - Canonical URLs và robots configuration
  */
+import { DEFAULT_ROLES } from "@/lib/permissions"
+
 export const appConfig = {
   // Basic metadata
   titleDefault: "CMS - Hệ thống quản trị nội dung",
@@ -90,4 +92,70 @@ export const appConfig = {
     maximumScale: 5,
   },
 } as const
+
+export interface AppBranding {
+  name: string
+  description: string
+}
+
+const ROLE_BRANDING_MAP: Record<string, AppBranding> = {
+  parent: {
+    name: "CMS Phụ huynh",
+    description: "Hệ thống quản lý dành riêng cho phụ huynh",
+  },
+  [DEFAULT_ROLES.SUPER_ADMIN.name]: {
+    name: "CMS Siêu Quản Trị",
+    description: "Toàn quyền cấu hình và giám sát hệ thống",
+  },
+  [DEFAULT_ROLES.ADMIN.name]: {
+    name: "CMS Quản Trị",
+    description: "Quản lý vận hành và dữ liệu nội bộ",
+  },
+  [DEFAULT_ROLES.EDITOR.name]: {
+    name: "CMS Biên Tập",
+    description: "Không gian sáng tạo nội dung và kiểm duyệt",
+  },
+  [DEFAULT_ROLES.AUTHOR.name]: {
+    name: "CMS Tác Giả",
+    description: "Nơi biên soạn và xuất bản bài viết nhanh chóng",
+  },
+  [DEFAULT_ROLES.USER.name]: {
+    name: "CMS Người Dùng",
+    description: "Trung tâm cập nhật thông tin và tương tác nội bộ",
+  },
+}
+
+export function getAppBranding({
+  roles,
+  resourceSegment,
+}: {
+  roles?: Array<{ name?: string | null }>
+  resourceSegment?: string | null
+} = {}): AppBranding {
+  const fallback: AppBranding = {
+    name: appConfig.name,
+    description: appConfig.description,
+  }
+
+  const lookupKeys: string[] = []
+
+  if (resourceSegment) {
+    lookupKeys.push(resourceSegment.toLowerCase())
+  }
+
+  roles?.forEach((role) => {
+    if (role?.name) {
+      lookupKeys.push(role.name.toLowerCase())
+    }
+  })
+
+  for (const key of lookupKeys) {
+    const branding = ROLE_BRANDING_MAP[key]
+    if (branding) {
+      return branding
+    }
+  }
+
+  return fallback
+}
 

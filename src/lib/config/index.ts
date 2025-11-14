@@ -9,7 +9,7 @@ export { logger } from "./logger"
 export { getMenuData } from "./menu-data"
 export type { MenuItem, MenuSubItem, MenuProject } from "./navigation-types"
 
-export { appConfig } from "./app-config"
+export { appConfig, getAppBranding, type AppBranding } from "./app-config"
 
 export {
   apiPathConfig,

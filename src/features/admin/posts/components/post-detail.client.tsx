@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
+import { useResourcePath, useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { Editor } from "@/components/blocks/editor-x/editor"
 import type { SerializedEditorState } from "lexical"
@@ -60,7 +60,8 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: PostDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
+  const resolvedBackUrl = useResourcePath(backUrl)
 
   const detailFields: ResourceDetailField<PostDetailData>[] = []
 
@@ -246,7 +247,7 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(backUrl)}
+            onClick={() => router.push(resolvedBackUrl)}
           >
             Quay lại
           </Button>

@@ -21,6 +21,7 @@ import {
   MENU_PERMISSIONS,
   PERMISSIONS,
   type Permission,
+  applyResourceSegmentToPath,
 } from "@/lib/permissions"
 import {
   getResourceCreateRoute,
@@ -96,14 +97,14 @@ export const appFeatures: FeatureDefinition[] = [
         id: "dashboard.page",
         label: "DashboardPage",
         mode: "static",
-        modulePath: "@/app/admin/dashboard/page",
+        modulePath: "@/app/[resource]/dashboard/page",
         description: "Server component fetches summary cards",
       },
       {
         id: "dashboard.stats",
         label: "DashboardStatsPage",
         mode: "static",
-        modulePath: "@/app/admin/dashboard/stats/page",
+        modulePath: "@/app/[resource]/dashboard/stats/page",
         description: "Server component cho trang số liệu chi tiết",
       },
     ],
@@ -463,13 +464,13 @@ const hasAnyPermission = (required: ReadonlyArray<Permission>, granted: Permissi
   return required.some((perm) => granted.includes(perm))
 }
 
-const buildResourceSubItems = (resourceName: string): MenuSubItem[] => {
+const buildResourceSubItems = (resourceName: string, resourceSegment: string): MenuSubItem[] => {
   const items: MenuSubItem[] = []
   const mainRoute = getResourceMainRoute(resourceName)
   if (mainRoute) {
     items.push({
       title: "Danh sách",
-      url: mainRoute.path,
+      url: applyResourceSegmentToPath(mainRoute.path, resourceSegment),
       permissions: mainRoute.permissions as Permission[],
     })
   }
@@ -478,7 +479,7 @@ const buildResourceSubItems = (resourceName: string): MenuSubItem[] => {
   if (createRoute) {
     items.push({
       title: "Thêm mới",
-      url: createRoute.path,
+      url: applyResourceSegmentToPath(createRoute.path, resourceSegment),
       permissions: createRoute.permissions as Permission[],
     })
   }
@@ -491,7 +492,7 @@ const buildResourceSubItems = (resourceName: string): MenuSubItem[] => {
       .join(" ")
     items.push({
       title,
-      url: route.path,
+      url: applyResourceSegmentToPath(route.path, resourceSegment),
       permissions: route.permissions as Permission[],
     })
   })
@@ -499,18 +500,18 @@ const buildResourceSubItems = (resourceName: string): MenuSubItem[] => {
   return items
 }
 
-const resolveBaseUrl = (nav?: FeatureNavigationConfig): string | null => {
+const resolveBaseUrl = (nav: FeatureNavigationConfig | undefined, resourceSegment: string): string | null => {
   if (!nav) {
     return null
   }
 
   if (nav.href) {
-    return nav.href
+    return applyResourceSegmentToPath(nav.href, resourceSegment)
   }
 
   if (nav.resourceName) {
     const route = getResourceMainRoute(nav.resourceName)
-    return route?.path ?? null
+    return route ? applyResourceSegmentToPath(route.path, resourceSegment) : null
   }
 
   return null
@@ -519,6 +520,7 @@ const resolveBaseUrl = (nav?: FeatureNavigationConfig): string | null => {
 const buildMenuItemFromFeature = (
   feature: FeatureDefinition,
   userPermissions: Permission[],
+  resourceSegment: string,
 ): MenuItem | null => {
   const nav = feature.navigation
   if (!nav) {
@@ -529,7 +531,7 @@ const buildMenuItemFromFeature = (
     return null
   }
 
-  const baseUrl = resolveBaseUrl(nav)
+  const baseUrl = resolveBaseUrl(nav, resourceSegment)
   if (!baseUrl) {
     return null
   }
@@ -539,11 +541,16 @@ const buildMenuItemFromFeature = (
   const subItems: MenuSubItem[] = []
 
   if (nav.autoGenerateSubRoutes && nav.resourceName) {
-    subItems.push(...buildResourceSubItems(nav.resourceName))
+    subItems.push(...buildResourceSubItems(nav.resourceName, resourceSegment))
   }
 
   if (nav.subItems?.length) {
-    subItems.push(...nav.subItems)
+    subItems.push(
+      ...nav.subItems.map((item) => ({
+        ...item,
+        url: item.url ? applyResourceSegmentToPath(item.url, resourceSegment) : item.url,
+      })),
+    )
   }
 
   const filteredSubItems = subItems.length
@@ -562,7 +569,11 @@ const buildMenuItemFromFeature = (
   }
 }
 
-export function buildNavigationMenu(group: FeatureGroup, userPermissions: Permission[]): MenuItem[] {
+export function buildNavigationMenu(
+  group: FeatureGroup,
+  userPermissions: Permission[],
+  resourceSegment: string,
+): MenuItem[] {
   return appFeatures
     .filter((feature) => feature.navigation?.group === group)
     .sort((a, b) => {
@@ -570,7 +581,7 @@ export function buildNavigationMenu(group: FeatureGroup, userPermissions: Permis
       const orderB = b.navigation?.order ?? 0
       return orderA - orderB
     })
-    .map((feature) => buildMenuItemFromFeature(feature, userPermissions))
+    .map((feature) => buildMenuItemFromFeature(feature, userPermissions, resourceSegment))
     .filter((item): item is MenuItem => Boolean(item))
 }
 

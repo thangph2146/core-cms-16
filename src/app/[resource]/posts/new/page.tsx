@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { AdminHeader } from "@/components/headers"
 import { PostCreate } from "@/features/admin/posts/components/post-create"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
 
 /**
  * Post Create Page Metadata
@@ -21,22 +22,33 @@ export const metadata: Metadata = {
  * Theo Next.js 16 best practices:
  * - Header render ngay, form content stream khi ready
  */
-async function PostCreateContent() {
-  return <PostCreate />
+async function PostCreateContent({ backUrl }: { backUrl: string }) {
+  return <PostCreate backUrl={backUrl} />
 }
 
-export default async function CreatePostPage() {
+export default async function CreatePostPage({
+  params,
+}: {
+  params: Promise<{ resource?: string }>
+}) {
+  const resolvedParams = await params
+  const resourceSegment =
+    resolvedParams.resource && resolvedParams.resource.length > 0
+      ? resolvedParams.resource.toLowerCase()
+      : DEFAULT_RESOURCE_SEGMENT
+  const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
+
   return (
     <>
       <AdminHeader
         breadcrumbs={[
-          { label: "Bài viết", href: "/admin/posts" },
+          { label: "Bài viết", href: listHref },
           { label: "Tạo mới", isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={3}>
-          <PostCreateContent />
+          <PostCreateContent backUrl={listHref} />
         </FormPageSuspense>
       </div>
     </>

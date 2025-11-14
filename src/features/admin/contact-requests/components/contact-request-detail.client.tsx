@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
 
@@ -88,7 +88,7 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function ContactRequestDetailClient({ contactRequestId, contactRequest, backUrl = "/admin/contact-requests" }: ContactRequestDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const detailFields: ResourceDetailField<ContactRequestDetailData>[] = []
 

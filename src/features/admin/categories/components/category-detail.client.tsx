@@ -6,7 +6,7 @@ import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSectio
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 
 export interface CategoryDetailData {
@@ -47,7 +47,7 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/categories" }: CategoryDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const detailFields: ResourceDetailField<CategoryDetailData>[] = []
 

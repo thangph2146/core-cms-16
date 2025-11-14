@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
@@ -46,7 +46,7 @@ export function CommentsTableClient({
   canApprove = false,
   initialData,
 }: CommentsTableClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)

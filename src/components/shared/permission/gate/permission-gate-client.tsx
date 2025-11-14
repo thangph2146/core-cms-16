@@ -9,7 +9,14 @@
 
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { getRoutePermissions, canPerformAnyAction } from "@/lib/permissions"
+import {
+  DEFAULT_RESOURCE_SEGMENT,
+  getRoutePermissions,
+  canPerformAnyAction,
+  getResourceSegmentForRoles,
+  toCanonicalResourcePath,
+  applyResourceSegmentToPath,
+} from "@/lib/permissions"
 import type { Permission } from "@/lib/permissions"
 import { ForbiddenNotice, UnauthenticatedNotice } from "@/components/shared"
 import { AlreadyAuthenticatedNotice } from "../already-authenticated-notice"
@@ -28,6 +35,7 @@ export function PermissionGateClient({ children, permissions, roles }: Permissio
   const mounted = useClientOnly()
   const { status } = useSession()
   const [isChecking, setIsChecking] = useState(true)
+  const resourceSegment = getResourceSegmentForRoles(roles)
 
   // Combined useEffect for checking state
   useEffect(() => {
@@ -47,11 +55,43 @@ export function PermissionGateClient({ children, permissions, roles }: Permissio
   }, [pathname, status, mounted])
 
   // Loading states
-  if (!pathname || isChecking || status === "loading" || (!mounted && pathname?.startsWith("/admin"))) {
+  const canonicalPathname = pathname
+    ? toCanonicalResourcePath(pathname, resourceSegment)
+    : pathname
+
+  const expectedPathname =
+    pathname &&
+    status === "authenticated" &&
+    resourceSegment !== DEFAULT_RESOURCE_SEGMENT &&
+    pathname.startsWith(`/${DEFAULT_RESOURCE_SEGMENT}`)
+      ? applyResourceSegmentToPath(pathname, resourceSegment)
+      : null
+
+  useEffect(() => {
+    if (
+      expectedPathname &&
+      pathname &&
+      expectedPathname !== pathname
+    ) {
+      router.replace(expectedPathname)
+    }
+  }, [expectedPathname, pathname, router])
+
+  const isProtectedRoute =
+    !!canonicalPathname?.startsWith(`/${DEFAULT_RESOURCE_SEGMENT}`) ||
+    pathname?.startsWith(`/${resourceSegment}`)
+
+  if (
+    !pathname ||
+    isChecking ||
+    status === "loading" ||
+    (expectedPathname && expectedPathname !== pathname) ||
+    (!mounted && isProtectedRoute)
+  ) {
     return null
   }
 
-  const isAdminRoute = pathname.startsWith("/admin")
+  const isAdminRoute = isProtectedRoute
   const isAuthRoute = pathname.startsWith("/auth")
 
   // Show unauthenticated notice instead of redirecting
@@ -73,7 +113,9 @@ export function PermissionGateClient({ children, permissions, roles }: Permissio
 
   // Permission checks (only for authenticated users)
   if (status === "authenticated") {
-    const requiredPermissions = getRoutePermissions(pathname)
+    const requiredPermissions = canonicalPathname
+      ? getRoutePermissions(canonicalPathname)
+      : []
     if (requiredPermissions.length > 0 && !canPerformAnyAction(permissions, roles, requiredPermissions)) {
       return <ForbiddenNotice />
     }

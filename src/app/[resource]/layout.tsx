@@ -7,6 +7,8 @@ import { NavMainSkeleton } from "@/components/skeletons"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { PermissionGate } from "@/components/shared"
 import type { Permission } from "@/lib/permissions"
+import { DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
+import { ResourceSegmentProvider } from "@/hooks/use-resource-segment"
 
 /**
  * Admin Layout Metadata
@@ -45,12 +47,12 @@ export const metadata: Metadata = {
  * - SidebarInset: Main content area
  * - PermissionGate: Check permission dựa trên route path, hiển thị ForbiddenNotice nếu không có quyền
  */
-async function NavMainWithMenu() {
+async function NavMainWithMenu({ resourceSegment }: { resourceSegment: string }) {
   const session = await getSession()
   
   // Fetch menu data dựa trên permissions
   const menuData = session?.permissions && session.permissions.length > 0
-    ? getMenuData(session.permissions as Permission[], session.roles ?? [])
+    ? getMenuData(session.permissions as Permission[], session.roles ?? [], resourceSegment)
     : { navMain: [] }
   const navMainItems = menuData.navMain
 
@@ -59,26 +61,32 @@ async function NavMainWithMenu() {
 
 export default async function AdminLayout({
   children,
+  params,
 }: {
   children: React.ReactNode
+  params: { resource?: string }
 }) {
   // Session được fetch trong NavMainWithMenu để không block layout rendering
   // Layout structure render ngay, menu stream khi ready
+  const resourceParam = params?.resource?.toLowerCase()
+  const resourceSegment = resourceParam && resourceParam.length > 0 ? resourceParam : DEFAULT_RESOURCE_SEGMENT
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        navMainSlot={
-          <Suspense fallback={<NavMainSkeleton />}>
-            <NavMainWithMenu />
-          </Suspense>
-        }
-      />
-      <SidebarInset className="flex flex-col w-full overflow-x-hidden">
-        <PermissionGate>
-          {children}
-        </PermissionGate>
-      </SidebarInset>
-    </SidebarProvider>
+    <ResourceSegmentProvider value={resourceSegment}>
+      <SidebarProvider>
+        <AppSidebar
+          navMainSlot={
+            <Suspense fallback={<NavMainSkeleton />}>
+              <NavMainWithMenu resourceSegment={resourceSegment} />
+            </Suspense>
+          }
+        />
+        <SidebarInset className="flex flex-col w-full overflow-x-hidden">
+          <PermissionGate>
+            {children}
+          </PermissionGate>
+        </SidebarInset>
+      </SidebarProvider>
+    </ResourceSegmentProvider>
   )
 }

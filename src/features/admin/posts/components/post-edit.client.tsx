@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useSession } from "next-auth/react"
 import { ResourceForm, type ResourceFormField, type ResourceFormSection } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
@@ -46,7 +46,7 @@ export function PostEditClient({
     users = [],
     isSuperAdmin: isSuperAdminProp = false,
 }: PostEditClientProps) {
-    const router = useRouter()
+    const router = useResourceRouter()
     const { data: session } = useSession()
     const userRoles = session?.roles || []
     const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)

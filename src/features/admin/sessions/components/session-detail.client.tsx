@@ -4,7 +4,7 @@ import { User, Globe, MapPin, Calendar, CheckCircle2, XCircle, Edit, Key, Refres
 import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 
 export interface SessionDetailData {
@@ -32,7 +32,7 @@ export interface SessionDetailClientProps {
 }
 
 export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sessions" }: SessionDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const detailFields: ResourceDetailField<SessionDetailData>[] = [
     {

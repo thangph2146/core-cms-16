@@ -5,7 +5,7 @@ import { Tag, Hash, Calendar, Clock, Edit } from "lucide-react"
 import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 
 export interface TagDetailData {
@@ -45,7 +45,7 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const detailFields: ResourceDetailField<TagDetailData>[] = []
 

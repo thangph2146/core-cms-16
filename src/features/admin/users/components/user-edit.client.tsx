@@ -8,7 +8,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
@@ -55,7 +55,7 @@ export function UserEditClient({
   const currentUserRoles = session?.roles || []
   const isSuperAdminUser = isSuperAdmin(currentUserRoles)
   const { roles } = useRoles({ initialRoles: rolesFromServer })
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.users.update(id),

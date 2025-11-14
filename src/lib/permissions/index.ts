@@ -65,3 +65,12 @@ export {
   generateResourceApiRoutes,
 } from "./api-route-helpers"
 
+// Resource segment helpers
+export {
+  DEFAULT_RESOURCE_SEGMENT,
+  getResourceSegmentForRoles,
+  applyResourceSegmentToPath,
+  toCanonicalResourcePath,
+  replaceResourceSegment,
+} from "./resource-segment"
+

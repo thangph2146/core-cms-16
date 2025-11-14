@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { getAllPermissionsOptionGroups } from "../form-fields"
 import {
@@ -65,7 +65,7 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
 
   // Get grouped permissions

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import { Eye, CheckCircle2, MoreHorizontal, Trash2 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useQueryClient, useQuery } from "@tanstack/react-query"
 import { queryKeys, invalidateQueries } from "@/lib/query-keys"
 import { apiRoutes } from "@/lib/api/routes"
@@ -57,7 +57,7 @@ export function NotificationsTableClient({
   initialData,
   isSuperAdmin: _isSuperAdminProp = false,
 }: NotificationsTableClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   

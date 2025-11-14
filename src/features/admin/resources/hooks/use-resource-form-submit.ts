@@ -5,7 +5,7 @@
  * và navigation. Giảm duplicate code trong các create/edit client components.
  */
 
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useToast } from "@/hooks/use-toast"
 import { extractAxiosErrorMessage } from "@/lib/utils/api-utils"
 import { apiClient } from "@/lib/api/axios"
@@ -102,7 +102,7 @@ export function useResourceFormSubmit({
   transformData,
   onSuccess,
 }: UseResourceFormSubmitOptions): UseResourceFormSubmitResult {
-  const router = useRouter()
+  const router = useResourceRouter()
   const { toast } = useToast()
 
   const handleSubmit = async (data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {

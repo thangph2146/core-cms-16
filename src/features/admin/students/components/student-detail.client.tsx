@@ -6,7 +6,7 @@ import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSectio
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
 
@@ -52,7 +52,7 @@ const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: Fiel
 )
 
 export function StudentDetailClient({ studentId, student, backUrl = "/admin/students" }: StudentDetailClientProps) {
-  const router = useRouter()
+  const router = useResourceRouter()
 
   const detailFields: ResourceDetailField<StudentDetailData>[] = []
 
