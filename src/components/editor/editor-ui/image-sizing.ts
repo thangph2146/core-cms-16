@@ -59,21 +59,61 @@ export const getNearestContentWidth = (image: HTMLElement) => {
   return null
 }
 
+const FIELD_CONTENT_SELECTOR = "[data-slot='field-content']"
+
+const getFieldContentWidth = (element: HTMLElement | null) => {
+  if (!element) {
+    return null
+  }
+  const fieldContent = element.closest(FIELD_CONTENT_SELECTOR) as
+    | HTMLElement
+    | null
+  if (fieldContent) {
+    const width = getInnerWidth(fieldContent)
+    if (width > 0) {
+      return width
+    }
+  }
+  return null
+}
+
+const clampWidth = (value: number | null, hardLimit?: number) => {
+  if (!value || value <= 0) {
+    return null
+  }
+  if (hardLimit && hardLimit > 0) {
+    return Math.min(value, hardLimit)
+  }
+  return value
+}
+
 export const getContainerWidth = (
-  image: HTMLElement,
-  editorRoot: HTMLElement | null
+  element: HTMLElement,
+  editorRoot: HTMLElement | null,
+  hardLimit?: number
 ) => {
-  const contentWidth = getNearestContentWidth(image)
-  if (contentWidth && contentWidth > 0) {
+  const fieldContentWidth = clampWidth(
+    getFieldContentWidth(element),
+    hardLimit
+  )
+  if (fieldContentWidth) {
+    return fieldContentWidth
+  }
+  const contentWidth = clampWidth(getNearestContentWidth(element), hardLimit)
+  if (contentWidth) {
     return contentWidth
   }
 
   if (editorRoot) {
-    const rootWidth = getInnerWidth(editorRoot)
-    if (rootWidth > 0) {
+    const rootWidth = clampWidth(getInnerWidth(editorRoot), hardLimit)
+    if (rootWidth) {
       return rootWidth
     }
   }
 
-  return image.getBoundingClientRect().width
+  const elementWidth = clampWidth(
+    element.getBoundingClientRect().width,
+    hardLimit
+  )
+  return elementWidth ?? undefined
 }

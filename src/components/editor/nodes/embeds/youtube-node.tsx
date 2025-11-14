@@ -6,6 +6,8 @@ import { useLexicalNodeSelection } from "@lexical/react/useLexicalNodeSelection"
 import { mergeRegister } from "@lexical/utils"
 import { ImageResizer } from "@/components/editor/editor-ui/image-resizer"
 import { getContainerWidth } from "@/components/editor/editor-ui/image-sizing"
+import { useEditorContainer } from "@/components/editor/context/editor-container-context"
+import { cn } from "@/lib/utils"
 import {
   DecoratorBlockNode,
   SerializedDecoratorBlockNode,
@@ -58,6 +60,8 @@ function YouTubeComponent({
     React.useState<HTMLDivElement | null>(null)
   const buttonRef = React.useRef<HTMLButtonElement | null>(null)
   const [containerWidth, setContainerWidth] = React.useState<number>(maxWidth)
+  const editorContainer = useEditorContainer()
+  const editorHardWidthLimit = editorContainer?.maxWidth
   const updateNode = React.useCallback(
     (updater: (node: YouTubeNode) => void) => {
       editor.update(() => {
@@ -73,9 +77,13 @@ function YouTubeComponent({
   const aspectRatio = 16 / 9
   const clampToContainer = React.useCallback(
     (value: number) => {
-      return Math.min(value, containerWidth || value)
+      const limit =
+        typeof editorHardWidthLimit === "number" && editorHardWidthLimit > 0
+          ? editorHardWidthLimit
+          : containerWidth || value
+      return Math.min(value, limit)
     },
-    [containerWidth]
+    [containerWidth, editorHardWidthLimit]
   )
   React.useEffect(() => {
     if (!wrapperElement) {
@@ -83,11 +91,18 @@ function YouTubeComponent({
     }
     const editorRoot = editor.getRootElement()
     const parentElement = wrapperElement.parentElement
+    const fieldContentElement = wrapperElement.closest(
+      "[data-slot='field-content']"
+    ) as HTMLElement | null
     const getMeasurementTarget = () => parentElement ?? wrapperElement
     const updateAvailableWidth = () => {
       const measurementTarget = getMeasurementTarget()
       const widthValue =
-        getContainerWidth(measurementTarget, editorRoot) || maxWidth
+        getContainerWidth(
+          measurementTarget,
+          editorRoot,
+          editorHardWidthLimit
+        ) || maxWidth
       if (widthValue > 0) {
         setContainerWidth((prev) => (prev === widthValue ? prev : widthValue))
       }
@@ -98,22 +113,39 @@ function YouTubeComponent({
     let observer: ResizeObserver | null = null
     if (hasResizeObserver) {
       observer = new ResizeObserver(updateAvailableWidth)
-      observer.observe(wrapperElement)
+      const elementsToObserve = new Set<HTMLElement>()
+      elementsToObserve.add(wrapperElement)
       if (parentElement && parentElement !== wrapperElement) {
-        observer.observe(parentElement)
+        elementsToObserve.add(parentElement)
       }
-      if (editorRoot && editorRoot !== parentElement) {
-        observer.observe(editorRoot)
+      if (fieldContentElement) {
+        elementsToObserve.add(fieldContentElement)
       }
+      if (
+        editorRoot &&
+        editorRoot instanceof HTMLElement &&
+        editorRoot !== parentElement &&
+        editorRoot !== wrapperElement
+      ) {
+        elementsToObserve.add(editorRoot)
+      }
+      elementsToObserve.forEach((element) => observer?.observe(element))
       return () => observer?.disconnect()
     }
     if (typeof window !== "undefined") {
       window.addEventListener("resize", updateAvailableWidth)
       return () => window.removeEventListener("resize", updateAvailableWidth)
     }
-  }, [editor, maxWidth, wrapperElement])
+  }, [editor, editorHardWidthLimit, maxWidth, wrapperElement])
   React.useEffect(() => {
     if (!containerWidth) {
+      return
+    }
+    if (
+      editorHardWidthLimit &&
+      containerWidth > editorHardWidthLimit
+    ) {
+      setContainerWidth(editorHardWidthLimit)
       return
     }
     updateNode((node) => {
@@ -121,8 +153,11 @@ function YouTubeComponent({
         node.setMaxWidth(containerWidth)
       }
     })
-  }, [containerWidth, updateNode])
-  const availableWidth = containerWidth || maxWidth
+  }, [containerWidth, editorHardWidthLimit, updateNode])
+  const availableWidth = Math.min(
+    containerWidth || maxWidth,
+    editorHardWidthLimit || containerWidth || maxWidth
+  )
   const targetWidth =
     typeof width === "number" ? width : availableWidth
   const boundedWidth =
@@ -130,7 +165,9 @@ function YouTubeComponent({
       ? Math.min(targetWidth, availableWidth)
       : availableWidth
   const renderedWidth = fullWidth ? availableWidth : boundedWidth
-  const actualHeight: number = Math.round(renderedWidth / aspectRatio)
+  const safeRenderedWidth = editorHardWidthLimit
+    ? Math.min(renderedWidth, editorHardWidthLimit)
+    : renderedWidth
   // CSS aspect-ratio expects width/height, not height/width
   const cssAspectRatio =
     typeof width === "number" && typeof height === "number" && height > 0
@@ -138,7 +175,7 @@ function YouTubeComponent({
       : aspectRatio
   const isFocused = (isSelected || isResizing) && isEditable
   const disablePlaybackInteractions = isEditable
-  const iframeWidth = renderedWidth
+  const iframeWidth = safeRenderedWidth
   const iframeHeight = Math.round(iframeWidth / aspectRatio)
   const handleWrapperRef = React.useCallback((node: HTMLDivElement | null) => {
     wrapperRef.current = node
@@ -175,6 +212,30 @@ function YouTubeComponent({
       )
     )
   }, [clearSelection, editor, isEditable, isResizing, isSelected, setSelected])
+  React.useEffect(() => {
+    if (
+      !containerWidth ||
+      typeof width !== "number" ||
+      fullWidth ||
+      width <= containerWidth
+    ) {
+      return
+    }
+    updateNode((node) => {
+      const nextWidth = clampToContainer(width)
+      const nextHeight = Math.round(nextWidth / aspectRatio)
+      node.setWidthAndHeight(nextWidth, nextHeight)
+    })
+  }, [
+    aspectRatio,
+    clampToContainer,
+    containerWidth,
+    editorHardWidthLimit,
+    fullWidth,
+    updateNode,
+    width,
+  ])
+
   return (
     <BlockWithAlignableContents
       className={className}
@@ -183,12 +244,18 @@ function YouTubeComponent({
     >
       <div
         style={{
-          width: fullWidth ? "100%" : boundedWidth,
-          height: fullWidth ? undefined : actualHeight,
+          width: fullWidth
+            ? "100%"
+            : `${Math.max(safeRenderedWidth, 0)}px`,
           aspectRatio: cssAspectRatio,
           maxWidth: "100%",
+          height: "auto",
         }}
-        className="relative inline-block"
+        className={cn(
+          "editor-embed-frame relative inline-block",
+          fullWidth ? "editor-embed-frame--full" : "editor-embed-frame--inline"
+        )}
+        data-editor-embed-fullwidth={fullWidth ? "true" : "false"}
         ref={handleWrapperRef}
       >
         <iframe
@@ -218,7 +285,6 @@ function YouTubeComponent({
             editor={editor}
             buttonRef={buttonRef}
             mediaRef={wrapperRef}
-            unlockBoundaries={false}
             onResizeStart={() => {
               setIsResizing(true)
               updateNode((node) => node.setFullWidth(false))

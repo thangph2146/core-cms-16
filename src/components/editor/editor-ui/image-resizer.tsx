@@ -10,6 +10,7 @@ import {
   getImageAspectRatio,
   unlockImageBoundaries,
 } from "@/components/editor/editor-ui/image-sizing"
+import { useEditorContainer } from "@/components/editor/context/editor-container-context"
 
 function clamp(value: number, min: number, max: number) {
   // Nếu max là Infinity, chỉ giới hạn min
@@ -136,6 +137,8 @@ export function MediaResizer({
   })
   const editorRootElement = editor.getRootElement()
   const maxHeightContainer = Infinity
+  const editorContainer = useEditorContainer()
+  const hardWidthLimit = editorContainer?.maxWidth
 
   const minWidth = 100
   const minHeight = 100
@@ -228,8 +231,15 @@ export function MediaResizer({
       positioning.isResizing = true
       positioning.direction = direction
       // Giới hạn theo bề rộng container để không vượt quá parent
-      const containerWidth = getContainerWidth(media, editor.getRootElement())
-      positioning.maxWidthLimit = containerWidth || Infinity
+      const containerWidth = getContainerWidth(
+        media,
+        editor.getRootElement(),
+        hardWidthLimit
+      )
+      const allowedWidth = containerWidth || Infinity
+      positioning.maxWidthLimit = hardWidthLimit
+        ? Math.min(allowedWidth, hardWidthLimit)
+        : allowedWidth
 
       setStartCursor(direction)
       onResizeStart()
@@ -241,6 +251,15 @@ export function MediaResizer({
       document.addEventListener("pointermove", handlePointerMove)
       document.addEventListener("pointerup", handlePointerUp)
     }
+  }
+  const getEffectiveMaxWidth = () => {
+    const maxFromPositioning =
+      typeof positioningRef.current.maxWidthLimit === "number"
+        ? positioningRef.current.maxWidthLimit
+        : Infinity
+    const maxFromContext =
+      typeof hardWidthLimit === "number" ? hardWidthLimit : Infinity
+    return Math.min(maxFromPositioning, maxFromContext)
   }
   const handlePointerMove = (event: PointerEvent) => {
     const media = mediaRef.current
@@ -258,17 +277,25 @@ export function MediaResizer({
         let diff = Math.floor(positioning.startX - event.clientX / zoom)
         diff = positioning.direction & Direction.east ? -diff : diff
 
+        const effectiveMaxWidth = getEffectiveMaxWidth()
         const width = clamp(
           positioning.startWidth + diff,
           minWidth,
-          positioning.maxWidthLimit || Infinity
+          effectiveMaxWidth || Infinity
         )
+        const widthReachedLimit =
+          effectiveMaxWidth !== Infinity &&
+          width >= effectiveMaxWidth &&
+          diff > 0
 
         const height = width / positioning.ratio
         media.style.width = `${width}px`
         media.style.height = `${height}px`
         positioning.currentHeight = height
         positioning.currentWidth = width
+        if (widthReachedLimit) {
+          return
+        }
       } else if (isVertical) {
         let diff = Math.floor(positioning.startY - event.clientY / zoom)
         diff = positioning.direction & Direction.south ? -diff : diff
@@ -289,11 +316,16 @@ export function MediaResizer({
         let diff = Math.floor(positioning.startX - event.clientX / zoom)
         diff = positioning.direction & Direction.east ? -diff : diff
 
+        const effectiveMaxWidth = getEffectiveMaxWidth()
         const width = clamp(
           positioning.startWidth + diff,
           minWidth,
-          positioning.maxWidthLimit || Infinity
+          effectiveMaxWidth || Infinity
         )
+        const widthReachedLimit =
+          effectiveMaxWidth !== Infinity &&
+          width >= effectiveMaxWidth &&
+          diff > 0
 
         // Calculate height based on aspect ratio to maintain proportions
         const height = width / positioning.ratio
@@ -301,6 +333,9 @@ export function MediaResizer({
         media.style.height = `${height}px`
         positioning.currentWidth = width
         positioning.currentHeight = height
+        if (widthReachedLimit) {
+          return
+        }
       }
     }
   }

@@ -232,7 +232,7 @@ div.border.border-dashed .editor-image img {
   box-sizing: border-box !important;
 }
 
-[data-lexical-decorator="true"] > div.user-select-none > .relative {
+[data-lexical-decorator="true"] > div.user-select-none > .relative:not(.editor-embed-frame) {
   display: block !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -257,9 +257,72 @@ div.border.border-dashed .editor-image img {
   max-width: 100% !important;
 }
 
-.ContentEditable__root [data-lexical-decorator="true"] > div.user-select-none > .relative.inline-block {
+.ContentEditable__root
+  [data-lexical-decorator="true"]
+  > div.user-select-none
+  > .relative.inline-block:not(.editor-embed-frame) {
   width: 100% !important;
   max-width: 100% !important;
   height: auto !important;
   display: block !important;
+}
+
+/* Responsive overrides for resizable embed frames (e.g., YouTube) */
+[data-lexical-decorator="true"] > div.user-select-none > .editor-embed-frame,
+.ContentEditable__root
+  [data-lexical-decorator="true"]
+  > div.user-select-none
+  > .relative.editor-embed-frame {
+  display: inline-block !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
+  vertical-align: top;
+}
+
+.editor-embed-frame {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  vertical-align: top;
+  line-height: 0;
+  height: auto;
+}
+
+.editor-embed-frame--full {
+  display: block !important;
+  width: 100% !important;
+}
+
+.editor-embed-frame--inline {
+  display: inline-block !important;
+}
+
+.editor-embed-frame--inline {
+  max-width: 100%;
+}
+
+[data-lexical-align="left"] .editor-embed-frame--inline,
+[data-lexical-align="start"] .editor-embed-frame--inline {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+[data-lexical-align="center"] .editor-embed-frame--inline {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+[data-lexical-align="right"] .editor-embed-frame--inline,
+[data-lexical-align="end"] .editor-embed-frame--inline {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
+.editor-embed-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
 }

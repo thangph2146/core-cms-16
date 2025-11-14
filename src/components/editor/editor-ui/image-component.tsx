@@ -50,6 +50,7 @@ import {
 } from "@/components/editor/editor-ui/image-sizing"
 import { $isImageNode } from "@/components/editor/nodes/image-node"
 import { cn } from "@/lib/utils"
+import { useEditorContainer } from "@/components/editor/context/editor-container-context"
 
 const imageCache = new Set()
 const RESIZE_HANDLE_HIDE_DELAY = 200
@@ -136,6 +137,7 @@ function useResponsiveImageDimensions({
   width,
   isResizing,
   fullWidth,
+  maxWidthLimit,
 }: {
   editor: LexicalEditor
   height: DimensionValue
@@ -143,6 +145,7 @@ function useResponsiveImageDimensions({
   width: DimensionValue
   isResizing: boolean
   fullWidth?: boolean
+  maxWidthLimit?: number
 }) {
   const [dimensions, setDimensions] = useState<{
     width: DimensionValue
@@ -207,7 +210,11 @@ function useResponsiveImageDimensions({
     }
 
     const updateDimensions = () => {
-      const containerWidth = getContainerWidth(image, editorRoot)
+      const containerWidth = getContainerWidth(
+        image,
+        editorRoot,
+        maxWidthLimit
+      )
 
       if (!containerWidth) {
         scheduleDimensionsUpdate({ width, height })
@@ -287,7 +294,15 @@ function useResponsiveImageDimensions({
       cancelScheduledUpdate?.()
       cleanupTasks.forEach((task) => task())
     }
-  }, [editor, height, imageRef, isResizing, width, fullWidth])
+  }, [
+    editor,
+    height,
+    imageRef,
+    isResizing,
+    width,
+    fullWidth,
+    maxWidthLimit,
+  ])
 
   return dimensions
 }
@@ -678,6 +693,7 @@ export default function ImageComponent({
   const [editor] = useLexicalComposerContext()
   const [isLoadError, setIsLoadError] = useState<boolean>(false)
   const isEditable = useLexicalEditable()
+  const editorContainer = useEditorContainer()
   const {
     hasCaptionContent,
     localShowCaption,
@@ -695,6 +711,7 @@ export default function ImageComponent({
     height,
     isResizing,
     fullWidth,
+    maxWidthLimit: editorContainer?.maxWidth,
   })
 
   const { isSelected, selection } = useImageNodeInteractions({
