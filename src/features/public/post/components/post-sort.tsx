@@ -34,7 +34,7 @@ export function PostSort() {
     const params = new URLSearchParams(searchParams?.toString() || "")
     params.set("sort", value)
     params.delete("page") // Reset to page 1 when changing sort
-    router.push(`/post?${params.toString()}`)
+    router.push(`/bai-viet?${params.toString()}`)
   }
 
   const currentOption = useMemo(

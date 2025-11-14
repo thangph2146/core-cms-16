@@ -29,7 +29,7 @@ export function PostCategoryNav({ categories }: PostCategoryNavProps) {
         params.delete("category")
       }
       params.delete("page") // Reset to page 1 when changing category
-      return `/post${params.toString() ? `?${params.toString()}` : ""}`
+      return `/bai-viet${params.toString() ? `?${params.toString()}` : ""}`
     },
     [searchParams]
   )
