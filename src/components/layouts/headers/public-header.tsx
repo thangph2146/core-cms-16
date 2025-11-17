@@ -18,27 +18,16 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
 import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  Settings,
-  Shield,
   HelpCircle,
-  BookOpen,
-  MessageCircle,
-  MessageSquare,
   LucideIcon,
   LogIn,
   UserPlus,
-  FolderTree,
-  Tag,
-  GraduationCap,
-  Send,
-  Bell,
-  BadgeHelp,
   LifeBuoy,
   Command,
   Home,
+  FileText,
+  Info,
+  Mail,
 } from "lucide-react"
 import { Logo } from "../../../../public/svg/Logo"
 import { appFeatures } from "@/lib/config/app-features"
@@ -62,6 +51,59 @@ function getRouteFromFeature(key: string): string | null {
   return null
 }
 
+/**
+ * Lấy tất cả public features từ appFeatures
+ * Sắp xếp theo order
+ */
+function getPublicFeatures() {
+  return appFeatures
+    .filter((feature) => feature.navigation?.group === "public")
+    .sort((a, b) => (a.navigation?.order || 0) - (b.navigation?.order || 0))
+}
+
+/**
+ * Convert public features thành LinkItem[]
+ */
+function getPublicLinks(): LinkItem[] {
+  const publicFeatures = getPublicFeatures()
+  
+  // Map icon names từ app-features.ts
+  const iconMap: Record<string, LucideIcon> = {
+    Home,
+    FileText,
+    Info,
+    Mail,
+    HelpCircle,
+  }
+  
+  return publicFeatures.map((feature) => {
+    const nav = feature.navigation!
+    const href = nav.href || getRouteFromFeature(feature.key) || "#"
+    
+    // Extract icon từ React element
+    const iconElement = feature.icon
+    let IconComponent: LucideIcon = Home // Default icon
+    
+    // Lấy icon component từ React element
+    if (iconElement && typeof iconElement === 'object' && 'type' in iconElement) {
+      const iconType = iconElement.type
+      // Nếu là function component, lấy tên và map
+      if (typeof iconType === 'function' && iconType.name) {
+        IconComponent = iconMap[iconType.name] || Home
+      } else {
+        IconComponent = iconType as LucideIcon
+      }
+    }
+
+    return {
+      title: feature.title,
+      href,
+      description: feature.description,
+      icon: IconComponent,
+    }
+  })
+}
+
 // Public routes constants - Lấy từ appFeatures
 const PUBLIC_ROUTES = {
   home: getRouteFromFeature("home") || "/",
@@ -82,6 +124,9 @@ type LinkItem = {
   icon: LucideIcon
   description?: string
 }
+
+// Generate public navigation links từ appFeatures
+const publicLinks: LinkItem[] = getPublicLinks()
 
 /**
  * Public Header Component
@@ -124,68 +169,59 @@ export function PublicHeader() {
           {mounted ? (
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList>
-                <NavigationMenuItem>
-                  <NavigationMenuLink asChild>
-                    <Link
-                      href={PUBLIC_ROUTES.home}
-                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
-                    >
-                      <Home className="mr-2 h-4 w-4" />
-                      Trang chủ
-                    </Link>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <NavigationMenuLink asChild>
-                    <Link
-                      href={PUBLIC_ROUTES.blog}
-                      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
-                    >
-                      Bài viết
-                    </Link>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="bg-transparent">
-                    Tính năng
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent className="bg-background p-1 pr-1.5">
-                    <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
-                      {featureLinks.map((item, i) => (
-                        <li key={i}>
-                          <ListItem {...item} />
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="bg-transparent">
-                    Hỗ trợ
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
-                    <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
-                      {supportLinks.map((item, i) => (
-                        <li key={i}>
-                          <ListItem {...item} />
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
+                {publicLinks.map((link, index) => {
+                  // Hiển thị "Trang chủ" và "Bài viết" trực tiếp
+                  if (link.href === PUBLIC_ROUTES.home || link.href === PUBLIC_ROUTES.blog) {
+                    return (
+                      <NavigationMenuItem key={link.href}>
+                        <NavigationMenuLink asChild>
+                          <Link
+                            href={link.href}
+                            className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
+                          >
+                            {link.href === PUBLIC_ROUTES.home && (
+                              <link.icon className="mr-2 h-4 w-4" />
+                            )}
+                            {link.title}
+                          </Link>
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    )
+                  }
+                  return null
+                })}
+                {/* Support menu với các links còn lại */}
+                {publicLinks.filter(link => 
+                  link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                ).length > 0 && (
+                  <NavigationMenuItem>
+                    <NavigationMenuTrigger className="bg-transparent">
+                      Hỗ trợ
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
+                      <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
+                        {publicLinks
+                          .filter(link => 
+                            link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                          )
+                          .map((item, i) => (
+                            <li key={i}>
+                              <ListItem {...item} />
+                            </li>
+                          ))}
+                      </ul>
+                    </NavigationMenuContent>
+                  </NavigationMenuItem>
+                )}
               </NavigationMenuList>
             </NavigationMenu>
           ) : (
             <div className="hidden md:flex items-center gap-4">
-              <Button variant="ghost" className="bg-transparent" asChild>
-                <Link href={PUBLIC_ROUTES.home}>Trang chủ</Link>
-              </Button>
-              <Button variant="ghost" className="bg-transparent" asChild>
-                <Link href={PUBLIC_ROUTES.admin}>Tính năng</Link>
-              </Button>
-              <Button variant="ghost" className="bg-transparent" asChild>
-                <Link href={PUBLIC_ROUTES.help}>Hỗ trợ</Link>
-              </Button>
+              {publicLinks.slice(0, 2).map((link) => (
+                <Button key={link.href} variant="ghost" className="bg-transparent" asChild>
+                  <Link href={link.href}>{link.title}</Link>
+                </Button>
+              ))}
             </div>
           )}
         </div>
@@ -207,16 +243,16 @@ export function PublicHeader() {
               </>
             )}
             <Button
-          size="icon"
-          variant="outline"
-          onClick={() => setOpen(!open)}
-          className="md:hidden"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          aria-label="Toggle menu"
-        >
-          <MenuToggleIcon open={open} className="size-5" duration={300} />
-        </Button>
+              size="icon"
+              variant="outline"
+              onClick={() => setOpen(!open)}
+              className="md:hidden"
+              aria-expanded={open}
+              aria-controls="mobile-menu"
+              aria-label="Toggle menu"
+            >
+              <MenuToggleIcon open={open} className="size-5" duration={300} />
+            </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
@@ -224,7 +260,7 @@ export function PublicHeader() {
             <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
           </div>
         )}
-        
+
       </nav>
       {mounted && (
         <MobileMenu open={open} onClose={() => setOpen(false)}>
@@ -276,62 +312,63 @@ export function PublicHeader() {
             {/* Navigation Links - Scrollable */}
             <div className="flex-1 overflow-y-auto">
               <div className="flex w-full flex-col gap-y-1">
-                <Link
-                  href={PUBLIC_ROUTES.home}
-                  className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
-                  onClick={() => setOpen(false)}
-                >
-                  <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
-                    <Home className="text-foreground size-5" />
-                  </div>
-                  <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                    <span className="font-medium text-sm">Trang chủ</span>
-                    <span className="text-muted-foreground text-xs leading-relaxed">Trang chủ của hệ thống</span>
-                  </div>
-                </Link>
-                <span className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Tính năng
-                </span>
-            {featureLinks.map((link) => (
-              <Link
-                key={link.title}
-                href={link.href}
-                    className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
-                    onClick={() => setOpen(false)}
-              >
-                    <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
-                  <link.icon className="text-foreground size-5" />
-                </div>
-                    <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                      <span className="font-medium text-sm">{link.title}</span>
-                  {link.description && (
-                        <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-                <span className="px-2 py-2 mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Hỗ trợ
-                </span>
-            {supportLinks.map((link) => (
-              <Link
-                key={link.title}
-                href={link.href}
-                    className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
-                    onClick={() => setOpen(false)}
-              >
-                    <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
-                  <link.icon className="text-foreground size-5" />
-                </div>
-                    <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                      <span className="font-medium text-sm">{link.title}</span>
-                  {link.description && (
-                        <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
+                {publicLinks.map((link) => {
+                  // Hiển thị "Trang chủ" và "Bài viết" trực tiếp
+                  if (link.href === PUBLIC_ROUTES.home || link.href === PUBLIC_ROUTES.blog) {
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
+                        onClick={() => setOpen(false)}
+                      >
+                        <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
+                          <link.icon className="text-foreground size-5" />
+                        </div>
+                        <div className="flex flex-col items-start justify-center min-w-0 flex-1">
+                          <span className="font-medium text-sm">{link.title}</span>
+                          {link.description && (
+                            <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  }
+                  return null
+                })}
+                {/* Hiển thị các links còn lại dưới label "Hỗ trợ" */}
+                {publicLinks.filter(link => 
+                  link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                ).length > 0 && (
+                  <>
+                    <span className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Hỗ trợ
+                    </span>
+                    {publicLinks
+                      .filter(link => 
+                        link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                      )
+                      .map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
+                          onClick={() => setOpen(false)}
+                        >
+                          <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
+                            <link.icon className="text-foreground size-5" />
+                          </div>
+                          <div className="flex flex-col items-start justify-center min-w-0 flex-1">
+                            <span className="font-medium text-sm">{link.title}</span>
+                            {link.description && (
+                              <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </MobileMenu>
@@ -410,54 +447,6 @@ function ListItem({
   )
 }
 
-/**
- * Convert appFeatures thành LinkItem[] cho public header
- * Chỉ lấy các features có navigation config và thuộc group "main"
- */
-function getFeatureLinks(): LinkItem[] {
-  // Map icon components từ appFeatures
-  const iconMap: Record<string, LucideIcon> = {
-    dashboard: LayoutDashboard,
-    posts: FileText,
-    users: Users,
-    categories: FolderTree,
-    tags: Tag,
-    roles: Shield,
-    students: GraduationCap,
-    messages: Send,
-    comments: MessageSquare,
-    notifications: Bell,
-    contactRequests: BadgeHelp,
-    sessions: LogIn,
-  }
-
-  const mainFeatures = appFeatures.filter(
-    (feature) => feature.navigation?.group === "main"
-  )
-
-  return mainFeatures
-    .slice(0, 4) // Chỉ lấy 4 features đầu tiên
-    .map((feature) => {
-      const nav = feature.navigation!
-      let href = nav.href || "#"
-      
-      // Nếu có resourceName, lấy route từ getResourceMainRoute
-      if (nav.resourceName && !nav.href) {
-        const route = getResourceMainRoute(nav.resourceName)
-        href = route?.path || "#"
-      }
-
-      // Lấy icon từ map dựa trên feature key
-      const icon = iconMap[feature.key] || LayoutDashboard
-
-      return {
-        title: feature.title,
-        href,
-        description: feature.description,
-        icon,
-      }
-    })
-}
 
 /**
  * Convert appFeatures thành LinkItem[] cho support section
@@ -491,7 +480,6 @@ function getSupportLinks(): LinkItem[] {
 }
 
 // Generate links từ appFeatures
-const featureLinks: LinkItem[] = getFeatureLinks()
 const supportLinks: LinkItem[] = getSupportLinks()
 
 function useScroll(threshold: number) {

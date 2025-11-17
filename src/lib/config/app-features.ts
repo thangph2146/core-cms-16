@@ -485,38 +485,38 @@ export const appFeatures: FeatureDefinition[] = [
   },
   {
     key: "about",
-    title: "Về chúng tôi",
+    title: "Giới thiệu",
     description: "Thông tin về tổ chức",
     permissions: [], // Public access
     icon: createIcon(Info),
     navigation: {
       group: "public",
       order: 30,
-      href: "/about",
+      href: "/ve-chung-toi",
     },
   },
   {
     key: "contact",
     title: "Liên hệ",
-    description: "Liên hệ với chúng tôi",
+    description: "Liên hệ với trường",
     permissions: [], // Public access
     icon: createIcon(Mail),
     navigation: {
       group: "public",
       order: 40,
-      href: "/contact",
+      href: "/lien-he",
     },
   },
   {
     key: "help",
     title: "Trợ giúp",
-    description: "Hướng dẫn và hỗ trợ",
+    description: "Hướng dẫn sử dụng hệ thống",
     permissions: [], // Public access
     icon: createIcon(HelpCircle),
     navigation: {
       group: "public",
       order: 50,
-      href: "/help",
+      href: "/huong-dan-su-dung",
     },
   },
 ] satisfies ReadonlyArray<FeatureDefinition>
