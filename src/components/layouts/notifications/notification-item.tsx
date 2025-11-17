@@ -129,7 +129,7 @@ export function NotificationItem({
                 className={cn(
                   "h-8 gap-1.5 text-xs",
                   notification.isRead
-                    ? "border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                    ? "border text-blue-700 hover:bg-accent dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
                     : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
                 )}
                 onClick={handleToggleRead}

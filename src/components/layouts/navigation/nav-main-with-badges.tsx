@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { NavMain } from "./nav-main"
@@ -21,8 +22,45 @@ interface NavMainWithBadgesProps {
 export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
+  const pathname = usePathname()
   const userId = session?.user?.id
   const primaryRole = session?.roles?.[0]?.name ?? null
+
+  // Helper function để check nếu pathname match với menu item URL
+  const isItemActive = React.useCallback((item: MenuItem): boolean => {
+    if (!pathname) return false
+    
+    // Normalize paths để so sánh
+    const normalizedPathname = pathname.toLowerCase()
+    const normalizedItemUrl = item.url.toLowerCase()
+    
+    // Exact match
+    if (normalizedPathname === normalizedItemUrl) return true
+    
+    // Check sub-items trước (quan trọng cho messages có sub-items)
+    if (item.items && item.items.length > 0) {
+      const hasActiveSubItem = item.items.some((subItem) => {
+        const normalizedSubUrl = subItem.url.toLowerCase()
+        return normalizedPathname === normalizedSubUrl || normalizedPathname.startsWith(normalizedSubUrl + "/")
+      })
+      if (hasActiveSubItem) return true
+    }
+    
+    // Check nếu pathname bắt đầu với item.url (cho nested routes)
+    // Ví dụ: /parent/messages/inbox sẽ active menu item có url /parent/messages/inbox
+    // Nhưng cần cẩn thận để không match quá rộng (ví dụ: /parent/messages/inbox không nên active /parent/messages)
+    if (normalizedPathname.startsWith(normalizedItemUrl + "/")) {
+      // Chỉ active nếu không có sub-items hoặc sub-items không match
+      // Nếu có sub-items và không có sub-item nào match, thì không active parent
+      if (item.items && item.items.length > 0) {
+        // Đã check sub-items ở trên, nếu đến đây thì không có sub-item nào match
+        return false
+      }
+      return true
+    }
+    
+    return false
+  }, [pathname])
 
   // Get unread counts với polling fallback
   const { data: unreadCounts } = useUnreadCounts({
@@ -97,24 +135,32 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
     }
   }, [socket, userId, queryClient])
 
-  // Map unread counts to menu items
+  // Map unread counts và active state to menu items
   const itemsWithBadges = React.useMemo(() => {
     return items.map((item) => {
+      const isActive = isItemActive(item)
+      
+      let updatedItem: MenuItem = {
+        ...item,
+        isActive,
+      }
+      
       if (item.key === "messages") {
-        return {
-          ...item,
+        updatedItem = {
+          ...updatedItem,
           badgeCount: unreadCounts?.unreadMessages || 0,
         }
       }
       if (item.key === "notifications") {
-        return {
-          ...item,
+        updatedItem = {
+          ...updatedItem,
           badgeCount: unreadCounts?.unreadNotifications || 0,
         }
       }
-      return item
+      
+      return updatedItem
     })
-  }, [items, unreadCounts])
+  }, [items, unreadCounts, isItemActive])
 
   return <NavMain items={itemsWithBadges} />
 }

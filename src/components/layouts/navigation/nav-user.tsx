@@ -3,7 +3,9 @@
 import * as React from "react"
 import { useMemo } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   BadgeCheck,
   ChevronsUpDown,
@@ -18,6 +20,7 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,10 +42,18 @@ import type { Permission } from "@/lib/permissions"
 import { canPerformAnyAction, getResourceSegmentForRoles } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import { useClientOnly } from "@/hooks/use-client-only"
+import { useUnreadCounts } from "@/hooks/use-unread-counts"
+import { useNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { useSocket } from "@/hooks/use-socket"
+import { queryKeys } from "@/lib/query-keys"
 
 
 export function NavUser({ className }: { className?: string }) {
   const { data: session, status } = useSession()
+  const queryClient = useQueryClient()
+  const pathname = usePathname()
+  const userId = session?.user?.id
+  const primaryRoleName = session?.roles?.[0]?.name ?? null
   
   // Chỉ render DropdownMenu sau khi component đã mount trên client để tránh hydration mismatch
   // Radix UI generate ID random khác nhau giữa server và client
@@ -55,6 +66,111 @@ export function NavUser({ className }: { className?: string }) {
   
   const user = session?.user
   const primaryRole = session?.roles?.[0]
+
+  // Get unread counts với realtime updates
+  const { data: unreadCounts } = useUnreadCounts({
+    refetchInterval: 30000, // 30 seconds (fallback khi không có socket)
+    enabled: !!userId,
+  })
+
+  // Setup socket bridge cho notifications
+  useNotificationsSocketBridge()
+
+  // Setup socket cho messages để invalidate unread counts
+  const { socket } = useSocket({
+    userId,
+    role: primaryRoleName,
+  })
+
+  // Invalidate unread counts khi có socket events
+  React.useEffect(() => {
+    if (!socket || !userId) return
+
+    const handleMessageNew = () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.unreadCounts.user(userId),
+      })
+    }
+
+    const handleMessageUpdated = () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.unreadCounts.user(userId),
+      })
+    }
+
+    const handleNotificationNew = () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.unreadCounts.user(userId),
+      })
+    }
+
+    const handleNotificationUpdated = () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.unreadCounts.user(userId),
+      })
+    }
+
+    // Listen to socket events
+    if (socket.connected) {
+      socket.on("message:new", handleMessageNew)
+      socket.on("message:updated", handleMessageUpdated)
+      socket.on("notification:new", handleNotificationNew)
+      socket.on("notification:updated", handleNotificationUpdated)
+    } else {
+      const onConnect = () => {
+        socket.on("message:new", handleMessageNew)
+        socket.on("message:updated", handleMessageUpdated)
+        socket.on("notification:new", handleNotificationNew)
+        socket.on("notification:updated", handleNotificationUpdated)
+      }
+      socket.once("connect", onConnect)
+    }
+
+    return () => {
+      if (socket) {
+        socket.off("message:new", handleMessageNew)
+        socket.off("message:updated", handleMessageUpdated)
+        socket.off("notification:new", handleNotificationNew)
+        socket.off("notification:updated", handleNotificationUpdated)
+      }
+    }
+  }, [socket, userId, queryClient])
+
+  const unreadMessagesCount = unreadCounts?.unreadMessages || 0
+  const unreadNotificationsCount = unreadCounts?.unreadNotifications || 0
+  
+  // Helper function để check nếu pathname match với menu item URL
+  const isItemActive = React.useCallback((item: { url: string; items?: Array<{ url: string }> }): boolean => {
+    if (!pathname) return false
+    
+    // Normalize paths để so sánh
+    const normalizedPathname = pathname.toLowerCase()
+    const normalizedItemUrl = item.url.toLowerCase()
+    
+    // Exact match
+    if (normalizedPathname === normalizedItemUrl) return true
+    
+    // Check sub-items trước (quan trọng cho messages có sub-items)
+    if (item.items && item.items.length > 0) {
+      const hasActiveSubItem = item.items.some((subItem) => {
+        const normalizedSubUrl = subItem.url.toLowerCase()
+        return normalizedPathname === normalizedSubUrl || normalizedPathname.startsWith(normalizedSubUrl + "/")
+      })
+      if (hasActiveSubItem) return true
+    }
+    
+    // Check nếu pathname bắt đầu với item.url (cho nested routes)
+    // Nhưng cần cẩn thận để không match quá rộng
+    if (normalizedPathname.startsWith(normalizedItemUrl + "/")) {
+      // Chỉ active nếu không có sub-items hoặc sub-items không match
+      if (item.items && item.items.length > 0) {
+        return false // Đã check sub-items ở trên
+      }
+      return true
+    }
+    
+    return false
+  }, [pathname])
   
   const getInitials = (name?: string | null) => {
     if (!name) return "U"
@@ -73,10 +189,35 @@ export function NavUser({ className }: { className?: string }) {
     // Tính resource segment dựa trên roles của user, không phụ thuộc vào URL hiện tại
     const resourceSegment = getResourceSegmentForRoles(roles)
     
-    return getMenuData(permissions, roles, resourceSegment).navMain.filter((item) =>
+    const menuItems = getMenuData(permissions, roles, resourceSegment).navMain.filter((item) =>
       canPerformAnyAction(permissions, roles, [...item.permissions])
     )
-  }, [session?.permissions, session?.roles])
+    
+    // Map unread counts và active state vào menu items dựa trên key
+    return menuItems.map((item) => {
+      const isActive = isItemActive(item)
+      
+      let updatedItem = {
+        ...item,
+        isActive,
+      }
+      
+      if (item.key === "messages") {
+        updatedItem = {
+          ...updatedItem,
+          badgeCount: unreadMessagesCount,
+        }
+      }
+      if (item.key === "notifications") {
+        updatedItem = {
+          ...updatedItem,
+          badgeCount: unreadNotificationsCount,
+        }
+      }
+      
+      return updatedItem
+    })
+  }, [session?.permissions, session?.roles, unreadMessagesCount, unreadNotificationsCount, isItemActive])
 
   // Tính route cho accounts dựa trên resource segment
   const accountsRoute = useMemo(() => {
@@ -142,9 +283,11 @@ export function NavUser({ className }: { className?: string }) {
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem asChild>
-          <Link href={accountsRoute} className="flex items-center">
-            <BadgeCheck className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
-            <span>Tài khoản</span>
+          <Link href={accountsRoute} className="flex items-center justify-between w-full">
+            <div className="flex items-center">
+              <BadgeCheck className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
+              <span>Tài khoản</span>
+            </div>
           </Link>
         </DropdownMenuItem>
       </DropdownMenuGroup>
@@ -155,13 +298,29 @@ export function NavUser({ className }: { className?: string }) {
             <DropdownMenuLabel>Admin</DropdownMenuLabel>
             <ScrollArea className="max-h-[200px] overflow-y-auto">
               {adminMenuItems.map((item) => {
+                const showBadge = (item.badgeCount ?? 0) > 0
+                const isActive = item.isActive ?? false
+                
                 if (!React.isValidElement(item.icon)) {
                   console.warn(`Icon is not a valid React element for "${item.title}"`)
                   return (
                     <DropdownMenuItem key={item.url} asChild>
-                      <Link href={item.url} className="flex items-center">
-                        <LayoutDashboard className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
-                        <span>{item.title}</span>
+                      <Link 
+                        href={item.url} 
+                        className={cn(
+                          "flex items-center justify-between w-full",
+                          isActive && "bg-accent/10 text-accent-foreground"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <LayoutDashboard className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
+                          <span>{item.title}</span>
+                        </div>
+                        {showBadge && (
+                          <Badge variant="destructive" className="ml-auto shrink-0">
+                            {(item.badgeCount ?? 0) > 99 ? "99+" : item.badgeCount}
+                          </Badge>
+                        )}
                       </Link>
                     </DropdownMenuItem>
                   )
@@ -169,9 +328,22 @@ export function NavUser({ className }: { className?: string }) {
                 
                 return (
                   <DropdownMenuItem key={item.url} asChild>
-                    <Link href={item.url} className="flex items-center">
-                      {item.icon}
-                      <span>{item.title}</span>
+                    <Link 
+                      href={item.url} 
+                      className={cn(
+                        "flex items-center justify-between w-full",
+                        isActive && "bg-accent/10 text-accent-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        {item.icon}
+                        <span>{item.title}</span>
+                      </div>
+                      {showBadge && (
+                        <Badge variant="destructive" className="ml-auto shrink-0">
+                          {(item.badgeCount ?? 0) > 99 ? "99+" : item.badgeCount}
+                        </Badge>
+                      )}
                     </Link>
                   </DropdownMenuItem>
                 )
