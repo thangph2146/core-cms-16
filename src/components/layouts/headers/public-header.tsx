@@ -328,7 +328,7 @@ export function PublicHeader() {
                         <div className="flex flex-col items-start justify-center min-w-0 flex-1">
                           <span className="font-medium text-sm">{link.title}</span>
                           {link.description && (
-                            <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
+                            <span className="text-xs leading-relaxed">{link.description}</span>
                           )}
                         </div>
                       </Link>
@@ -361,7 +361,7 @@ export function PublicHeader() {
                           <div className="flex flex-col items-start justify-center min-w-0 flex-1">
                             <span className="font-medium text-sm">{link.title}</span>
                             {link.description && (
-                              <span className="text-muted-foreground text-xs leading-relaxed">{link.description}</span>
+                              <span className="text-xs leading-relaxed">{link.description}</span>
                             )}
                           </div>
                         </Link>
@@ -439,7 +439,7 @@ function ListItem({
         <div className="flex flex-col items-start justify-center">
           <span className="font-medium">{title}</span>
           {description && (
-            <span className="text-muted-foreground text-xs">{description}</span>
+            <span className="text-xs">{description}</span>
           )}
         </div>
       </Link>

@@ -10,13 +10,17 @@ import {
 import {
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowRight
 } from "lucide-react"
 import Image from "next/image"
-import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useState, useEffect, useRef } from "react"
 import type React from "react"
 import { appFeatures } from "@/lib/config/app-features"
 import { getResourceMainRoute } from "@/lib/permissions/route-helpers"
+import { Timeline } from "@/components/ui/timeline"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 /**
  * Helper function để lấy route từ appFeatures
@@ -41,7 +45,7 @@ function getRouteFromFeature(key: string): string | null {
  */
 function highlightHUB(text: string): React.ReactNode {
   const parts = text.split(/(HUB)/gi)
-  return parts.map((part, index) => 
+  return parts.map((part, index) =>
     part.toUpperCase() === 'HUB' ? (
       <span key={index} className="font-bold text-secondary">
         {part}
@@ -56,13 +60,16 @@ export function AboutClient() {
   const [showMoreDialog, setShowMoreDialog] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [currentLeaderIndex, setCurrentLeaderIndex] = useState(0)
+  const [leaderCarouselIndices, setLeaderCarouselIndices] = useState<Record<number, number>>({})
+  const leaderCarouselRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   // Detect screen size: xl = 1280px
   useEffect(() => {
     const checkScreen = () => {
       setIsMobile(window.innerWidth < 1280) // xl breakpoint
     }
-    
+
     checkScreen()
     window.addEventListener("resize", checkScreen)
     return () => window.removeEventListener("resize", checkScreen)
@@ -134,9 +141,260 @@ export function AboutClient() {
     },
   ]
 
+  const departments = [
+    { name: "Khoa sau Đại học", url: "https://khoasdh.hub.edu.vn/" },
+    { name: "Khoa Ngân hàng", url: "https://khoanh.hub.edu.vn/" },
+    { name: "Khoa Tài chính", url: "https://khoatc.hub.edu.vn/" },
+    { name: "Khoa Quản trị kinh doanh", url: "https://khoaqtkd.hub.edu.vn/" },
+    { name: "Khoa Kế toán - Kiểm toán", url: "https://khoaktkt.hub.edu.vn/" },
+    { name: "Khoa Hệ thống thông tin quản lý", url: "https://khoahtttql.hub.edu.vn/" },
+    { name: "Khoa Ngoại ngữ", url: "https://khoangoaingu.hub.edu.vn/" },
+    { name: "Khoa Kinh tế Quốc tế", url: "https://khoaktqt.hub.edu.vn/" },
+    { name: "Khoa Luật kinh tế", url: "https://khoalkt.hub.edu.vn/" },
+    { name: "Khoa Khoa học - Xã hội", url: "https://khoakhxh.hub.edu.vn/" },
+    { name: "Khoa Khoa học dữ liệu trong kinh doanh", url: "https://khoakhdltkd.hub.edu.vn/" },
+    { name: "Khoa Giáo dục thể chất và Quốc phòng", url: "https://bomongdtc.hub.edu.vn/" },
+  ]
+
+  const historyTimeline = [
+    {
+      year: "2020 đến nay",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/26/20250326085755z6442765605666_40dd44e04e50609ca5e451d3950e986a.jpg",
+      description: "Ngày 09/6/2020, Thống đốc Ngân hàng Nhà nước ký quyết định số 1068/QĐ-NHNN công nhận Hội đồng Trường Đại học Ngân hàng TP. Hồ Chí Minh nhiệm kỳ 2020 -2025. Từ giai đoạn này, Trường Đại học Ngân hàng Tp. Hồ Chí Minh hoạt động theo mô hình quản trị đại học theo luật giáo dục đại học"
+    },
+    {
+      year: "2003 - 2020",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/26/20250326090452z6442812662205_d2cfb019f8affa945d7cc12b6b092275.jpg",
+      description: "Thủ tướng Chính phủ ký quyết định số 174/2003/QĐ-TTg ngày 20/8/2003, thành lập Trường Đại học Ngân hàng TP. Hồ Chí Minh. Từ đây, Trường Đại học Ngân hàng TP. Hồ Chí Minh chính thức hoạt động là Trường đại học độc lập trực thuộc Ngân hàng Nhà nước Việt Nam"
+    },
+    {
+      year: "1998 - 2003",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/26/20250326085938202503211040542003z.jpg",
+      description: "Thủ tướng Chính phủ ký quyết định số 30/1998/QĐ-TTg ngày 9/2/1998, thành lập Học viện Ngân hàng trực thuộc Ngân hàng Nhà nước Việt Nam trên cơ sở tổ chức lại Trung tâm Đào tạo và Nghiên cứu khoa học Ngân hàng, trong đó Học viện Ngân hàng - Phân viện TP. Hồ Chí Minh đóng tại TP. Hồ Chí Minh."
+    },
+    {
+      year: "1993 - 1998",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/21/2025032110474693-98.jpg",
+      description: "Thủ tướng Chính phủ ký quyết định số: 112/TTg ngày 23/3/1993 thành lập Trung tâm Đào tạo và Nghiên cứu khoa học Ngân hàng trực thuộc Ngân hàng Nhà nước Việt Nam, trong đó có Trung tâm Đào tạo và Nghiên cứu khoa học Ngân hàng - Chi nhánh TPHCM, trên cơ sở nhập hai trường: Trường Cao cấp Nghiệp vụ Ngân hàng TPHCM và Trường Trung học Ngân hàng III Trung ương (Trực thuộc Ngân hàng Nhà nước Việt Nam, tại TPHCM)."
+    },
+    {
+      year: "1986 - 1993",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/26/20250326090650z6442821071933_19260dfa8dccda5113a5d3a7c130811a.jpg",
+      description: "Tổng giám đốc Ngân hàng Nhà nước Việt Nam ký quyết định số: 169/NH-QĐ ngày 23/3/1986, thành lập Trường Cao cấp nghiệp vụ Ngân hàng - TP. Hồ Chí Minh."
+    },
+    {
+      year: "1980 - 1986",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/26/20250326090355z6427652151045_b9119b0039e6088c31b096dc4db9458c.jpg",
+      description: "Thủ tướng Chính phủ ký quyết định số: 149/TTG ngày 8/5/1980, cho phép Cơ sở II Trường Cao cấp Nghiệp vụ Ngân hàng được đào tạo hệ Đại học chính quy chuyên ngành Ngân hàng."
+    },
+    {
+      year: "1976 - 1980",
+      image: "https://hub.edu.vn/DATA/IMAGES/2025/03/21/202503211030011976z6425431889823_dd12533007a93f960907b2ea3628db2a.jpg",
+      description: "Ngày 16/12/1976 Tổng giám đốc Ngân hàng Nhà nước Việt Nam đã ký quyết định số: 1229/NH TCCB thành lập Cơ sở II Trường Cao cấp Nghiệp vụ Ngân hàng và Trường Trung học Ngân hàng 3 TW tại TPHCM. Nhiệm vụ chính là đào tạo hệ trung học chuyên nghiệp, đại học chuyên tu, đại học tại chức, bổ túc sau trung học, đào tạo hệ ngắn hạn về quản lý và nghiệp vụ cho hệ thống ngân hàng mới được thành lập ở các tỉnh phía Nam."
+    },
+  ]
+
+  const leaderGenerations = [
+    {
+      period: "BAN LÃNH ĐẠO ĐƯƠNG NHIỆM",
+      year: "2020 đến nay",
+      leaders: [
+        { name: "NGƯT.PGS.TS. ĐOÀN THANH HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222605DOANTHANHHA2.jpg", position: "BÍ THƯ ĐẢNG ỦY\nCHỦ TỊCH HỘI ĐỒNG TRƯỜNG" },
+        { name: "PGS. TS. NGUYỄN ĐỨC TRUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222643NGUYENDUCTRUNG.jpg", position: "PHÓ BÍ THƯ ĐẢNG ỦY\nPHÓ CHỦ TỊCH HỘI ĐỒNG TRƯỜNG\nHIỆU TRƯỞNG" },
+        { name: "PGS.TS. HẠ THỊ THIỀU DAO", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222705HATHITHIEUDAO.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+        { name: "TS. NGUYỄN TRẦN PHÚC", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222727NGUYENTRANPHUC.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+      ]
+    },
+    {
+      period: "6/2020 - 12/2021",
+      year: "6/2020 - 12/2021",
+      leaders: [
+        { name: "NGƯT.PGS.TS. ĐOÀN THANH HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222247DOANTHANHHA2.jpg", position: "BÍ THƯ ĐẢNG ỦY (TỪ 01/2017)\nCHỦ TỊCH HỘI ĐỒNG TRƯỜNG" },
+        { name: "TS. BÙI HỮU TOÀN", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222318BUIHUUTOAN.jpg", position: "BÍ THƯ ĐÁNG ỦY (ĐÉN 01/2021)\nHIỆU TRƯỞNG" },
+        { name: "PGS. TS. NGUYỄN ĐỨC TRUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222347NGUYENDUCTRUNG.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+        { name: "PGS.TS. HẠ THỊ THIỀU DAO", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222410HATHITHIEUDAO.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+        { name: "TS. NGUYỄN TRẦN PHÚC", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222453NGUYENTRANPHUC.jpg", position: "PHÓ HIỆU TRƯỞNG\n(TỪ 01/2021)" },
+      ]
+    },
+    {
+      period: "3/2018 - 6/2020",
+      year: "3/2018 - 6/2020",
+      leaders: [
+        { name: "TS. BÙI HỮU TOÀN", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221823BUIHUUTOAN.jpg", position: "BÍ THƯ ĐẢNG ỦY\nQ. HIỆU TRƯỞNG (3/2018 0 10/2019)\nHIỆU TRƯỞNG (10/2019)" },
+        { name: "PGS. TS. NGUYỄN ĐỨC TRUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221859NGUYENDUCTRUNG.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+        { name: "NGƯT.PGS.TS. ĐOÀN THANH HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222003DOANTHANHHA2.jpg", position: "PHÓ HIỆU TRƯỞNG" },
+        { name: "PGS. TS. HẠ THỊ THIỀU DAO", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217222146HATHITHIEUDAO.jpg", position: "PHÓ HIỆU TRƯỞNG\n(TỪ 4/2020)" },
+      ]
+    },
+    {
+      period: "2013 - 2018",
+      year: "2013 - 2018",
+      leaders: [
+        { name: "NGƯT. PGS. TS. LÝ HOÀNG ÁNH", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221259LYHOANGANH.jpg", position: "HIỆU TRƯỞNG\n2013 - 2018" },
+        { name: "PGS. TS. LÊ SĨ ĐỒNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221358LESIDONG.jpg", position: "PHÓ HIỆU TRƯỞNG\n2013 - 2017" },
+        { name: "NGƯT.PGS.TS. ĐOÀN THANH HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221504DOANTHANHHA.jpg", position: "Phó Hiệu trưởng\n2014 - 2018" },
+        { name: "ThS. LÊ TẤN PHÁT", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221526LETANPHAT.jpg", position: "Phó Hiệu trưởng\n2013 - 2016" },
+      ]
+    },
+    {
+      period: "2008 - 2013",
+      year: "2008 - 2013",
+      leaders: [
+        { name: "NGND. PGS. TS. NGÔ HƯỚNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220843NGOHUONG.jpg", position: "HIỆU TRƯỞNG\n2008 - 2013" },
+        { name: "NGƯT.TS. HỒ DIỆU", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220924HODIEU.jpg", position: "PHÓ HIỆU TRƯỞNG\n2008 - 2013" },
+        { name: "NGƯT.PGS.TS. NGUYỄN THỊ NHUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220953NGUYENTHINHUNG.jpg", position: "Phó Hiệu trưởng\n2008 - 2012" },
+        { name: "ThS. LÊ TẤN PHÁT", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221047LETANPHAT.jpg", position: "Phó Hiệu trưởng\n2008 - 2013" },
+        { name: "PGS. TS. LÝ HOÀNG ÁNH", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217221150LYHOANGANH.jpg", position: "PHÓ HIỆU TRƯỞNG\n2011 - 2013" },
+      ]
+    },
+    {
+      period: "2003 - 2008",
+      year: "2003 - 2008",
+      leaders: [
+        { name: "NGND.TS. NGUYỄN VĂN HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220632NGUYENVANHA.jpg", position: "HIỆU TRƯỞNG\n2003 - 2008" },
+        { name: "NGND. PGS. TS. NGÔ HƯỚNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220656NGOHUONG.jpg", position: "PHÓ HIỆU TRƯỞNG\n2003 - 2008" },
+        { name: "NGƯT.TS. HỒ DIỆU", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220727HODIEU.jpg", position: "PHÓ HIỆU TRƯỞNG\n2003 - 2008" },
+        { name: "NGƯT.PGS.TS. NGUYỄN THỊ NHUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217220758NGUYENTHINHUNG.jpg", position: "PHÓ HIỆU TRƯỞNG\n2003 - 2008" },
+      ]
+    },
+    {
+      period: "1998 - 2003",
+      year: "1998 - 2003",
+      leaders: [
+        { name: "NGND.TS. NGUYỄN VĂN HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217214056NGUYENVANHA.jpg", position: "GIÁM ĐỐC\n1998 - 2003" },
+        { name: "NGND. PGS. TS. NGÔ HƯỚNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217214126NGOHUONG.jpg", position: "PHÓ GIÁM ĐỐC\n1998 - 2003" },
+        { name: "NGƯT.TS. HỒ DIỆU", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217214155HODIEU.jpg", position: "PHÓ GIÁM ĐỐC\n1998 - 2003" },
+        { name: "CÔ NGUYỄN THỊ ẢNH", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217214220NGUYENTHIANH.jpg", position: "PHÓ GIÁM ĐỐC\n1998 - 1999" },
+        { name: "NGƯT.PGS.TS. NGUYỄN THỊ NHUNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217214328NGUYENTHINHUNG.jpg", position: "PHÓ GIÁM ĐỐC\n1999 - 2003" },
+      ]
+    },
+    {
+      period: "1993 - 1998",
+      year: "1993 - 1998",
+      leaders: [
+        { name: "NGƯT. TRẦN MINH HOÀNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213530TRANMINHHOANG.jpg", position: "GIÁM ĐỐC\n1993 - 1998" },
+        { name: "PGS. TS. LÊ VĂN TỀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213622LEVANTE.jpg", position: "PHÓ GIÁM ĐỐC\n1993 - 1994" },
+        { name: "NGND.TS. NGUYỄN VĂN HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213647NGUYENVANHA.jpg", position: "PHÓ GIÁM ĐỐC\n1993 - 1998" },
+        { name: "NGND. PGS. TS. NGÔ HƯỚNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213746NGOHUONG.jpg", position: "PHÓ GIÁM ĐỐC\n1993 - 1998" },
+        { name: "CÔ NGUYỄN THỊ ẢNH", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213841NGUYENTHIANH.jpg", position: "PHÓ GIÁM ĐỐC\n1993 - 1998" },
+        { name: "NGƯT.TS. HỒ DIỆU", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213945HODIEU.jpg", position: "PHÓ GIÁM ĐỐC\n1997 - 1998" },
+      ]
+    },
+    {
+      period: "1976 - 1993",
+      year: "1976 - 1993",
+      leaders: [
+        { name: "TS. LÊ ĐÌNH THU", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217212641ledinhthu.jpg", position: "PHÓ HIỆU TRƯỜNG\n1976 - 1978" },
+        { name: "THẦY MAI PHÊ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217212847MAIPHE.jpg", position: "PHỤ TRÁCH\n1978 - 1982" },
+        { name: "TS. NGUYỄN HỮU PHÙNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213016NGUYENHUUPHUNG.jpg", position: "HIỆU TRƯỞNG\n1982 - 1987" },
+        { name: "THẦY NGUYỄN THANH PHONG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213104NGUYENTHANHPHONG.jpg", position: "HIỆU TRƯỞNG\n1987 - 1993" },
+        { name: "PGS. TS. LÊ VĂN TỀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213204LEVANTE.jpg", position: "PHÓ HIỆU TRƯỞNG\n1981 - 1993" },
+        { name: "NGƯT. TRẦN MINH HOÀNG", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213338TRANMINHHOANG.jpg", position: "PHÓ HIỆU TRƯỞNG\n1987 - 1993" },
+        { name: "NGND.TS. NGUYỄN VĂN HÀ", image: "https://hub.edu.vn/DATA/IMAGES/2025/02/17/20250217213427NGUYENVANHA.jpg", position: "PHÓ HIỆU TRƯỞNG\n1987 - 1993" },
+      ]
+    },
+  ]
+
+  // Navigation function for leader generations
+  const goToLeader = (index: number) => {
+    setCurrentLeaderIndex(index)
+    setLeaderCarouselIndices((prev) => ({ ...prev, [index]: 0 }))
+  }
+
+  // Tính số hình hiển thị mỗi lần: mobile=1, tablet=2, desktop=4
+  const getLeadersPerSlide = () => {
+    if (typeof window === 'undefined') return 4
+    if (window.innerWidth < 640) return 1 // mobile
+    if (window.innerWidth < 1024) return 2 // tablet
+    return 4 // desktop
+  }
+
+  const [leadersPerSlide, setLeadersPerSlide] = useState(4)
+
+  useEffect(() => {
+    const updateLeadersPerSlide = () => {
+      const newLeadersPerSlide = getLeadersPerSlide()
+      setLeadersPerSlide(newLeadersPerSlide)
+      
+      // Reset carousel indices khi số lượng leaders per slide thay đổi
+      setLeaderCarouselIndices((prev) => {
+        const updated: Record<number, number> = {}
+        Object.keys(prev).forEach((key) => {
+          const genIndex = parseInt(key)
+          const leaders = leaderGenerations[genIndex]?.leaders || []
+          const totalSlides = Math.ceil(leaders.length / newLeadersPerSlide)
+          updated[genIndex] = Math.min(prev[genIndex] || 0, totalSlides - 1)
+        })
+        return updated
+      })
+    }
+    updateLeadersPerSlide()
+    window.addEventListener("resize", updateLeadersPerSlide)
+    return () => window.removeEventListener("resize", updateLeadersPerSlide)
+  }, [])
+
+  // Tính số slide cho thế hệ lãnh đạo hiện tại
+  const getTotalLeaderSlides = (generationIndex: number) => {
+    const leaders = leaderGenerations[generationIndex]?.leaders || []
+    return Math.ceil(leaders.length / leadersPerSlide)
+  }
+
+  // Navigation cho leader carousel - sử dụng scroll
+  const nextLeaderCarousel = (generationIndex: number) => {
+    const carouselEl = leaderCarouselRefs.current[generationIndex]
+    if (carouselEl) {
+      const slideWidth = carouselEl.clientWidth
+      const currentScroll = carouselEl.scrollLeft
+      const nextScroll = currentScroll + slideWidth
+      carouselEl.scrollTo({
+        left: nextScroll,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  const prevLeaderCarousel = (generationIndex: number) => {
+    const carouselEl = leaderCarouselRefs.current[generationIndex]
+    if (carouselEl) {
+      const slideWidth = carouselEl.clientWidth
+      const currentScroll = carouselEl.scrollLeft
+      const prevScroll = currentScroll - slideWidth
+      carouselEl.scrollTo({
+        left: prevScroll,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  const goToLeaderSlide = (generationIndex: number, slideIndex: number) => {
+    const carouselEl = leaderCarouselRefs.current[generationIndex]
+    if (carouselEl) {
+      const slideWidth = carouselEl.clientWidth
+      carouselEl.scrollTo({
+        left: slideIndex * slideWidth,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  // Lấy các lãnh đạo hiển thị trong một slide cụ thể
+  const getLeadersForSlide = (generationIndex: number, slideIndex: number): (typeof leaderGenerations[0]['leaders'][0] | null)[] => {
+    const leaders = leaderGenerations[generationIndex]?.leaders || []
+    const startIndex = slideIndex * leadersPerSlide
+    const endIndex = startIndex + leadersPerSlide
+    const slideLeaders: (typeof leaderGenerations[0]['leaders'][0] | null)[] = leaders.slice(startIndex, endIndex)
+    
+    // Đảm bảo luôn có đủ số lượng để hiển thị (fill với null nếu thiếu)
+    while (slideLeaders.length < leadersPerSlide) {
+      slideLeaders.push(null)
+    }
+    
+    return slideLeaders
+  }
+
   // Tính số slide: mobile = số hình ảnh, desktop = số hình ảnh / 2
-  const totalSlides = isMobile 
-    ? facilityImages.length 
+  const totalSlides = isMobile
+    ? facilityImages.length
     : Math.ceil(facilityImages.length / 2)
 
   const nextImage = () => {
@@ -164,8 +422,8 @@ export function AboutClient() {
       setCurrentImageIndex((prev) => {
         const prevIndex = prev - 2
         if (prevIndex < 0) {
-          return facilityImages.length % 2 === 0 
-            ? facilityImages.length - 2 
+          return facilityImages.length % 2 === 0
+            ? facilityImages.length - 2
             : Math.max(0, facilityImages.length - 2)
         }
         return prevIndex
@@ -193,6 +451,42 @@ export function AboutClient() {
       return [facilityImages[firstIndex], secondIndex !== null ? facilityImages[secondIndex] : null]
     }
   }
+
+  // Convert historyTimeline to Timeline format
+  const timelineData = historyTimeline.map((item) => ({
+    title: item.year,
+    content: (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+        {/* Image - Chiếm 2/3 trên desktop */}
+        <div className="relative w-full lg:col-span-2 overflow-hidden rounded-lg sm:rounded-xl">
+          <div className="aspect-[16/10] sm:aspect-[16/9] relative w-full">
+            <Image
+              src={item.image}
+              alt={item.year}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 66vw"
+            />
+          </div>
+        </div>
+
+        {/* Description - Chiếm 1/3 trên desktop */}
+        <div className="flex flex-col justify-center lg:col-span-1">
+          <div className="prose prose-sm sm:prose-base md:prose-lg text-foreground leading-relaxed dark:prose-invert max-w-none">
+            {item.description ? (
+              <p className="text-xs sm:text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed">
+                {item.description}
+              </p>
+            ) : (
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground italic">
+                Đang cập nhật thông tin...
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    ),
+  }))
 
   return (
     <div className="relative isolate bg-background">
@@ -286,7 +580,7 @@ export function AboutClient() {
       {/* About HUB Section */}
       <section className="py-12 sm:py-16 lg:py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground uppercase mb-6 sm:mb-8">
               Về <span className="text-secondary font-bold">HUB</span>
             </h2>
@@ -539,6 +833,7 @@ export function AboutClient() {
         </div>
       </section>
 
+
       {/* Facilities Section */}
       <section className="py-12 sm:py-16 lg:py-20 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -652,18 +947,17 @@ export function AboutClient() {
               {/* Pagination Dots */}
               <div className="flex justify-center items-center gap-2 mt-4 sm:mt-6">
                 {Array.from({ length: totalSlides }).map((_, slideIndex) => {
-                  const isActive = isMobile 
+                  const isActive = isMobile
                     ? currentImageIndex === slideIndex
                     : Math.floor(currentImageIndex / 2) === slideIndex
                   return (
                     <button
                       key={slideIndex}
                       onClick={() => goToSlide(slideIndex)}
-                      className={`transition-all rounded-full ${
-                        isActive
+                      className={`transition-all rounded-full ${isActive
                           ? "w-8 h-2 sm:w-10 sm:h-2.5 bg-secondary"
                           : "w-2 h-2 sm:w-2.5 sm:h-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                      }`}
+                        }`}
                       aria-label={`Đi tới slide ${slideIndex + 1}`}
                       aria-current={isActive ? "true" : "false"}
                     />
@@ -690,6 +984,238 @@ export function AboutClient() {
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Faculty & Scientists Section */}
+      <section className="py-12 sm:py-16 lg:py-20 bg-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header Section - 2 columns */}
+            <div className="border-b-2 border-primary mb-6 sm:mb-8 pb-6 sm:pb-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+                    Đội ngũ Giảng viên - Nhà khoa học
+                  </h2>
+                </div>
+                <div>
+                  <div className="prose prose-sm sm:prose-base text-foreground leading-relaxed dark:prose-invert">
+                    <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
+                      <span className="font-bold text-secondary">HUB</span> có gần 500 cán bộ, giảng viên, nhân viên. Đội ngũ giảng viên bao gồm: 38 Giáo sư, Phó Giáo sư, 184 Tiến sĩ và 238 Thạc sĩ được đào tạo tại các trường đại học có uy tín trong và ngoài nước, vừa là các chuyên gia, nhà nghiên cứu giàu kinh nghiệm, vừa là những thầy cô tận tâm với sinh viên. Trường có đội ngũ 100 giáo sư, tiến sĩ thỉnh giảng đến từ các trường đại học, viện nghiên cứu, tổ chức tài chính, doanh nghiệp trong và ngoài nước:
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-8 sm:mb-12 lg:mb-16">
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-1 sm:mb-2">
+                  38
+                </div>
+                <div className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  Giáo sư, Phó Giáo sư
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-1 sm:mb-2">
+                  237
+                </div>
+                <div className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  Tiến sĩ
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-1 sm:mb-2">
+                  87
+                </div>
+                <div className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  PGS- TS Thỉnh giảng
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-1 sm:mb-2">
+                  500
+                </div>
+                <div className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  Giảng viên cơ hữu
+                </div>
+              </div>
+            </div>
+
+            {/* Departments List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+              {departments.map((department, index) => (
+                <Link
+                  key={index}
+                  href={department.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 sm:p-5 bg-card border border-border rounded-lg sm:rounded-xl hover:bg-muted/50 hover:border-primary/50 transition-all group"
+                >
+                  <span className="text-sm sm:text-base md:text-lg font-medium text-foreground group-hover:text-primary transition-colors">
+                    {department.name}
+                  </span>
+                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tradition Corner Section */}
+      <section className="py-12 sm:py-16 lg:py-20 bg-muted/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header Section - 2 columns */}
+            <div className="border-b-2 border-primary mb-6 sm:mb-8 pb-6 sm:pb-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+                    Góc truyền thống
+                  </h2>
+                </div>
+                <div>
+                  <div className="prose prose-sm sm:prose-base text-foreground leading-relaxed dark:prose-invert">
+                    <p className="text-sm sm:text-base md:text-lg text-muted-foreground">
+                      Đại học Ngân hàng có lịch sử hình thành và phát triển lâu đời, với nhiều truyền thống quý báu được gìn giữ và phát huy qua nhiều thế hệ.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* History Timeline */}
+            <div className="mt-8">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground text-center mb-6 sm:mb-8">
+                Lịch sử hình thành
+              </h3>
+
+              {/* Timeline Component */}
+              <div className="[&>div]:bg-background [&>div]:dark:bg-background [&>div>div:first-child]:hidden [&_h3]:text-foreground [&_h3]:dark:text-foreground [&_p]:text-muted-foreground [&_p]:dark:text-muted-foreground [&>div]:px-2 [&>div]:sm:px-4 [&>div]:md:px-6 [&>div]:lg:px-8 [&>div>div]:py-4 [&>div>div]:sm:py-6 [&>div>div]:md:py-8 [&>div>div]:lg:py-12 [&>div>div>div]:pt-3 [&>div>div>div]:sm:pt-4 [&>div>div>div]:md:pt-6 [&>div>div>div]:lg:pt-10 [&>div>div>div]:pb-3 [&>div>div>div]:sm:pb-4 [&>div>div>div]:md:pb-6 [&>div>div>div]:lg:pb-10 [&>div>div>div>div]:gap-2 [&>div>div>div>div]:sm:gap-3 [&>div>div>div>div]:md:gap-4 [&>div>div>div>div]:lg:gap-6 [&>div>div>div>div>div]:pl-8 [&>div>div>div>div>div]:sm:pl-10 [&>div>div>div>div>div]:md:pl-12 [&>div>div>div>div>div]:pr-2 [&>div>div>div>div>div]:sm:pr-3 [&>div>div>div>div>div]:md:pr-4 [&>div>div>div>div>div>h3]:text-base [&>div>div>div>div>div>h3]:sm:text-lg [&>div>div>div>div>div>h3]:md:text-xl [&>div>div>div>div>div>h3]:lg:text-2xl [&>div>div>div>div>div>h3]:mb-2 [&>div>div>div>div>div>h3]:sm:mb-3 [&>div>div>div>div>div>h3]:md:mb-4 [&>div>div>div>div>div>div]:pl-0 [&>div>div>div>div>div>div]:sm:pl-0 [&>div>div>div>div>div>div]:md:pl-0 [&>div>div>div>div>div>div]:pr-0 [&>div>div>div>div>div>div]:sm:pr-0 [&>div>div>div>div>div>div]:md:pr-0">
+                <Timeline data={timelineData} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Leaders Section */}
+      <section className="py-12 sm:py-16 lg:py-20 bg-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+                Các thế hệ lãnh đạo
+              </h2>
+            </div>
+
+            {/* Horizontal Timeline Navigation */}
+            <div className="relative overflow-hidden mb-6 sm:mb-8">
+              <div className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                {leaderGenerations.map((generation, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToLeader(index)}
+                    className={`flex flex-col items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl transition-all flex-shrink-0 min-w-[140px] sm:min-w-[160px] md:min-w-[180px] ${
+                      currentLeaderIndex === index
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border border-border hover:bg-muted/50 text-foreground"
+                    }`}
+                  >
+                    <span
+                      className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${
+                        currentLeaderIndex === index
+                          ? "bg-primary-foreground"
+                          : "bg-primary"
+                      }`}
+                    />
+                    <h3
+                      className={`text-xs sm:text-sm md:text-base font-semibold text-center ${
+                        currentLeaderIndex === index
+                          ? "text-primary-foreground"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {generation.period}
+                    </h3>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Leader Carousel */}
+            <div className="relative">
+              <div className="relative w-full bg-card border border-border rounded-xl sm:rounded-2xl">
+                <div className={`relative ${
+                  leadersPerSlide === 4 ? 'p-2 sm:p-4 md:p-6' : 'p-4 sm:p-6 md:p-8'
+                }`}>
+                  {leaderGenerations[currentLeaderIndex]?.leaders && leaderGenerations[currentLeaderIndex].leaders.length > 0 ? (
+                    <>
+                      {/* Leader Grid with Scroll */}
+                      <ScrollArea className="w-full">
+                        <div className={`flex gap-4 sm:gap-6 ${
+                          leadersPerSlide === 4 ? 'gap-2 sm:gap-3 md:gap-4' : ''
+                        } pb-4`}>
+                          {leaderGenerations[currentLeaderIndex].leaders.map((leader, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col items-center text-center flex-shrink-0"
+                              style={{
+                                width: leadersPerSlide === 1 ? '280px' :
+                                       leadersPerSlide === 2 ? 'calc(20% - 0.5rem)' :
+                                       leadersPerSlide === 4 ? 'calc(25% - 0.75rem)' :
+                                       'calc(33.333% - 1rem)',
+                                minWidth: leadersPerSlide === 1 ? '280px' :
+                                         leadersPerSlide === 2 ? '200px' :
+                                         leadersPerSlide === 4 ? '180px' :
+                                         '200px',
+                                maxWidth: leadersPerSlide === 1 ? '280px' :
+                                         leadersPerSlide === 2 ? 'calc(50% - 0.5rem)' :
+                                         leadersPerSlide === 4 ? 'calc(25% - 0.75rem)' :
+                                         'calc(33.333% - 1rem)'
+                              }}
+                            >
+                              {/* Leader Image */}
+                              <div className="relative w-full aspect-[3/4] mb-4 sm:mb-6 overflow-hidden rounded-lg sm:rounded-xl border border-border">
+                                <Image
+                                  src={leader.image}
+                                  alt={leader.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 640px) 280px, (max-width: 1024px) 50vw, 25vw"
+                                />
+                              </div>
+                              {/* Leader Info */}
+                              <h4 className="text-sm sm:text-base md:text-lg font-bold text-foreground mb-2 sm:mb-3">
+                                {leader.name}
+                              </h4>
+                              <div className="prose prose-sm sm:prose-base text-foreground dark:prose-invert">
+                                <p className="text-xs sm:text-sm md:text-base text-muted-foreground whitespace-pre-line">
+                                  {leader.position}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <ScrollBar orientation="horizontal" />
+                      </ScrollArea>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-sm sm:text-base text-muted-foreground">
+                        Thông tin lãnh đạo sẽ được cập nhật...
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
