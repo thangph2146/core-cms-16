@@ -31,6 +31,7 @@ export function NavMain({ items = [] }: { items?: MenuItem[] }) {
               title: subItem.title,
               url: subItem.url,
             }))}
+            badgeCount={item.badgeCount}
           />
         ))}
       </SidebarMenu>

@@ -55,6 +55,15 @@ export const queryKeys = {
     list: (): readonly unknown[] => ["roles", "list"],
     all: (): readonly unknown[] => ["roles"],
   },
+
+  // Unread counts
+  unreadCounts: {
+    user: (userId: string | undefined): readonly unknown[] => {
+      if (!userId) return ["unreadCounts", "user", null]
+      return ["unreadCounts", "user", userId]
+    },
+    all: (): readonly unknown[] => ["unreadCounts"],
+  },
 }
 
 /**

@@ -657,6 +657,7 @@ const buildMenuItemFromFeature = (
     : undefined
 
   return {
+    key: feature.key,
     title: feature.title,
     url: baseUrl,
     icon: iconElement,

@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { Permission } from "@/lib/permissions"
 import type { ReactNode } from "react"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
+import { useUnreadCounts } from "@/hooks/use-unread-counts"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   navMainSlot?: ReactNode
@@ -30,6 +31,12 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
   const isLoading = status === "loading"
   const resourceSegment = useResourceSegment()
 
+  // Get unread counts
+  const { data: unreadCounts } = useUnreadCounts({
+    refetchInterval: 30000, // 30 seconds
+    enabled: !!session?.user?.id,
+  })
+
   // Get menu data based on permissions
   const menuData = React.useMemo(() => {
     const permissions = (session?.permissions || []) as Permission[]
@@ -40,8 +47,30 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
         projects: [],
       }
     }
-    return getMenuData(permissions, session?.roles ?? [], resourceSegment)
-  }, [session?.permissions, session?.roles, resourceSegment])
+    const menu = getMenuData(permissions, session?.roles ?? [], resourceSegment)
+    
+    // Map unread counts to menu items
+    const navMainWithBadges = menu.navMain.map((item) => {
+      if (item.key === "messages") {
+        return {
+          ...item,
+          badgeCount: unreadCounts?.unreadMessages || 0,
+        }
+      }
+      if (item.key === "notifications") {
+        return {
+          ...item,
+          badgeCount: unreadCounts?.unreadNotifications || 0,
+        }
+      }
+      return item
+    })
+
+    return {
+      ...menu,
+      navMain: navMainWithBadges,
+    }
+  }, [session?.permissions, session?.roles, resourceSegment, unreadCounts])
 
   const branding = React.useMemo(
     () =>

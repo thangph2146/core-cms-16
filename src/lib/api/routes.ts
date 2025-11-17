@@ -64,6 +64,11 @@ export const apiRoutes = {
     update: "/admin/accounts",
   },
 
+  // Unread counts
+  unreadCounts: {
+    get: "/admin/unread-counts",
+  },
+
   // Auth
   auth: {
     signIn: "/auth/sign-in",

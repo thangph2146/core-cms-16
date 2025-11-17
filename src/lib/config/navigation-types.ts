@@ -12,12 +12,14 @@ export interface MenuSubItem {
 }
 
 export interface MenuItem {
+  key?: string
   title: string
   url: string
   icon: React.ReactElement
   isActive?: boolean
   items?: MenuSubItem[]
   permissions: ReadonlyArray<Permission>
+  badgeCount?: number
 }
 
 export interface MenuProject {

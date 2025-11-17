@@ -2,7 +2,8 @@ import { Suspense } from "react"
 import type { Metadata } from "next"
 import { getSession } from "@/lib/auth/auth-server"
 import { getMenuData } from "@/lib/config"
-import { AppSidebar, NavMain } from "@/components/layouts/navigation"
+import { AppSidebar } from "@/components/layouts/navigation"
+import { NavMainWithBadges } from "@/components/layouts/navigation/nav-main-with-badges"
 import { NavMainSkeleton } from "@/components/layouts/skeletons"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { PermissionGate } from "@/components/layouts/shared"
@@ -56,7 +57,8 @@ async function NavMainWithMenu({ resourceSegment }: { resourceSegment: string })
     : { navMain: [] }
   const navMainItems = menuData.navMain
 
-  return <NavMain items={navMainItems} />
+  // Pass items to client component để inject unread counts
+  return <NavMainWithBadges items={navMainItems} />
 }
 
 export default async function AdminLayout({
