@@ -4,6 +4,7 @@
  */
 
 import type { Contact, Message } from "@/components/chat/types"
+import { MAX_MESSAGES_IN_STATE } from "@/components/chat/constants"
 import { calculateUnreadCount } from "./use-chat-helpers"
 
 /**
@@ -74,22 +75,30 @@ export function removeContactMessage(
 
 /**
  * Add message to contact
+ * Tự động giới hạn số lượng tin nhắn để tránh performance issues
  */
 export function addContactMessage(
   contacts: Contact[],
   contactId: string,
   message: Message
 ): Contact[] {
-  return contacts.map((contact) =>
-    contact.id === contactId
-      ? {
-          ...contact,
-          messages: [...contact.messages, message],
-          lastMessage: message.content,
-          lastMessageTime: message.timestamp,
-        }
-      : contact
-  )
+  return contacts.map((contact) => {
+    if (contact.id !== contactId) return contact
+
+    const newMessages = [...contact.messages, message]
+    // Giới hạn số lượng tin nhắn, giữ lại tin nhắn mới nhất
+    // Nếu vượt quá MAX_MESSAGES_IN_STATE, xóa tin nhắn cũ nhất
+    const limitedMessages = newMessages.length > MAX_MESSAGES_IN_STATE
+      ? newMessages.slice(-MAX_MESSAGES_IN_STATE) // Giữ lại MAX_MESSAGES_IN_STATE tin nhắn mới nhất
+      : newMessages
+
+    return {
+      ...contact,
+      messages: limitedMessages,
+      lastMessage: message.content,
+      lastMessageTime: message.timestamp,
+    }
+  })
 }
 
 /**

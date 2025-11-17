@@ -23,6 +23,7 @@ import {
   filterContactInState,
 } from "./use-chat-socket-helpers"
 import { isMessageUnreadByUser } from "@/components/chat/utils/message-helpers"
+import { MAX_MESSAGES_IN_STATE } from "@/components/chat/constants"
 import { calculateUnreadCount } from "./use-chat-helpers"
 import { logger } from "@/lib/config"
 
@@ -129,9 +130,18 @@ export function useChatSocketBridge({
           if (contact.id !== contactId) return contact
           contactFound = true
 
+          // Thêm tin nhắn mới
+          const newMessages = [...contact.messages, newMessage]
+          
+          // Tự động xóa tin nhắn cũ nếu vượt quá giới hạn
+          // Giữ lại MAX_MESSAGES_IN_STATE tin nhắn mới nhất (xóa tin nhắn cũ nhất)
+          const limitedMessages = newMessages.length > MAX_MESSAGES_IN_STATE
+            ? newMessages.slice(-MAX_MESSAGES_IN_STATE)
+            : newMessages
+
           const contactWithMessage: Contact = {
             ...contact,
-            messages: [...contact.messages, newMessage],
+            messages: limitedMessages,
             lastMessage: newMessage.content,
             lastMessageTime: newMessage.timestamp,
           }
