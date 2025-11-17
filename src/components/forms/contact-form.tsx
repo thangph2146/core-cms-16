@@ -43,7 +43,7 @@ interface ContactFormProps {
   apiUrl?: string;
 }
 
-export function ContactForm({ onSubmit, className, apiUrl = "/api/(public)/contact" }: ContactFormProps) {
+export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: ContactFormProps) {
   const [formData, setFormData] = useState<ContactFormData>({
     name: "",
     email: "",

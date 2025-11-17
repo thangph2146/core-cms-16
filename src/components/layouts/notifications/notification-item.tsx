@@ -66,9 +66,9 @@ export function NotificationItem({
   return (
     <div
       className={cn(
-        "group relative border-l-4 p-4 transition-colors hover:bg-accent cursor-pointer",
+        "group relative border-l-4 p-4 transition-colors hover:bg-accent/10 cursor-pointer",
         styleClass,
-        !notification.isRead && "bg-accent/50"
+        !notification.isRead && "bg-accent/10"
       )}
       onClick={onClick}
       role="button"

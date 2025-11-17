@@ -1,5 +1,5 @@
 /**
- * Public API Route: POST /api/(public)/contact
+ * Public API Route: POST /api/contact
  * 
  * Submit contact form - no authentication required
  */
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("[POST /api/(public)/contact] Error:", error)
+    console.error("[POST /api/contact] Error:", error)
 
     const errorMessage = error instanceof Error
       ? error.message

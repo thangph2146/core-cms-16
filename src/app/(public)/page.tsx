@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { appConfig } from "@/lib/config"
-import HomeClient from "@/features/public/home-client"
+import { Home } from "@/features/public/home/components"
 
 /**
  * Home Page Metadata
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function Home() {
-  return <HomeClient />
+export default async function HomePage() {
+  return <Home />
 }
 

@@ -66,7 +66,7 @@ export function PublicFooter() {
           <div className="lg:col-span-2 space-y-8">
             {/* Logo and Brand */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 bg-white p-4 rounded-lg">
                 <Logo className="h-28 w-28 text-blue-100" />
               </div>
               <div className="space-y-2">

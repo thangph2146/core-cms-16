@@ -1,13 +1,43 @@
-"use client";
+"use client"
 
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import Link from "next/link";
-import { Users, MessageSquare, Bell, ArrowRight, GraduationCap, Check, Phone, Mail } from "lucide-react";
-import { ContactForm } from "@/components/forms/contact-form";
+import { Button } from "@/components/ui/button"
+import Image from "next/image"
+import Link from "next/link"
+import { Users, MessageSquare, Bell, ArrowRight, GraduationCap, Check, Phone, Mail } from "lucide-react"
+import { ContactForm } from "@/components/forms/contact-form"
+import { appFeatures } from "@/lib/config/app-features"
+import { getResourceMainRoute } from "@/lib/permissions/route-helpers"
 
-export default function HomeClient() {
+/**
+ * Helper function để lấy route từ appFeatures
+ */
+function getRouteFromFeature(key: string): string | null {
+  const feature = appFeatures.find((f) => f.key === key)
+  if (!feature?.navigation) return null
 
+  const nav = feature.navigation
+  if (nav.href) return nav.href
+
+  if (nav.resourceName) {
+    const route = getResourceMainRoute(nav.resourceName)
+    return route?.path || null
+  }
+
+  return null
+}
+
+// Routes constants - Lấy từ appFeatures
+const HOME_ROUTES = {
+  signIn: "/auth/sign-in",
+  signUp: "/auth/sign-up",
+  help: getRouteFromFeature("help") || "/help",
+} as const
+
+export interface HomeClientProps {
+  // Có thể thêm props từ server component nếu cần
+}
+
+export function HomeClient({}: HomeClientProps) {
   return (
     <div className="relative isolate bg-background">
       {/* Hero Section */}
@@ -39,7 +69,7 @@ export default function HomeClient() {
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Button size="sm" asChild>
-                  <Link href="/auth/login">
+                  <Link href={HOME_ROUTES.signIn}>
                     <Users className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     <span className="hidden xs:inline">Đăng nhập ngay</span>
                     <span className="xs:hidden">Đăng nhập</span>
@@ -47,7 +77,7 @@ export default function HomeClient() {
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/auth/register">
+                  <Link href={HOME_ROUTES.signUp}>
                     <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Đăng ký
                   </Link>
@@ -106,7 +136,7 @@ export default function HomeClient() {
                     TP.HCM.
                   </p>
                   <Button variant="outline" size="lg" className="w-full sm:w-auto" asChild>
-                    <Link href="/guide">
+                    <Link href={HOME_ROUTES.help}>
                       Tìm hiểu ngay
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
@@ -140,7 +170,7 @@ export default function HomeClient() {
                     Đại học Ngân hàng TP.HCM.
                   </p>
                   <Button variant="outline" size="lg" className="w-full sm:w-auto" asChild>
-                    <Link href="/auth/register">
+                    <Link href={HOME_ROUTES.signUp}>
                       Đăng ký ngay
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Link>
@@ -215,7 +245,6 @@ export default function HomeClient() {
                     </div>
                   </div>
 
-
                   {/* Contact Info */}
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
                     <h4 className="font-semibold text-slate-900 mb-4 text-lg">
@@ -239,7 +268,6 @@ export default function HomeClient() {
                 </div>
               </div>
 
-
               {/* Right Side - Contact Form */}
               <div className="flex-1">
                 <ContactForm />
@@ -249,5 +277,6 @@ export default function HomeClient() {
         </div>
       </section>
     </div>
-  );
+  )
 }
+
