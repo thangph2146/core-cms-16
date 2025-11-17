@@ -16,8 +16,8 @@ export function ContactItem({ contact, isSelected, onClick }: ContactItemProps) 
   return (
     <button
       onClick={onClick}
-      className={`w-full px-4 py-3 hover:bg-accent/50 transition-colors text-left relative ${
-        isSelected ? "bg-accent" : ""
+      className={`w-full px-4 py-3 hover:bg-accent/10/10 transition-colors text-left relative ${
+        isSelected ? "bg-accent/10" : ""
       } ${contact.isDeleted ? "opacity-60" : ""}`}
       aria-label={`Chat with ${contact.name}`}
     >
