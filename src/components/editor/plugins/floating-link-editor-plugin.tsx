@@ -15,12 +15,13 @@ import {
   TOGGLE_LINK_COMMAND,
 } from "@lexical/link"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $findMatchingParent, mergeRegister } from "@lexical/utils"
+import { $findMatchingParent, $wrapNodeInElement, mergeRegister } from "@lexical/utils"
 import {
   $getSelection,
   $isLineBreakNode,
   $isNodeSelection,
   $isRangeSelection,
+  $setSelection,
   BaseSelection,
   CLICK_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
@@ -35,9 +36,10 @@ import { createPortal } from "react-dom"
 
 import { getSelectedNode } from "@/components/editor/utils/get-selected-node"
 import { setFloatingElemPositionForLinkEditor } from "@/components/editor/utils/set-floating-elem-position-for-link-editor"
-import { sanitizeUrl } from "@/components/editor/utils/url"
+import { sanitizeUrl, validateUrl } from "@/components/editor/utils/url"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { $isImageNode } from "@/components/editor/nodes/image-node"
 
 function FloatingLinkEditor({
   editor,
@@ -62,21 +64,48 @@ function FloatingLinkEditor({
 
   const $updateLinkEditor = useCallback(() => {
     const selection = $getSelection()
+    let linkNode = null
+    let selectedNode = null
+
     if ($isRangeSelection(selection)) {
       const node = getSelectedNode(selection)
-      const linkParent = $findMatchingParent(node, $isLinkNode)
-
-      if (linkParent) {
-        setLinkUrl(linkParent.getURL())
-      } else if ($isLinkNode(node)) {
-        setLinkUrl(node.getURL())
-      } else {
-        setLinkUrl("")
+      selectedNode = node
+      linkNode = $findMatchingParent(node, $isLinkNode)
+      if (!linkNode && $isLinkNode(node)) {
+        linkNode = node
       }
-      if (isLinkEditMode) {
-        setEditedLinkUrl(linkUrl)
+    } else if ($isNodeSelection(selection)) {
+      const nodes = selection.getNodes()
+      if (nodes.length > 0) {
+        const node = nodes[0]
+        selectedNode = node
+        // Check if the node itself is a link node
+        if ($isLinkNode(node)) {
+          linkNode = node
+        } else {
+          // Check if the node is wrapped in a link (e.g., image node in link)
+          linkNode = $findMatchingParent(node, $isLinkNode)
+          // For image nodes, also check if parent is a link
+          if (!linkNode && $isImageNode(node)) {
+            const parent = node.getParent()
+            if ($isLinkNode(parent)) {
+              linkNode = parent
+            }
+          }
+        }
       }
     }
+
+    if (linkNode) {
+      setLinkUrl(linkNode.getURL())
+    } else {
+      setLinkUrl("")
+    }
+
+    if (isLinkEditMode && linkNode) {
+      setEditedLinkUrl(linkUrl || linkNode.getURL())
+    }
+
     const editorElem = editorRef.current
     const nativeSelection = window.getSelection()
     const activeElement = document.activeElement
@@ -87,18 +116,108 @@ function FloatingLinkEditor({
 
     const rootElement = editor.getRootElement()
 
-    if (
-      selection !== null &&
-      nativeSelection !== null &&
+    // Check if we have a valid selection (with or without link)
+    const hasValidSelection = selection !== null
+    const hasValidNativeSelection = 
+      nativeSelection !== null && 
       rootElement !== null &&
-      rootElement.contains(nativeSelection.anchorNode) &&
-      editor.isEditable()
-    ) {
-      const domRect: DOMRect | undefined =
-        nativeSelection.focusNode?.parentElement?.getBoundingClientRect()
+      (nativeSelection.anchorNode && rootElement.contains(nativeSelection.anchorNode))
+
+    // Show floating editor if:
+    // 1. We have a link node (existing link) - show to view/edit
+    // 2. We're in edit mode (creating new link) - show input to create link
+    const hasImageNode = $isNodeSelection(selection) && selectedNode && $isImageNode(selectedNode)
+    const shouldShowEditor = 
+      (linkNode !== null || isLinkEditMode) &&
+      hasValidSelection &&
+      editor.isEditable() &&
+      (
+        // If in edit mode, always show (even if nativeSelection is not valid)
+        isLinkEditMode ||
+        hasValidNativeSelection || 
+        ($isNodeSelection(selection) && selectedNode) ||
+        ($isRangeSelection(selection) && selection.getTextContent().length > 0)
+      )
+
+    if (shouldShowEditor) {
+      // For node selection (e.g., image), try to get the DOM element
+      let domRect: DOMRect | undefined
+      
+      if ($isNodeSelection(selection) && selectedNode) {
+        // Try to get DOM element using node key
+        const nodeKey = selectedNode.getKey()
+        const nodeElement = editor.getElementByKey(nodeKey)
+        
+        if (nodeElement) {
+          // For image nodes wrapped in links, find the link element
+          if ($isImageNode(selectedNode) && linkNode) {
+            // Find the link element that wraps the image
+            const linkElement = nodeElement.closest("a") || nodeElement.parentElement?.closest("a")
+            if (linkElement) {
+              domRect = linkElement.getBoundingClientRect()
+            } else {
+              domRect = nodeElement.getBoundingClientRect()
+            }
+          } else {
+            domRect = nodeElement.getBoundingClientRect()
+          }
+        }
+      }
+      
+      // Fallback to native selection if we don't have a specific DOM rect
+      if (!domRect && nativeSelection) {
+        // Try to find link element in DOM if we have a link node
+        if (linkNode && nativeSelection.focusNode) {
+          // focusNode can be a Text node, so we need to get the parent element
+          let focusElement: HTMLElement | null = null
+          if (nativeSelection.focusNode instanceof HTMLElement) {
+            focusElement = nativeSelection.focusNode
+          } else if (nativeSelection.focusNode.parentElement) {
+            focusElement = nativeSelection.focusNode.parentElement
+          }
+          
+          if (focusElement) {
+            const linkElement = focusElement.closest("a") || focusElement.parentElement?.closest("a")
+            if (linkElement) {
+              domRect = linkElement.getBoundingClientRect()
+            }
+          }
+        }
+        if (!domRect && nativeSelection.focusNode) {
+          // Get parent element if focusNode is not an HTMLElement
+          const parentElement = nativeSelection.focusNode instanceof HTMLElement
+            ? nativeSelection.focusNode
+            : nativeSelection.focusNode.parentElement
+          if (parentElement) {
+            domRect = parentElement.getBoundingClientRect()
+          }
+        }
+      }
+
+      // If in edit mode but no domRect, try to get from range selection
+      if (!domRect && isLinkEditMode && $isRangeSelection(selection)) {
+        const range = nativeSelection?.getRangeAt(0)
+        if (range) {
+          domRect = range.getBoundingClientRect()
+        }
+      }
+
       if (domRect) {
         domRect.y += 40
         setFloatingElemPositionForLinkEditor(domRect, editorElem, anchorElem)
+      } else if (isLinkEditMode) {
+        // If in edit mode but no domRect, show editor at a default position
+        // Use a fallback position based on editor root
+        if (rootElement) {
+          const rootRect = rootElement.getBoundingClientRect()
+          const fallbackRect = new DOMRect(
+            rootRect.left + 20,
+            rootRect.top + 100,
+            300,
+            50
+          )
+          setFloatingElemPositionForLinkEditor(fallbackRect, editorElem, anchorElem)
+        }
       }
       setLastSelection(selection)
     } else if (!activeElement || activeElement.className !== "link-input") {
@@ -107,7 +226,9 @@ function FloatingLinkEditor({
       }
       setLastSelection(null)
       setIsLinkEditMode(false)
-      setLinkUrl("")
+      if (!linkNode) {
+        setLinkUrl("")
+      }
     }
 
     return true
@@ -197,24 +318,68 @@ function FloatingLinkEditor({
   }
 
   const handleLinkSubmission = () => {
-    if (lastSelection !== null) {
-      if (linkUrl !== "") {
-        editor.dispatchCommand(TOGGLE_LINK_COMMAND, sanitizeUrl(editedLinkUrl))
-        editor.update(() => {
-          const selection = $getSelection()
-          if ($isRangeSelection(selection)) {
-            const parent = getSelectedNode(selection).getParent()
-            if ($isAutoLinkNode(parent)) {
-              const linkNode = $createLinkNode(parent.getURL(), {
-                rel: parent.__rel,
-                target: parent.__target,
-                title: parent.__title,
-              })
-              parent.replace(linkNode, true)
+    const url = sanitizeUrl(editedLinkUrl)
+    if (url && url !== "https://" && url !== "http://") {
+      editor.update(() => {
+        // Try to get current selection first
+        let selection = $getSelection()
+        
+        // If no current selection, try to restore from lastSelection
+        if (!selection && lastSelection !== null) {
+          // Clone the selection to avoid frozen object error
+          if ($isRangeSelection(lastSelection)) {
+            const clonedSelection = lastSelection.clone()
+            $setSelection(clonedSelection)
+            selection = $getSelection()
+          } else if ($isNodeSelection(lastSelection)) {
+            const clonedSelection = lastSelection.clone()
+            $setSelection(clonedSelection)
+            selection = $getSelection()
+          }
+        }
+        
+        if (!selection) {
+          return
+        }
+        
+        // Handle node selection (e.g., image nodes)
+        if ($isNodeSelection(selection)) {
+          const nodes = selection.getNodes()
+          if (nodes.length > 0) {
+            const node = nodes[0]
+            
+            // If it's an image node
+            if ($isImageNode(node)) {
+              // Check if already wrapped in a link
+              const existingLinkNode = $findMatchingParent(node, $isLinkNode) || 
+                ($isLinkNode(node.getParent()) ? node.getParent() : null)
+              
+              if (existingLinkNode) {
+                // Update existing link
+                existingLinkNode.setURL(url)
+              } else {
+                // Wrap image in link using wrapNodeInElement (safe for all cases including root)
+                const linkNode = $createLinkNode(url)
+                $wrapNodeInElement(node, () => linkNode)
+              }
             }
           }
-        })
-      }
+        }
+        // Handle range selection
+        else if ($isRangeSelection(selection)) {
+          // Use default TOGGLE_LINK_COMMAND for range selection
+          editor.dispatchCommand(TOGGLE_LINK_COMMAND, url)
+          const parent = getSelectedNode(selection).getParent()
+          if ($isAutoLinkNode(parent)) {
+            const linkNode = $createLinkNode(parent.getURL(), {
+              rel: parent.__rel,
+              target: parent.__target,
+              title: parent.__title,
+            })
+            parent.replace(linkNode, true)
+          }
+        }
+      })
       setEditedLinkUrl("https://")
       setIsLinkEditMode(false)
     }
@@ -222,10 +387,11 @@ function FloatingLinkEditor({
   return (
     <div
       ref={editorRef}
-      className="absolute top-0 left-0 w-full max-w-sm rounded-md opacity-0 shadow-md"
+      className="absolute top-0 left-0 w-full max-w-sm rounded-md opacity-0 shadow-lg z-50"
     >
-      {!isLink ? null : isLinkEditMode ? (
-        <div className="flex items-center space-x-2 rounded-md border p-1 pl-2">
+      {isLinkEditMode || isLink ? (
+        isLinkEditMode ? (
+          <div className="flex items-center space-x-2 rounded-md border bg-background/95 backdrop-blur-sm p-1 pl-2 shadow-lg">
           <Input
             ref={inputRef}
             value={editedLinkUrl}
@@ -252,8 +418,8 @@ function FloatingLinkEditor({
             <Check className="h-4 w-4" />
           </Button>
         </div>
-      ) : (
-        <div className="flex items-center justify-between rounded-md border p-1 pl-2">
+        ) : (
+          <div className="flex items-center justify-between rounded-md border bg-background/95 backdrop-blur-sm p-1 pl-2 shadow-lg">
           <a
             href={sanitizeUrl(linkUrl)}
             target="_blank"
@@ -277,14 +443,42 @@ function FloatingLinkEditor({
               size="icon"
               variant="destructive"
               onClick={() => {
-                editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
+                editor.update(() => {
+                  const selection = $getSelection()
+                  // Handle node selection (e.g., image nodes)
+                  if ($isNodeSelection(selection)) {
+                    const nodes = selection.getNodes()
+                    if (nodes.length > 0) {
+                      const node = nodes[0]
+                        if ($isImageNode(node)) {
+                          const linkNode = $findMatchingParent(node, $isLinkNode) || 
+                            ($isLinkNode(node.getParent()) ? node.getParent() : null)
+                          if (linkNode) {
+                            // Remove link by unwrapping - insert children into parent and remove link
+                            const parent = linkNode.getParent()
+                            if (parent) {
+                              const children = linkNode.getChildren()
+                              children.forEach((child) => {
+                                linkNode.insertBefore(child)
+                              })
+                              linkNode.remove()
+                            }
+                          }
+                        }
+                    }
+                  } else {
+                    // Use default TOGGLE_LINK_COMMAND for range selection
+                    editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
+                  }
+                })
               }}
             >
               <Trash className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      )}
+        )
+      ) : null}
     </div>
   )
 }
@@ -339,12 +533,26 @@ function useFloatingLinkEditorToolbar(
           return
         }
         const node = nodes[0]
-        const parent = node.getParent()
-        if ($isLinkNode(parent) || $isLinkNode(node)) {
+        // Check if node itself is a link
+        if ($isLinkNode(node)) {
           setIsLink(true)
-        } else {
-          setIsLink(false)
+          return
         }
+        // Check if node is wrapped in a link (using $findMatchingParent for better traversal)
+        const linkParent = $findMatchingParent(node, $isLinkNode)
+        if (linkParent) {
+          setIsLink(true)
+          return
+        }
+        // For image nodes, also check direct parent
+        if ($isImageNode(node)) {
+          const parent = node.getParent()
+          if ($isLinkNode(parent)) {
+            setIsLink(true)
+            return
+          }
+        }
+        setIsLink(false)
       }
     }
     return mergeRegister(
@@ -353,30 +561,184 @@ function useFloatingLinkEditorToolbar(
           $updateToolbar()
         })
       }),
+      // Register TOGGLE_LINK_COMMAND handler for node selection (image nodes)
+      editor.registerCommand(
+        TOGGLE_LINK_COMMAND,
+        (url: string | null) => {
+          const selection = $getSelection()
+          
+          // Handle node selection (e.g., image nodes)
+          if ($isNodeSelection(selection)) {
+            const nodes = selection.getNodes()
+            if (nodes.length > 0) {
+              const node = nodes[0]
+              
+              if ($isImageNode(node)) {
+                if (url) {
+                  // Create or update link
+                  const existingLinkNode = $findMatchingParent(node, $isLinkNode) || 
+                    ($isLinkNode(node.getParent()) ? node.getParent() : null)
+                  
+                  if (existingLinkNode) {
+                    // Update existing link
+                    existingLinkNode.setURL(url)
+                  } else {
+                    // Wrap image in link using wrapNodeInElement (safe for all cases including root)
+                    const linkNode = $createLinkNode(url)
+                    $wrapNodeInElement(node, () => linkNode)
+                  }
+                } else {
+                  // Remove link
+                  const linkNode = $findMatchingParent(node, $isLinkNode) || 
+                    ($isLinkNode(node.getParent()) ? node.getParent() : null)
+                  if (linkNode) {
+                    // Remove link by unwrapping - insert children into parent and remove link
+                    const parent = linkNode.getParent()
+                    if (parent) {
+                      const children = linkNode.getChildren()
+                      children.forEach((child) => {
+                        linkNode.insertBefore(child)
+                      })
+                      linkNode.remove()
+                    }
+                  }
+                }
+                return true
+              }
+            }
+          }
+          
+          // Let default handler process range selection
+          return false
+        },
+        COMMAND_PRIORITY_HIGH
+      ),
       editor.registerCommand(
         SELECTION_CHANGE_COMMAND,
         (_payload, newEditor) => {
-          $updateToolbar()
+          editor.getEditorState().read(() => {
+            $updateToolbar()
+          })
           setActiveEditor(newEditor)
           return false
         },
         COMMAND_PRIORITY_CRITICAL
       ),
+      // Register a listener for when node selection changes to image with link
       editor.registerCommand(
-        CLICK_COMMAND,
-        (payload) => {
-          const selection = $getSelection()
-          if ($isRangeSelection(selection)) {
-            const node = getSelectedNode(selection)
-            const linkNode = $findMatchingParent(node, $isLinkNode)
-            if ($isLinkNode(linkNode) && (payload.metaKey || payload.ctrlKey)) {
-              window.open(linkNode.getURL(), "_blank")
-              return true
+        SELECTION_CHANGE_COMMAND,
+        () => {
+          editor.getEditorState().read(() => {
+            const selection = $getSelection()
+            if ($isNodeSelection(selection)) {
+              const nodes = selection.getNodes()
+              if (nodes.length > 0) {
+                const node = nodes[0]
+                if ($isImageNode(node)) {
+                  const linkNode = $findMatchingParent(node, $isLinkNode) || 
+                    ($isLinkNode(node.getParent()) ? node.getParent() : null)
+                  if (linkNode) {
+                    // Delay to ensure DOM is updated
+                    setTimeout(() => {
+                      editor.getEditorState().read(() => {
+                        $updateToolbar()
+                      })
+                    }, 10)
+                  }
+                }
+              }
             }
-          }
+          })
           return false
         },
         COMMAND_PRIORITY_LOW
+      ),
+      editor.registerCommand(
+        CLICK_COMMAND,
+        (payload) => {
+          let shouldReturnTrue = false
+          
+          editor.getEditorState().read(() => {
+            const selection = $getSelection()
+            
+            // Check if we clicked on an image node (with or without link)
+            let hasImageNode = false
+            if ($isNodeSelection(selection)) {
+              const nodes = selection.getNodes()
+              if (nodes.length > 0) {
+                const node = nodes[0]
+                if ($isImageNode(node)) {
+                  hasImageNode = true
+                }
+              }
+            }
+            
+            // Handle Ctrl/Cmd + click to open link
+            if (payload.metaKey || payload.ctrlKey) {
+              if ($isRangeSelection(selection)) {
+                const node = getSelectedNode(selection)
+                const linkNode = $findMatchingParent(node, $isLinkNode)
+                if ($isLinkNode(linkNode)) {
+                  const url = linkNode.getURL()
+                  // Validate URL before opening to prevent errors with invalid URLs
+                  if (url && validateUrl(url)) {
+                    window.open(url, "_blank")
+                  }
+                  shouldReturnTrue = true
+                  return
+                }
+              } else if ($isNodeSelection(selection)) {
+                const nodes = selection.getNodes()
+                if (nodes.length > 0) {
+                  const node = nodes[0]
+                  let linkNode = null
+                  if ($isLinkNode(node)) {
+                    linkNode = node
+                  } else {
+                    linkNode = $findMatchingParent(node, $isLinkNode)
+                    if (!linkNode && $isImageNode(node)) {
+                      const parent = node.getParent()
+                      if ($isLinkNode(parent)) {
+                        linkNode = parent
+                      }
+                    }
+                  }
+                  if (linkNode) {
+                    const url = linkNode.getURL()
+                    if (url && validateUrl(url)) {
+                      window.open(url, "_blank")
+                    }
+                    shouldReturnTrue = true
+                    return
+                  }
+                }
+              }
+            }
+            
+            // If we clicked on an image (with or without link), trigger toolbar update
+            if (hasImageNode) {
+              // Use requestAnimationFrame to ensure selection is updated
+              requestAnimationFrame(() => {
+                editor.getEditorState().read(() => {
+                  $updateToolbar()
+                })
+              })
+            }
+          })
+          
+          if (shouldReturnTrue) {
+            return true
+          }
+          
+          // Trigger toolbar update on click to ensure floating editor shows
+          setTimeout(() => {
+            editor.getEditorState().read(() => {
+              $updateToolbar()
+            })
+          }, 0)
+          return false
+        },
+        COMMAND_PRIORITY_HIGH
       )
     )
   }, [editor])
