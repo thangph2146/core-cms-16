@@ -89,13 +89,13 @@ export function HomeClient({}: HomeClientProps) {
       </section>
 
       {/* Overview Section */}
-      <section className="py-12 bg-white">
+      <section className="py-12 bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 mb-6 sm:mb-8 sm:text-left">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-card-foreground mb-6 sm:mb-8 sm:text-left">
               Tổng quan Hệ thống
             </h2>
-            <div className="prose prose-sm sm:prose-base md:prose-lg lg:prose-xl text-slate-700 leading-relaxed">
+            <div className="prose prose-sm sm:prose-base md:prose-lg lg:prose-xl text-foreground leading-relaxed dark:prose-invert">
               <p className="mb-4 sm:mb-6 text-sm sm:text-base md:text-lg">
                 Hệ thống Quản lý Sinh viên của Trường Đại học Ngân hàng Thành
                 phố Hồ Chí Minh được thiết kế để tạo cầu nối giữa phụ huynh, gia
@@ -109,7 +109,7 @@ export function HomeClient({}: HomeClientProps) {
                 huynh có thể trao đổi thông tin trực tiếp với giảng viên, cố vấn
                 học tập và nhận thông báo quan trọng từ nhà trường.
               </p>
-              <p className="text-slate-600 text-sm sm:text-base md:text-lg">
+              <p className="text-muted-foreground text-sm sm:text-base md:text-lg">
                 Hệ thống được quản lý bởi Phòng Công tác Sinh viên - Trường Đại
                 học Ngân hàng TP.HCM.
               </p>
@@ -119,7 +119,7 @@ export function HomeClient({}: HomeClientProps) {
       </section>
 
       {/* Guide & Register Section */}
-      <section className="py-12 sm:py-16 lg:py-20 xl:py-24 bg-white">
+      <section className="py-12 sm:py-16 lg:py-20 xl:py-24 bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col gap-8 sm:gap-12 lg:gap-16">
@@ -127,10 +127,10 @@ export function HomeClient({}: HomeClientProps) {
               <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-center">
                 {/* Guide Content */}
                 <div className="flex-1 w-full lg:max-w-lg xl:max-w-xl">
-                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-900 mb-4 sm:mb-6 leading-tight">
+                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary mb-4 sm:mb-6 leading-tight">
                     Hướng dẫn cho Phụ huynh
                   </h3>
-                  <p className="text-base sm:text-lg text-slate-700 mb-6 sm:mb-8 leading-relaxed">
+                  <p className="text-base sm:text-lg text-card-foreground mb-6 sm:mb-8 leading-relaxed">
                     Khám phá hướng dẫn toàn diện với thông tin cần thiết và tài
                     nguyên dành cho phụ huynh sinh viên Trường Đại học Ngân hàng
                     TP.HCM.
@@ -161,10 +161,10 @@ export function HomeClient({}: HomeClientProps) {
               <div className="flex flex-col lg:flex-row-reverse gap-8 lg:gap-16 items-center">
                 {/* Register Content */}
                 <div className="flex-1 w-full lg:max-w-lg xl:max-w-xl">
-                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-4 sm:mb-6 leading-tight">
+                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-card-foreground mb-4 sm:mb-6 leading-tight">
                     Đăng ký nhận tin tức
                   </h3>
-                  <p className="text-base sm:text-lg text-slate-700 mb-6 sm:mb-8 leading-relaxed">
+                  <p className="text-base sm:text-lg text-card-foreground mb-6 sm:mb-8 leading-relaxed">
                     Cập nhật thông tin mới nhất về hoạt động của trường, bản tin
                     phụ huynh và các sự kiện dành cho phụ huynh sinh viên Trường
                     Đại học Ngân hàng TP.HCM.
@@ -196,32 +196,32 @@ export function HomeClient({}: HomeClientProps) {
       </section>
 
       {/* Registration Form Section */}
-      <section className="py-16 sm:py-20 lg:py-24">
+      <section className="py-16 sm:py-20 lg:py-24 bg-background">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
               {/* Left Side - Contact Form */}
               <div className="flex-1">
                 <div className="mb-8">
-                  <h3 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-4">
+                  <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-4">
                     Tại sao chọn chúng tôi?
                   </h3>
-                  <p className="text-lg text-slate-600 leading-relaxed">
+                  <p className="text-lg text-muted-foreground leading-relaxed">
                     Chúng tôi cam kết mang đến trải nghiệm tốt nhất cho phụ huynh và sinh viên.
                   </p>
                 </div>
                 <div className="space-y-6">
                   {/* Quick Response */}
-                  <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                  <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-6 border border-border">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
                         <Check className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-slate-900 mb-2 text-lg">
+                        <h4 className="font-semibold text-card-foreground mb-2 text-lg">
                           Phản hồi nhanh
                         </h4>
-                        <p className="text-slate-600">
+                        <p className="text-muted-foreground">
                           Chúng tôi cam kết phản hồi mọi yêu cầu trong vòng 24 giờ làm việc.
                         </p>
                       </div>
@@ -229,16 +229,16 @@ export function HomeClient({}: HomeClientProps) {
                   </div>
 
                   {/* Secure Communication */}
-                  <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                  <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-6 border border-border">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center flex-shrink-0">
                         <Bell className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-slate-900 mb-2 text-lg">
+                        <h4 className="font-semibold text-card-foreground mb-2 text-lg">
                           Bảo mật cao
                         </h4>
-                        <p className="text-slate-600">
+                        <p className="text-muted-foreground">
                           Thông tin cá nhân và dữ liệu học tập được mã hóa và bảo vệ an toàn.
                         </p>
                       </div>
@@ -246,22 +246,22 @@ export function HomeClient({}: HomeClientProps) {
                   </div>
 
                   {/* Contact Info */}
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-                    <h4 className="font-semibold text-slate-900 mb-4 text-lg">
+                  <div className="bg-muted/50 dark:bg-muted rounded-2xl p-6 border border-border">
+                    <h4 className="font-semibold text-card-foreground mb-4 text-lg">
                       Thông tin liên hệ
                     </h4>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
-                        <Phone className="h-5 w-5 text-blue-600" />
-                        <span className="text-slate-700">(028) 38 212 430</span>
+                        <Phone className="h-5 w-5 text-primary" />
+                        <span className="text-foreground">(028) 38 212 430</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Mail className="h-5 w-5 text-blue-600" />
-                        <span className="text-slate-700">dhnhtphcm@hub.edu.vn</span>
+                        <Mail className="h-5 w-5 text-primary" />
+                        <span className="text-foreground">dhnhtphcm@hub.edu.vn</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <GraduationCap className="h-5 w-5 text-blue-600" />
-                        <span className="text-slate-700">Trường Đại học Ngân hàng TP.HCM</span>
+                        <GraduationCap className="h-5 w-5 text-primary" />
+                        <span className="text-foreground">Trường Đại học Ngân hàng TP.HCM</span>
                       </div>
                     </div>
                   </div>

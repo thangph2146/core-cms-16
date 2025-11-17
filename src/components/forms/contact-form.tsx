@@ -191,11 +191,11 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-2xl lg:text-3xl font-bold text-slate-900 mb-4">
-          <MessageSquare className="h-5 w-5" />
+        <CardTitle className="flex items-center gap-2 text-2xl lg:text-3xl font-bold text-card-foreground mb-4">
+          <MessageSquare className="h-5 w-5 text-primary" />
           Liên hệ với chúng tôi
         </CardTitle>
-        <CardDescription className="text-lg text-slate-600 leading-relaxed">
+        <CardDescription className="text-lg text-muted-foreground leading-relaxed">
           Gửi tin nhắn cho chúng tôi về bất kỳ vấn đề nào cần được giải quyết.
           Chúng tôi sẽ phản hồi trong thời gian sớm nhất.
         </CardDescription>
@@ -204,8 +204,8 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
         <form onSubmit={handleSubmit} className="space-y-6">
           <FieldGroup>
             <Field data-invalid={Boolean(errors.name)}>
-              <FieldLabel htmlFor="name" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
+              <FieldLabel htmlFor="name" className="flex items-center gap-2 text-foreground">
+                <User className="h-4 w-4 text-primary" />
                 Họ tên *
               </FieldLabel>
               <FieldContent>
@@ -225,8 +225,8 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
             </Field>
 
             <Field data-invalid={Boolean(errors.email)}>
-              <FieldLabel htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
+              <FieldLabel htmlFor="email" className="flex items-center gap-2 text-foreground">
+                <Mail className="h-4 w-4 text-primary" />
                 Email *
               </FieldLabel>
               <FieldContent>
@@ -246,8 +246,8 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
             </Field>
 
             <Field data-invalid={Boolean(errors.phone)}>
-              <FieldLabel htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
+              <FieldLabel htmlFor="phone" className="flex items-center gap-2 text-foreground">
+                <Phone className="h-4 w-4 text-primary" />
                 Số điện thoại
               </FieldLabel>
               <FieldContent>
@@ -266,8 +266,8 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
             </Field>
 
             <Field data-invalid={Boolean(errors.subject)}>
-              <FieldLabel htmlFor="subject" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
+              <FieldLabel htmlFor="subject" className="flex items-center gap-2 text-foreground">
+                <FileText className="h-4 w-4 text-primary" />
                 Tiêu đề *
               </FieldLabel>
               <FieldContent>
@@ -287,8 +287,8 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
             </Field>
 
             <Field data-invalid={Boolean(errors.message)}>
-              <FieldLabel htmlFor="message" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
+              <FieldLabel htmlFor="message" className="flex items-center gap-2 text-foreground">
+                <MessageSquare className="h-4 w-4 text-primary" />
                 Nội dung tin nhắn *
               </FieldLabel>
               <FieldContent>
