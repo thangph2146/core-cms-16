@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Settings, Edit, Users, Trash2 } from "lucide-react"
-import type { Group, GroupRole } from "@/components/chat/types"
+import type { Group, GroupRole, Contact } from "@/components/chat/types"
 import { EditGroupDialog } from "./dialogs/edit-group-dialog.client"
 import { ManageMembersDialog } from "./dialogs/manage-members-dialog.client"
 import { DeleteGroupDialog } from "./dialogs/delete-group-dialog.client"
@@ -21,7 +21,7 @@ interface GroupManagementMenuProps {
   onGroupUpdated?: () => void
   currentUserId: string
   role?: string | null
-  setContactsState: React.Dispatch<React.SetStateAction<any[]>>
+  setContactsState: React.Dispatch<React.SetStateAction<Contact[]>>
 }
 
 export function GroupManagementMenu({

@@ -10,11 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Loader2, AlertTriangle } from "lucide-react"
-import type { Group } from "@/components/chat/types"
+import type { Contact, Group } from "@/components/chat/types"
 import { useGroupDeleteConfirm } from "../../hooks/use-group-delete-confirm"
 import { useGroupDialogActions } from "../../hooks/use-group-dialog-actions"
 import { useGroupFeedback } from "../../hooks/use-group-feedback"
-import { GROUP_CONFIRM_MESSAGES, GROUP_LABELS } from "../../constants"
+import { GROUP_CONFIRM_MESSAGES } from "../../constants"
 import { useChatSocketBridge } from "../../hooks/use-chat-socket-bridge"
 import { FeedbackDialog } from "@/components/dialogs"
 
@@ -25,7 +25,7 @@ interface HardDeleteGroupDialogProps {
   onSuccess?: () => void
   currentUserId: string
   role?: string | null
-  setContactsState: React.Dispatch<React.SetStateAction<any[]>>
+  setContactsState: React.Dispatch<React.SetStateAction<Contact[]>>
 }
 
 export function HardDeleteGroupDialog({

@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Loader2, AlertTriangle, Trash } from "lucide-react"
-import type { Group } from "@/components/chat/types"
+import type { Contact, Group } from "@/components/chat/types"
 import { HardDeleteGroupDialog } from "./hard-delete-group-dialog.client"
 import { useGroupDeleteConfirm } from "../../hooks/use-group-delete-confirm"
 import { useGroupDialogActions } from "../../hooks/use-group-dialog-actions"
@@ -27,7 +27,7 @@ interface DeleteGroupDialogProps {
   onSuccess?: () => void
   currentUserId: string
   role?: string | null
-  setContactsState: React.Dispatch<React.SetStateAction<any[]>>
+  setContactsState: React.Dispatch<React.SetStateAction<Contact[]>>
 }
 
 export function DeleteGroupDialog({ 

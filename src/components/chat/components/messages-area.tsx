@@ -1,7 +1,7 @@
 "use client"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { Message, GroupRole } from "../types"
+import type { Message, GroupRole, Contact } from "../types"
 import { EmptyState } from "./empty-state"
 import { MessageBubble } from "./message-bubble"
 import { DeletedGroupBanner } from "./deleted-group-banner"
@@ -24,7 +24,7 @@ interface MessagesAreaProps {
   onHardDeleteGroup?: () => void
   onScrollToMessage?: (messageId: string) => void
   role?: string | null
-  setContactsState?: React.Dispatch<React.SetStateAction<any[]>>
+  setContactsState?: React.Dispatch<React.SetStateAction<Contact[]>>
 }
 
 export function MessagesArea({

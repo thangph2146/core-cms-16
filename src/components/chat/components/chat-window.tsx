@@ -40,7 +40,7 @@ export interface ChatWindowProps {
   onBack?: () => void
   showBackButton?: boolean
   role?: string | null
-  setContactsState?: React.Dispatch<React.SetStateAction<any[]>>
+  setContactsState?: React.Dispatch<React.SetStateAction<Contact[]>>
 }
 
 export function ChatWindow({
