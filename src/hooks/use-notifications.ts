@@ -113,7 +113,8 @@ export function useMarkNotificationRead() {
     onSuccess: () => {
       // Invalidate cả user và admin notifications vì thay đổi trạng thái đọc ảnh hưởng đến cả 2
       // Admin table cần cập nhật ngay khi notification được đánh dấu đã đọc/chưa đọc
-      invalidateQueries.allNotifications(queryClient, session?.user?.id)
+      // Cũng invalidate unreadCounts để cập nhật badge count trong nav-main-with-badges
+      invalidateQueries.notificationsAndCounts(queryClient, session?.user?.id)
     },
   })
 }
@@ -162,7 +163,8 @@ export function useMarkAllAsRead() {
     onSuccess: () => {
       // Invalidate cả user và admin notifications vì đánh dấu tất cả đã đọc ảnh hưởng đến cả 2
       // Admin table cần cập nhật ngay khi tất cả notifications được đánh dấu đã đọc
-      invalidateQueries.allNotifications(queryClient, session?.user?.id)
+      // Cũng invalidate unreadCounts để cập nhật badge count trong nav-main-with-badges
+      invalidateQueries.notificationsAndCounts(queryClient, session?.user?.id)
     },
   })
 }
@@ -242,7 +244,8 @@ export function useNotificationsSocketBridge() {
 
     const invalidate = () => {
       // Invalidate cả user và admin notifications để đồng bộ giữa Notification Bell và Admin Table
-      invalidateQueries.allNotifications(queryClient, userId)
+      // Cũng invalidate unreadCounts để cập nhật badge count trong nav-main-with-badges
+      invalidateQueries.notificationsAndCounts(queryClient, userId)
     }
 
     const stopNew = onNotification((payload: SocketNotificationPayload) => {
@@ -385,7 +388,8 @@ export function useAdminNotificationsSocketBridge() {
 
     const invalidate = () => {
       // Invalidate cả user và admin notifications để đồng bộ giữa Notification Bell và Admin Table
-      invalidateQueries.allNotifications(queryClient, userId)
+      // Cũng invalidate unreadCounts để cập nhật badge count trong nav-main-with-badges
+      invalidateQueries.notificationsAndCounts(queryClient, userId)
     }
 
     const stopNew = onNotification(() => {

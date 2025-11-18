@@ -110,5 +110,25 @@ export const invalidateQueries = {
     invalidateQueries.userNotifications(queryClient, userId, options)
     invalidateQueries.adminNotifications(queryClient)
   },
+
+  /**
+   * Invalidate unread counts
+   * Dùng khi notifications hoặc messages được đánh dấu đọc/chưa đọc
+   */
+  unreadCounts: (queryClient: QueryClient, userId: string | undefined) => {
+    if (!userId) return
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.unreadCounts.user(userId) as unknown[],
+    })
+  },
+
+  /**
+   * Invalidate cả notifications và unread counts
+   * Dùng khi mark notification as read/unread để cập nhật cả badge count
+   */
+  notificationsAndCounts: (queryClient: QueryClient, userId: string | undefined, options?: { exact?: boolean }) => {
+    invalidateQueries.allNotifications(queryClient, userId, options)
+    invalidateQueries.unreadCounts(queryClient, userId)
+  },
 }
 

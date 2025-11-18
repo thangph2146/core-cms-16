@@ -7,7 +7,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Bell, CheckCheck, Loader2, ArrowRight } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useNotifications, useMarkAllAsRead, useNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { useNotifications, useMarkAllAsRead, useMarkNotificationRead, useNotificationsSocketBridge } from "@/hooks/use-notifications"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ export function NotificationBell() {
     refetchInterval: 30000 // 30 giây (fallback khi không có socket)
   })
   const markAllAsRead = useMarkAllAsRead()
+  const markAsRead = useMarkNotificationRead()
   const [open, setOpen] = React.useState(false)
 
   const unreadCount = data?.unreadCount || 0
@@ -107,6 +108,10 @@ export function NotificationBell() {
                   <NotificationItem
                     notification={notification}
                     onClick={() => {
+                      // Tự động mark as read khi click vào notification (nếu chưa đọc)
+                      if (!notification.isRead) {
+                        markAsRead.mutate({ id: notification.id, isRead: true })
+                      }
                       if (notification.actionUrl) {
                         // Sử dụng Next.js router thay vì window.location để tránh reload page
                         router.push(notification.actionUrl)
