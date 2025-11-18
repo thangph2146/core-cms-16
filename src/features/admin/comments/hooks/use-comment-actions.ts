@@ -38,7 +38,12 @@ export function useCommentActions({
   const queryClient = useQueryClient()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const isBulkProcessingRef = useRef(false)
+  const [approvingComments, setApprovingComments] = useState<Set<string>>(new Set())
+  const [unapprovingComments, setUnapprovingComments] = useState<Set<string>>(new Set())
   const [togglingComments, setTogglingComments] = useState<Set<string>>(new Set())
+  const [deletingComments, setDeletingComments] = useState<Set<string>>(new Set())
+  const [restoringComments, setRestoringComments] = useState<Set<string>>(new Set())
+  const [hardDeletingComments, setHardDeletingComments] = useState<Set<string>>(new Set())
 
   const bulkState: BulkProcessingState = {
     isProcessing: isBulkProcessing,
@@ -64,7 +69,10 @@ export function useCommentActions({
         return
       }
 
+      // Track loading state
+      const setLoadingState = newStatus ? setApprovingComments : setUnapprovingComments
       setTogglingComments((prev) => new Set(prev).add(row.id))
+      setLoadingState((prev) => new Set(prev).add(row.id))
 
       // Optimistic update chỉ khi không có socket (fallback)
       if (!isSocketConnected) {
@@ -101,6 +109,11 @@ export function useCommentActions({
         }
       } finally {
         setTogglingComments((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
+        setLoadingState((prev) => {
           const next = new Set(prev)
           next.delete(row.id)
           return next
@@ -148,6 +161,15 @@ export function useCommentActions({
 
       if (!actionConfig.permission) return
 
+      // Track loading state
+      const setLoadingState = action === "delete"
+        ? setDeletingComments
+        : action === "restore"
+        ? setRestoringComments
+        : setHardDeletingComments
+
+      setLoadingState((prev) => new Set(prev).add(row.id))
+
       try {
         await apiClient.post(actionConfig.endpoint, actionConfig.payload)
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
@@ -162,6 +184,12 @@ export function useCommentActions({
         } else {
           throw error
         }
+      } finally {
+        setLoadingState((prev) => {
+          const next = new Set(prev)
+          next.delete(row.id)
+          return next
+        })
       }
     },
     [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
@@ -220,7 +248,12 @@ export function useCommentActions({
     handleToggleApprove,
     executeSingleAction,
     executeBulkAction,
+    approvingComments,
+    unapprovingComments,
     togglingComments,
+    deletingComments,
+    restoringComments,
+    hardDeletingComments,
     bulkState,
   }
 }

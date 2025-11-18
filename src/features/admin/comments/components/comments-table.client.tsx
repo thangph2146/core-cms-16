@@ -45,7 +45,12 @@ export function CommentsTableClient({
     handleToggleApprove,
     executeSingleAction,
     executeBulkAction,
+    approvingComments,
+    unapprovingComments,
     togglingComments,
+    deletingComments,
+    restoringComments,
+    hardDeletingComments,
     bulkState,
   } = useCommentActions({
     canApprove,
@@ -58,11 +63,19 @@ export function CommentsTableClient({
 
   const handleToggleApproveWithRefresh = useCallback(
     (row: CommentRow, checked: boolean) => {
-      if (tableRefreshRef.current) {
-        handleToggleApprove(row, checked, tableRefreshRef.current)
-      }
+      if (!canApprove) return
+      setDeleteConfirm({
+        open: true,
+        type: checked ? "approve" : "unapprove",
+        row,
+        onConfirm: async () => {
+          if (tableRefreshRef.current) {
+            await handleToggleApprove(row, checked, tableRefreshRef.current)
+          }
+        },
+      })
     },
-    [handleToggleApprove],
+    [canApprove, handleToggleApprove, setDeleteConfirm],
   )
 
   const { baseColumns, deletedColumns } = useCommentColumns({
@@ -104,9 +117,16 @@ export function CommentsTableClient({
   const handleRestoreSingle = useCallback(
     (row: CommentRow) => {
       if (!canRestore) return
-      executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+      setDeleteConfirm({
+        open: true,
+        type: "restore",
+        row,
+        onConfirm: async () => {
+          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+        },
+      })
     },
-    [canRestore, executeSingleAction],
+    [canRestore, executeSingleAction, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useCommentRowActions({
@@ -118,6 +138,11 @@ export function CommentsTableClient({
     onDelete: handleDeleteSingle,
     onHardDelete: handleHardDeleteSingle,
     onRestore: handleRestoreSingle,
+    approvingComments,
+    unapprovingComments,
+    deletingComments,
+    restoringComments,
+    hardDeletingComments,
   })
 
   const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
@@ -219,20 +244,15 @@ export function CommentsTableClient({
     (action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove", ids: string[], refresh: () => void, clearSelection: () => void) => {
       if (ids.length === 0) return
 
-      // Actions cần confirmation
-      if (action === "delete" || action === "hard-delete") {
-        setDeleteConfirm({
-          open: true,
-          type: action === "hard-delete" ? "hard" : "soft",
-          bulkIds: ids,
-          onConfirm: async () => {
-            await executeBulkAction(action, ids, refresh, clearSelection)
-          },
-        })
-      } else {
-        // Actions không cần confirmation (approve, unapprove, restore)
-        executeBulkAction(action, ids, refresh, clearSelection)
-      }
+      // Tất cả actions đều cần confirmation
+      setDeleteConfirm({
+        open: true,
+        type: action === "hard-delete" ? "hard" : action === "restore" ? "restore" : action === "approve" ? "approve" : action === "unapprove" ? "unapprove" : "soft",
+        bulkIds: ids,
+        onConfirm: async () => {
+          await executeBulkAction(action, ids, refresh, clearSelection)
+        },
+      })
     },
     [executeBulkAction, setDeleteConfirm],
   )
@@ -241,7 +261,7 @@ export function CommentsTableClient({
     const modes: ResourceViewMode<CommentRow>[] = [
       {
         id: "active",
-        label: "Đang hoạt động",
+        label: COMMENT_LABELS.ACTIVE_VIEW,
         status: "active",
         selectionEnabled: canDelete || canApprove,
         selectionActions: canDelete || canApprove
@@ -252,7 +272,7 @@ export function CommentsTableClient({
               return (
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span>
-                    Đã chọn <strong>{selectedIds.length}</strong> bình luận
+                    {COMMENT_LABELS.SELECTED_COMMENTS(selectedIds.length)}
                   </span>
                   <div className="flex items-center gap-2">
                     {canApprove && unapprovedCount > 0 && (
@@ -264,7 +284,7 @@ export function CommentsTableClient({
                         onClick={() => executeBulk("approve", selectedIds, refresh, clearSelection)}
                       >
                         <Check className="mr-2 h-5 w-5" />
-                        Duyệt ({unapprovedCount})
+                        {COMMENT_LABELS.APPROVE_SELECTED(unapprovedCount)}
                       </Button>
                     )}
                     {canApprove && approvedCount > 0 && (
@@ -276,7 +296,7 @@ export function CommentsTableClient({
                         onClick={() => executeBulk("unapprove", selectedIds, refresh, clearSelection)}
                       >
                         <X className="mr-2 h-5 w-5" />
-                        Hủy duyệt ({approvedCount})
+                        {COMMENT_LABELS.UNAPPROVE_SELECTED(approvedCount)}
                       </Button>
                     )}
                     {canDelete && (
@@ -288,7 +308,7 @@ export function CommentsTableClient({
                         onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
                       >
                         <Trash2 className="mr-2 h-5 w-5" />
-                        Xóa đã chọn ({selectedIds.length})
+                        {COMMENT_LABELS.DELETE_SELECTED(selectedIds.length)}
                       </Button>
                     )}
                     {canManage && (
@@ -300,7 +320,7 @@ export function CommentsTableClient({
                         onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                       >
                         <AlertTriangle className="mr-2 h-5 w-5" />
-                        Xóa vĩnh viễn ({selectedIds.length})
+                        {COMMENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
                       </Button>
                     )}
                     <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
@@ -316,7 +336,7 @@ export function CommentsTableClient({
       },
       {
         id: "deleted",
-        label: "Đã xóa",
+        label: COMMENT_LABELS.DELETED_VIEW,
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
@@ -324,7 +344,7 @@ export function CommentsTableClient({
           ? ({ selectedIds, clearSelection, refresh }) => (
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> bình luận (đã xóa)
+                  {COMMENT_LABELS.SELECTED_DELETED_COMMENTS(selectedIds.length)}
                 </span>
                 <div className="flex items-center gap-2">
                   {canRestore && (
@@ -336,7 +356,7 @@ export function CommentsTableClient({
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
-                      Khôi phục
+                      {COMMENT_LABELS.RESTORE_SELECTED(selectedIds.length)}
                     </Button>
                   )}
                   {canManage && (
@@ -348,7 +368,7 @@ export function CommentsTableClient({
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn ({selectedIds.length})
+                      {COMMENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
@@ -381,6 +401,59 @@ export function CommentsTableClient({
     [initialData],
   )
 
+  const getDeleteConfirmTitle = () => {
+    if (!deleteConfirm) return ""
+    if (deleteConfirm.type === "hard") {
+      return COMMENT_CONFIRM_MESSAGES.HARD_DELETE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "restore") {
+      return COMMENT_CONFIRM_MESSAGES.RESTORE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "approve") {
+      return COMMENT_CONFIRM_MESSAGES.APPROVE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "unapprove") {
+      return COMMENT_CONFIRM_MESSAGES.UNAPPROVE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    return COMMENT_CONFIRM_MESSAGES.DELETE_TITLE(deleteConfirm.bulkIds?.length)
+  }
+
+  const getDeleteConfirmDescription = () => {
+    if (!deleteConfirm) return ""
+    if (deleteConfirm.type === "hard") {
+      return COMMENT_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "restore") {
+      return COMMENT_CONFIRM_MESSAGES.RESTORE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "approve") {
+      return COMMENT_CONFIRM_MESSAGES.APPROVE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    if (deleteConfirm.type === "unapprove") {
+      return COMMENT_CONFIRM_MESSAGES.UNAPPROVE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    return COMMENT_CONFIRM_MESSAGES.DELETE_DESCRIPTION(
+      deleteConfirm.bulkIds?.length,
+    )
+  }
+
+  // Handle realtime updates từ socket bridge
   useEffect(() => {
     if (cacheVersion === 0) return
     if (tableSoftRefreshRef.current) {
@@ -416,7 +489,7 @@ export function CommentsTableClient({
   return (
     <>
       <ResourceTableClient<CommentRow>
-        title="Quản lý bình luận"
+        title={COMMENT_LABELS.MANAGE_COMMENTS}
         baseColumns={baseColumns}
         loader={loader}
         viewModes={viewModes}
@@ -438,38 +511,63 @@ export function CommentsTableClient({
         }}
       />
 
-      <ConfirmDialog
-        open={deleteConfirm?.open ?? false}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteConfirm(null)
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <ConfirmDialog
+          open={deleteConfirm.open}
+          onOpenChange={(open) => {
+            if (!open) setDeleteConfirm(null)
+          }}
+          title={getDeleteConfirmTitle()}
+          description={getDeleteConfirmDescription()}
+          variant={
+            deleteConfirm.type === "hard"
+              ? "destructive"
+              : deleteConfirm.type === "restore" || deleteConfirm.type === "approve" || deleteConfirm.type === "unapprove"
+              ? "default"
+              : "destructive"
           }
-        }}
-        title={
-          deleteConfirm?.type === "hard"
-            ? COMMENT_CONFIRM_MESSAGES.HARD_DELETE_TITLE(deleteConfirm?.bulkIds?.length)
-            : COMMENT_CONFIRM_MESSAGES.DELETE_TITLE(deleteConfirm?.bulkIds?.length)
-        }
-        description={
-          deleteConfirm?.type === "hard"
-            ? COMMENT_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(deleteConfirm?.bulkIds?.length)
-            : COMMENT_CONFIRM_MESSAGES.DELETE_DESCRIPTION(deleteConfirm?.bulkIds?.length)
-        }
-        confirmLabel={deleteConfirm?.type === "hard" ? COMMENT_CONFIRM_MESSAGES.HARD_DELETE_LABEL : COMMENT_CONFIRM_MESSAGES.CONFIRM_LABEL}
-        cancelLabel={COMMENT_CONFIRM_MESSAGES.CANCEL_LABEL}
-        variant="destructive"
-        onConfirm={handleDeleteConfirm}
-        isLoading={bulkState.isProcessing}
-      />
+          confirmLabel={
+            deleteConfirm.type === "hard"
+              ? COMMENT_CONFIRM_MESSAGES.HARD_DELETE_LABEL
+              : deleteConfirm.type === "restore"
+              ? COMMENT_CONFIRM_MESSAGES.RESTORE_LABEL
+              : deleteConfirm.type === "approve"
+              ? COMMENT_CONFIRM_MESSAGES.APPROVE_LABEL
+              : deleteConfirm.type === "unapprove"
+              ? COMMENT_CONFIRM_MESSAGES.UNAPPROVE_LABEL
+              : COMMENT_CONFIRM_MESSAGES.CONFIRM_LABEL
+          }
+          cancelLabel={COMMENT_CONFIRM_MESSAGES.CANCEL_LABEL}
+          onConfirm={handleDeleteConfirm}
+          isLoading={
+            bulkState.isProcessing ||
+            (deleteConfirm.row
+              ? deleteConfirm.type === "restore"
+                ? restoringComments.has(deleteConfirm.row.id)
+                : deleteConfirm.type === "hard"
+                ? hardDeletingComments.has(deleteConfirm.row.id)
+                : deleteConfirm.type === "approve"
+                ? approvingComments.has(deleteConfirm.row.id)
+                : deleteConfirm.type === "unapprove"
+                ? unapprovingComments.has(deleteConfirm.row.id)
+                : deletingComments.has(deleteConfirm.row.id)
+              : false)
+          }
+        />
+      )}
 
-      <FeedbackDialog
-        open={feedback?.open ?? false}
-        onOpenChange={handleFeedbackOpenChange}
-        variant={feedback?.variant ?? "success"}
-        title={feedback?.title ?? ""}
-        description={feedback?.description}
-        details={feedback?.details}
-      />
+      {/* Feedback Dialog */}
+      {feedback && (
+        <FeedbackDialog
+          open={feedback.open}
+          onOpenChange={handleFeedbackOpenChange}
+          variant={feedback.variant}
+          title={feedback.title}
+          description={feedback.description}
+          details={feedback.details}
+        />
+      )}
     </>
   )
 }

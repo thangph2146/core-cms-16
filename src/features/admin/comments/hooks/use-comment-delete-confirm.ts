@@ -7,7 +7,7 @@ import type { CommentRow } from "../types"
 
 interface DeleteConfirmState {
   open: boolean
-  type: "soft" | "hard"
+  type: "soft" | "hard" | "restore" | "approve" | "unapprove"
   row?: CommentRow
   bulkIds?: string[]
   onConfirm: () => Promise<void>
