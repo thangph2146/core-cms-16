@@ -10,6 +10,7 @@ import {
   ensurePermission,
   type AuthContext,
 } from "@/features/admin/resources/server"
+import { emitPostUpsert, emitPostRemove } from "./events"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
@@ -88,7 +89,12 @@ export async function createPost(ctx: AuthContext, input: CreatePostInput) {
     },
   })
 
-  return sanitizePost(post as PostWithAuthor)
+  const sanitized = sanitizePost(post as PostWithAuthor)
+
+  // Emit socket event for real-time updates
+  await emitPostUpsert(sanitized.id, null)
+
+  return sanitized
 }
 
 export async function updatePost(
@@ -160,7 +166,15 @@ export async function updatePost(
     },
   })
 
-  return sanitizePost(post as PostWithAuthor)
+  const sanitized = sanitizePost(post as PostWithAuthor)
+
+  // Determine previous status for socket event
+  const previousStatus: "active" | "deleted" | null = existing.deletedAt ? "deleted" : "active"
+
+  // Emit socket event for real-time updates
+  await emitPostUpsert(sanitized.id, previousStatus)
+
+  return sanitized
 }
 
 export async function deletePost(ctx: AuthContext, postId: string) {
@@ -175,6 +189,9 @@ export async function deletePost(ctx: AuthContext, postId: string) {
     where: { id: postId },
     data: { deletedAt: new Date() },
   })
+
+  // Emit socket event for real-time updates
+  await emitPostUpsert(postId, "active")
 
   return { success: true }
 }
@@ -192,6 +209,9 @@ export async function restorePost(ctx: AuthContext, postId: string) {
     data: { deletedAt: null },
   })
 
+  // Emit socket event for real-time updates
+  await emitPostUpsert(postId, "deleted")
+
   return { success: true }
 }
 
@@ -203,7 +223,13 @@ export async function hardDeletePost(ctx: AuthContext, postId: string) {
     throw new NotFoundError("Bài viết không tồn tại")
   }
 
+  // Determine previous status before deletion
+  const previousStatus: "active" | "deleted" = existing.deletedAt ? "deleted" : "active"
+
   await prisma.post.delete({ where: { id: postId } })
+
+  // Emit socket event for real-time updates
+  emitPostRemove(postId, previousStatus)
 
   return { success: true }
 }
@@ -226,27 +252,70 @@ export async function bulkPostsAction(
   }
 
   let count = 0
+  let posts: Array<{ id: string; deletedAt: Date | null }> = []
 
   if (action === "delete") {
+    // Lấy thông tin posts trước khi delete để emit socket events
+    posts = await prisma.post.findMany({
+      where: {
+        id: { in: postIds },
+        deletedAt: null,
+      },
+      select: { id: true, deletedAt: true },
+    })
+
     count = (
       await prisma.post.updateMany({
         where: { id: { in: postIds }, deletedAt: null },
         data: { deletedAt: new Date() },
       })
     ).count
+
+    // Emit socket events cho từng post
+    for (const post of posts) {
+      await emitPostUpsert(post.id, "active")
+    }
   } else if (action === "restore") {
+    // Lấy thông tin posts trước khi restore để emit socket events
+    posts = await prisma.post.findMany({
+      where: {
+        id: { in: postIds },
+        deletedAt: { not: null },
+      },
+      select: { id: true, deletedAt: true },
+    })
+
     count = (
       await prisma.post.updateMany({
         where: { id: { in: postIds }, deletedAt: { not: null } },
         data: { deletedAt: null },
       })
     ).count
+
+    // Emit socket events cho từng post
+    for (const post of posts) {
+      await emitPostUpsert(post.id, "deleted")
+    }
   } else if (action === "hard-delete") {
+    // Lấy thông tin posts trước khi delete để emit socket events
+    posts = await prisma.post.findMany({
+      where: {
+        id: { in: postIds },
+      },
+      select: { id: true, deletedAt: true },
+    })
+
     count = (
       await prisma.post.deleteMany({
         where: { id: { in: postIds } },
       })
     ).count
+
+    // Emit socket events cho từng post
+    for (const post of posts) {
+      const previousStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
+      emitPostRemove(post.id, previousStatus)
+    }
   }
 
   return { count }

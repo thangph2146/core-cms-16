@@ -1,46 +1,30 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus, Pencil } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
-import { AxiosError } from "axios"
+import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
-import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
-import { FeedbackDialog, type FeedbackVariant } from "@/components/dialogs"
+import type { DataTableQueryState, DataTableResult } from "@/components/tables"
+import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Switch } from "@/components/ui/switch"
 import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
-import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
-import { sanitizeSearchQuery } from "@/lib/api/validation"
+import { useQueryClient } from "@tanstack/react-query"
+import { queryKeys, type AdminPostsListParams } from "@/lib/query-keys"
+import { usePostsSocketBridge } from "../hooks/use-posts-socket-bridge"
+import { usePostActions } from "../hooks/use-post-actions"
+import { usePostFeedback } from "../hooks/use-post-feedback"
+import { usePostDeleteConfirm } from "../hooks/use-post-delete-confirm"
+import { usePostColumns } from "../utils/columns"
+import { usePostRowActions } from "../utils/row-actions"
 
 import type { PostRow, PostsResponse, PostsTableClientProps } from "../types"
-
-interface FeedbackState {
-  open: boolean
-  variant: FeedbackVariant
-  title: string
-  description?: string
-  details?: string
-}
-
-interface DeleteConfirmState {
-  open: boolean
-  type: "soft" | "hard"
-  row?: PostRow
-  bulkIds?: string[]
-  onConfirm: () => Promise<void>
-}
+import { POST_CONFIRM_MESSAGES, POST_LABELS } from "../constants/messages"
+import { logger } from "@/lib/config"
+import { sanitizeSearchQuery } from "@/lib/api/validation"
 
 export function PostsTableClient({
   canDelete = false,
@@ -50,33 +34,32 @@ export function PostsTableClient({
   initialData,
 }: PostsTableClientProps) {
   const router = useResourceRouter()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const [feedback, setFeedback] = useState<FeedbackState | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
-  const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
+  const { feedback, showFeedback, handleFeedbackOpenChange } = usePostFeedback()
+  const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = usePostDeleteConfirm()
+
   const tableRefreshRef = useRef<(() => void) | null>(null)
+  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
+  const pendingRealtimeRefreshRef = useRef(false)
+  const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
   const canToggleStatus = canManage
 
-  type RowActionConfig = {
-    label: string
-    icon: LucideIcon
-    onSelect: () => void
-    destructive?: boolean
-    disabled?: boolean
-  }
+  const { isSocketConnected, cacheVersion } = usePostsSocketBridge()
 
-  const showFeedback = useCallback(
-    (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
-      setFeedback({ open: true, variant, title, description, details })
-    },
-    [],
-  )
-
-  const handleFeedbackOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setFeedback(null)
-    }
-  }, [])
+  const {
+    executeSingleAction,
+    executeBulkAction,
+    deletingPosts,
+    restoringPosts,
+    hardDeletingPosts,
+    bulkState,
+  } = usePostActions({
+    canDelete,
+    canRestore,
+    canManage,
+    isSocketConnected,
+    showFeedback,
+  })
 
   const handleTogglePublished = useCallback(
     async (row: PostRow, newStatus: boolean, refresh: () => void) => {
@@ -101,7 +84,9 @@ export function PostsTableClient({
           "Cập nhật thành công",
           `Bài viết "${row.title}" đã được ${newStatus ? "xuất bản" : "chuyển sang bản nháp"}.`,
         )
-        refresh()
+        if (!isSocketConnected) {
+          refresh()
+        }
       } catch (error) {
         console.error("Error toggling post publish status:", error)
         showFeedback(
@@ -117,311 +102,99 @@ export function PostsTableClient({
         })
       }
     },
-    [canToggleStatus, showFeedback],
+    [canToggleStatus, showFeedback, isSocketConnected],
   )
 
-  const renderRowActions = useCallback(
-    (actions: RowActionConfig[]) => {
-      if (actions.length === 0) {
-        return null
-      }
+  const { baseColumns, deletedColumns } = usePostColumns({
+    togglingPosts,
+    canToggleStatus,
+    onTogglePublished: handleTogglePublished,
+    tableRefreshRef,
+  })
 
-      if (actions.length === 1) {
-        const singleAction = actions[0]
-        const Icon = singleAction.icon
-        return (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={singleAction.disabled}
-            onClick={() => {
-              if (singleAction.disabled) return
-              singleAction.onSelect()
-            }}
-          >
-            <Icon className="mr-2 h-5 w-5" />
-            {singleAction.label}
-          </Button>
-        )
-      }
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {actions.map((action) => {
-              const Icon = action.icon
-              return (
-                <DropdownMenuItem
-                  key={action.label}
-                  disabled={action.disabled}
-                  onClick={() => {
-                    if (action.disabled) return
-                    action.onSelect()
-                  }}
-                  className={
-                    action.destructive
-                      ? "text-destructive focus:text-destructive disabled:opacity-50"
-                      : "disabled:opacity-50"
-                  }
-                >
-                  <Icon
-                    className={
-                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
-                    }
-                  />
-                  {action.label}
-                </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+  const handleDeleteSingle = useCallback(
+    (row: PostRow) => {
+      if (!canDelete) return
+      setDeleteConfirm({
+        open: true,
+        type: "soft",
+        row,
+        onConfirm: async () => {
+          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+        },
+      })
     },
-    [],
+    [canDelete, executeSingleAction, setDeleteConfirm],
   )
 
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat("vi-VN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
-    [],
+  const handleHardDeleteSingle = useCallback(
+    (row: PostRow) => {
+      if (!canManage) return
+      setDeleteConfirm({
+        open: true,
+        type: "hard",
+        row,
+        onConfirm: async () => {
+          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+        },
+      })
+    },
+    [canManage, executeSingleAction, setDeleteConfirm],
   )
 
-  const titleFilter = useDynamicFilterOptions({
-    optionsEndpoint: apiRoutes.posts.options({ column: "title" }),
+  const handleRestoreSingle = useCallback(
+    (row: PostRow) => {
+      if (!canRestore) return
+      setDeleteConfirm({
+        open: true,
+        type: "restore",
+        row,
+        onConfirm: async () => {
+          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+        },
+      })
+    },
+    [canRestore, executeSingleAction, setDeleteConfirm],
+  )
+
+  const { renderActiveRowActions, renderDeletedRowActions } = usePostRowActions({
+    canDelete,
+    canRestore,
+    canManage,
+    onDelete: handleDeleteSingle,
+    onHardDelete: handleHardDeleteSingle,
+    onRestore: handleRestoreSingle,
+    deletingPosts,
+    restoringPosts,
+    hardDeletingPosts,
   })
 
-  const slugFilter = useDynamicFilterOptions({
-    optionsEndpoint: apiRoutes.posts.options({ column: "slug" }),
-  })
+  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
+    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+  }, [])
 
-  const baseColumns = useMemo<DataTableColumn<PostRow>[]>(
-    () => [
-      {
-        accessorKey: "title",
-        header: "Tiêu đề",
-        filter: {
-          type: "select",
-          placeholder: "Tìm kiếm tiêu đề...",
-          searchPlaceholder: "Tìm kiếm...",
-          emptyMessage: "Không tìm thấy.",
-          options: titleFilter.options,
-          onSearchChange: titleFilter.onSearchChange,
-          isLoading: titleFilter.isLoading,
-        },
-        className: "min-w-[200px]",
-        headerClassName: "min-w-[200px]",
-        cell: (row) => (
-          <div className="flex flex-col gap-1.5">
-            <span className="font-medium">{row.title}</span>
-            {row.excerpt && (
-              <span className="text-xs text-muted-foreground line-clamp-1">{row.excerpt}</span>
-            )}
-            {(row.categories && row.categories.length > 0) || (row.tags && row.tags.length > 0) ? (
-              <div className="flex flex-wrap gap-1 mt-0.5">
-                {row.categories && row.categories.length > 0 && (
-                  <>
-                    {row.categories.slice(0, 2).map((category) => (
-                      <span
-                        key={category.id}
-                        className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
-                      >
-                        {category.name}
-                      </span>
-                    ))}
-                    {row.categories.length > 2 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{row.categories.length - 2}
-                      </span>
-                    )}
-                  </>
-                )}
-                {row.tags && row.tags.length > 0 && (
-                  <>
-                    {row.tags.slice(0, 2).map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="inline-flex items-center rounded-md bg-secondary/50 px-1.5 py-0.5 text-xs font-medium text-secondary-foreground"
-                      >
-                        {tag.name}
-                      </span>
-                    ))}
-                    {row.tags.length > 2 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{row.tags.length - 2}
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : null}
-          </div>
-        ),
-      },
-      {
-        accessorKey: "slug",
-        header: "Slug",
-        filter: {
-          type: "select",
-          placeholder: "Tìm kiếm slug...",
-          searchPlaceholder: "Tìm kiếm...",
-          emptyMessage: "Không tìm thấy.",
-          options: slugFilter.options,
-          onSearchChange: slugFilter.onSearchChange,
-          isLoading: slugFilter.isLoading,
-        },
-        className: "min-w-[150px]",
-        headerClassName: "min-w-[150px]",
-        cell: (row) => (
-          <span className="text-xs text-muted-foreground font-mono">{row.slug}</span>
-        ),
-      },
-      {
-        accessorKey: "author",
-        header: "Tác giả",
-        className: "min-w-[150px]",
-        headerClassName: "min-w-[150px]",
-        cell: (row) => (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm">{row.author.name || "N/A"}</span>
-            <span className="text-xs text-muted-foreground">{row.author.email}</span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "published",
-        header: "Trạng thái",
-        filter: {
-          type: "select",
-          placeholder: "Chọn trạng thái",
-          searchPlaceholder: "Tìm kiếm...",
-          emptyMessage: "Không tìm thấy.",
-          options: [
-            { label: "Đã xuất bản", value: "true" },
-            { label: "Bản nháp", value: "false" },
-          ],
-        },
-        className: "w-[120px]",
-        headerClassName: "w-[120px]",
-        cell: (row) => {
-          if (row.deletedAt) {
-            return (
-              <span className="inline-flex min-w-[88px] items-center justify-center rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
-                Đã xóa
-              </span>
-            )
-          }
-
-          return (
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={row.published}
-                disabled={togglingPosts.has(row.id) || !canToggleStatus}
-                onCheckedChange={(checked) => {
-                  const refresh = tableRefreshRef.current
-                  if (!refresh) return
-                  handleTogglePublished(row, checked, refresh)
-                }}
-                aria-label={row.published ? "Chuyển thành bản nháp" : "Xuất bản bài viết"}
-              />
-              <span className="text-xs text-muted-foreground">
-                {row.published ? "Đã xuất bản" : "Bản nháp"}
-              </span>
-            </div>
-          )
-        },
-      },
-      {
-        accessorKey: "publishedAt",
-        header: "Ngày xuất bản",
-        filter: {
-          type: "date",
-          placeholder: "Chọn ngày xuất bản",
-          dateFormat: "dd/MM/yyyy",
-        },
-        className: "min-w-[140px] max-w-[180px]",
-        headerClassName: "min-w-[140px] max-w-[180px]",
-        cell: (row) => {
-          if (!row.publishedAt) return "-"
-          try {
-            return dateFormatter.format(new Date(row.publishedAt))
-          } catch {
-            return row.publishedAt
-          }
-        },
-      },
-      {
-        accessorKey: "createdAt",
-        header: "Ngày tạo",
-        filter: {
-          type: "date",
-          placeholder: "Chọn ngày tạo",
-          dateFormat: "dd/MM/yyyy",
-        },
-        className: "min-w-[140px] max-w-[180px]",
-        headerClassName: "min-w-[140px] max-w-[180px]",
-        cell: (row) => {
-          try {
-            return dateFormatter.format(new Date(row.createdAt))
-          } catch {
-            return row.createdAt
-          }
-        },
-      },
-    ],
-    [
-      dateFormatter,
-      titleFilter.options,
-      titleFilter.onSearchChange,
-      titleFilter.isLoading,
-      slugFilter.options,
-      slugFilter.onSearchChange,
-      slugFilter.isLoading,
-      togglingPosts,
-      canToggleStatus,
-      handleTogglePublished,
-    ],
-  )
-
-  const deletedColumns = useMemo<DataTableColumn<PostRow>[]>(
-    () => [
-      ...baseColumns,
-      {
-        accessorKey: "deletedAt",
-        header: "Ngày xóa",
-        filter: {
-          type: "date",
-          placeholder: "Chọn ngày xóa",
-          dateFormat: "dd/MM/yyyy",
-        },
-        className: "min-w-[140px] max-w-[180px]",
-        headerClassName: "min-w-[140px] max-w-[180px]",
-        cell: (row) => {
-          if (!row.deletedAt) return "-"
-          try {
-            return dateFormatter.format(new Date(row.deletedAt))
-          } catch {
-            return row.deletedAt
-          }
-        },
-      },
-    ],
-    [baseColumns, dateFormatter],
-  )
-
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<PostRow>) => {
-      // Build base URL with apiRoutes
-      const safePage = Number.isFinite(query.page) && query.page > 0 ? query.page : 1
-      const safeLimit = Number.isFinite(query.limit) && query.limit > 0 ? query.limit : 10
-      const trimmedSearch = typeof query.search === "string" ? query.search.trim() : ""
+  const fetchPosts = useCallback(
+    async ({
+      page,
+      limit,
+      status,
+      search,
+      filters,
+    }: {
+      page: number
+      limit: number
+      status: "active" | "deleted" | "all"
+      search?: string
+      filters?: Record<string, string>
+    }): Promise<DataTableResult<PostRow>> => {
+      const safePage = Number.isFinite(page) && page > 0 ? page : 1
+      const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 10
+      const trimmedSearch = typeof search === "string" ? search.trim() : ""
       const searchValidation =
         trimmedSearch.length > 0 ? sanitizeSearchQuery(trimmedSearch, 200) : { valid: true, value: "" }
       if (!searchValidation.valid) {
@@ -431,13 +204,13 @@ export function PostsTableClient({
       const requestParams: Record<string, string> = {
         page: safePage.toString(),
         limit: safeLimit.toString(),
-        status: view.status ?? "active",
+        status: status ?? "active",
       }
       if (searchValidation.value) {
         requestParams.search = searchValidation.value
       }
 
-      Object.entries(query.filters).forEach(([key, value]) => {
+      Object.entries(filters ?? {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           const normalized = `${value}`.trim()
           if (normalized) {
@@ -450,276 +223,164 @@ export function PostsTableClient({
           }
         }
       })
-      
-      try {
-        const response = await apiClient.get<PostsResponse>(apiRoutes.posts.list(), {
-          params: requestParams,
-        })
-        const payload = response.data
 
-        return {
-          rows: payload.data,
-          page: payload.pagination.page,
-          limit: payload.pagination.limit,
-          total: payload.pagination.total,
-          totalPages: payload.pagination.totalPages,
-        } satisfies DataTableResult<PostRow>
-      } catch (error) {
-        console.error("Failed to load posts", error)
-        if (error instanceof AxiosError) {
-          const apiMessage =
-            (error.response?.data as { error?: string } | undefined)?.error ||
-            error.message
-          throw new Error(apiMessage || "Không thể tải danh sách bài viết. Vui lòng thử lại sau.")
-        }
-        throw new Error("Không thể tải danh sách bài viết. Vui lòng thử lại sau.")
+      const response = await apiClient.get<PostsResponse>(apiRoutes.posts.list(), {
+        params: requestParams,
+      })
+      const payload = response.data
+
+      if (!payload || !payload.data) {
+        throw new Error("Không thể tải danh sách bài viết")
+      }
+
+      return {
+        rows: payload.data || [],
+        page: payload.pagination?.page ?? page,
+        limit: payload.pagination?.limit ?? limit,
+        total: payload.pagination?.total ?? 0,
+        totalPages: payload.pagination?.totalPages ?? 0,
       }
     },
     [],
   )
 
-  const handleDeleteSingle = useCallback(
-    (row: PostRow, refresh: () => void) => {
-      if (!canDelete) return
-      setDeleteConfirm({
-        open: true,
-        type: "soft",
-        row,
-        onConfirm: async () => {
-          try {
-            await apiClient.delete(apiRoutes.posts.delete(row.id))
-            showFeedback("success", "Xóa thành công", `Đã xóa bài viết "${row.title}"`)
-            refresh()
-          } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa thất bại", `Không thể xóa bài viết "${row.title}"`, errorMessage)
-            throw error
-          }
-        },
+  const loader = useCallback(
+    async (query: DataTableQueryState, view: ResourceViewMode<PostRow>) => {
+      const status = (view.status ?? "active") as AdminPostsListParams["status"]
+      const search = query.search.trim() || undefined
+      const filters = buildFiltersRecord(query.filters)
+
+      const params: AdminPostsListParams = {
+        status,
+        page: query.page,
+        limit: query.limit,
+        search,
+        filters,
+      }
+
+      const queryKey = queryKeys.adminPosts.list(params)
+
+      return await queryClient.fetchQuery({
+        queryKey,
+        staleTime: Infinity,
+        queryFn: () =>
+          fetchPosts({
+            page: query.page,
+            limit: query.limit,
+            status: status ?? "active",
+            search,
+            filters,
+          }),
       })
     },
-    [canDelete, showFeedback],
-  )
-
-  const handleHardDeleteSingle = useCallback(
-    (row: PostRow, refresh: () => void) => {
-      if (!canManage) return
-      setDeleteConfirm({
-        open: true,
-        type: "hard",
-        row,
-        onConfirm: async () => {
-          try {
-            await apiClient.delete(apiRoutes.posts.hardDelete(row.id))
-            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn bài viết "${row.title}"`)
-            refresh()
-          } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn bài viết "${row.title}"`, errorMessage)
-            throw error
-          }
-        },
-      })
-    },
-    [canManage, showFeedback],
-  )
-
-  const handleRestoreSingle = useCallback(
-    async (row: PostRow, refresh: () => void) => {
-      if (!canRestore) return
-
-      try {
-        await apiClient.post(apiRoutes.posts.restore(row.id))
-        showFeedback("success", "Khôi phục thành công", `Đã khôi phục bài viết "${row.title}"`)
-        refresh()
-      } catch (error) {
-        console.error("Failed to restore post", error)
-        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục bài viết "${row.title}"`)
-      }
-    },
-    [canRestore, showFeedback],
-  )
-
-  const renderActiveRowActions = useCallback(
-    (row: PostRow, { refresh }: { refresh: () => void }) => {
-      const actions: RowActionConfig[] = [
-        {
-          label: "Xem chi tiết",
-          icon: Eye,
-          onSelect: () => router.push(`/admin/posts/${row.id}`),
-        },
-      ]
-
-      if (canManage) {
-        actions.push({
-          label: "Chỉnh sửa",
-          icon: Pencil,
-          onSelect: () => router.push(`/admin/posts/${row.id}/edit`),
-        })
-      }
-
-      if (canDelete) {
-        actions.push({
-          label: "Xóa",
-          icon: Trash2,
-          onSelect: () => handleDeleteSingle(row, refresh),
-          destructive: true,
-        })
-      }
-
-      return renderRowActions(actions)
-    },
-    [canDelete, canManage, handleDeleteSingle, renderRowActions, router],
-  )
-
-  const renderDeletedRowActions = useCallback(
-    (row: PostRow, { refresh }: { refresh: () => void }) => {
-      const actions: RowActionConfig[] = [
-        {
-          label: "Xem chi tiết",
-          icon: Eye,
-          onSelect: () => router.push(`/admin/posts/${row.id}`),
-        },
-      ]
-
-      if (canRestore) {
-        actions.push({
-          label: "Khôi phục",
-          icon: RotateCcw,
-          onSelect: () => handleRestoreSingle(row, refresh),
-        })
-      }
-
-      if (canManage) {
-        actions.push({
-          label: "Xóa vĩnh viễn",
-          icon: AlertTriangle,
-          onSelect: () => handleHardDeleteSingle(row, refresh),
-          destructive: true,
-        })
-      }
-
-      return renderRowActions(actions)
-    },
-    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
+    [buildFiltersRecord, fetchPosts, queryClient],
   )
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
       if (ids.length === 0) return
 
-      if (action === "delete") {
+      // Actions cần confirmation
+      if (action === "delete" || action === "restore" || action === "hard-delete") {
         setDeleteConfirm({
           open: true,
-          type: "soft",
+          type: action === "hard-delete" ? "hard" : action === "restore" ? "restore" : "soft",
           bulkIds: ids,
           onConfirm: async () => {
-            setIsBulkProcessing(true)
-            try {
-              await apiClient.post(apiRoutes.posts.bulk, { action, ids })
-              showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} bài viết`)
-              clearSelection()
-              refresh()
-            } catch (error: unknown) {
-              const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-              showFeedback("error", "Xóa hàng loạt thất bại", `Không thể xóa ${ids.length} bài viết`, errorMessage)
-              throw error
-            } finally {
-              setIsBulkProcessing(false)
-            }
-          },
-        })
-      } else if (action === "hard-delete") {
-        setDeleteConfirm({
-          open: true,
-          type: "hard",
-          bulkIds: ids,
-          onConfirm: async () => {
-            setIsBulkProcessing(true)
-            try {
-              await apiClient.post(apiRoutes.posts.bulk, { action, ids })
-              showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn ${ids.length} bài viết`)
-              clearSelection()
-              refresh()
-            } catch (error: unknown) {
-              const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-              showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn ${ids.length} bài viết`, errorMessage)
-              throw error
-            } finally {
-              setIsBulkProcessing(false)
-            }
+            await executeBulkAction(action, ids, refresh, clearSelection)
           },
         })
       } else {
-        // restore action - no confirmation needed
-        setIsBulkProcessing(true)
-        ;(async () => {
-          try {
-            await apiClient.post(apiRoutes.posts.bulk, { action, ids })
-            showFeedback("success", "Khôi phục thành công", `Đã khôi phục ${ids.length} bài viết`)
-            clearSelection()
-            refresh()
-          } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục ${ids.length} bài viết`, errorMessage)
-          } finally {
-            setIsBulkProcessing(false)
-          }
-        })()
+        executeBulkAction(action, ids, refresh, clearSelection)
       }
     },
-    [showFeedback],
+    [executeBulkAction, setDeleteConfirm],
   )
+
+  // Handle realtime updates từ socket bridge
+  useEffect(() => {
+    if (cacheVersion === 0) return
+    if (tableSoftRefreshRef.current) {
+      tableSoftRefreshRef.current()
+      pendingRealtimeRefreshRef.current = false
+    } else {
+      pendingRealtimeRefreshRef.current = true
+    }
+  }, [cacheVersion])
+
+  // Set initialData vào React Query cache để socket bridge có thể cập nhật
+  useEffect(() => {
+    if (!initialData) return
+
+    const params: AdminPostsListParams = {
+      status: "active",
+      page: initialData.page,
+      limit: initialData.limit,
+      search: undefined,
+      filters: undefined,
+    }
+    const queryKey = queryKeys.adminPosts.list(params)
+    queryClient.setQueryData(queryKey, initialData)
+
+    logger.debug("Set initial data to cache", {
+      queryKey: queryKey.slice(0, 2),
+      rowsCount: initialData.rows.length,
+      total: initialData.total,
+    })
+  }, [initialData, queryClient])
 
   const viewModes = useMemo<ResourceViewMode<PostRow>[]>(() => {
     const modes: ResourceViewMode<PostRow>[] = [
       {
         id: "active",
-        label: "Đang hoạt động",
+        label: POST_LABELS.ACTIVE_VIEW,
         status: "active",
-        selectionEnabled: canDelete,
-        selectionActions: canDelete
+        columns: baseColumns,
+        selectionEnabled: canDelete || canManage,
+        selectionActions: canDelete || canManage
           ? ({ selectedIds, clearSelection, refresh }) => (
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> bài viết
+                  {POST_LABELS.SELECTED_POSTS(selectedIds.length)}
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={isBulkProcessing || selectedIds.length === 0}
-                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    Xóa đã chọn ({selectedIds.length})
-                  </Button>
+                  {canDelete && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={bulkState.isProcessing || selectedIds.length === 0}
+                      onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <Trash2 className="mr-2 h-5 w-5" />
+                      {POST_LABELS.DELETE_SELECTED(selectedIds.length)}
+                    </Button>
+                  )}
                   {canManage && (
                     <Button
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      disabled={bulkState.isProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn ({selectedIds.length})
+                      {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    Bỏ chọn
+                    {POST_LABELS.CLEAR_SELECTION}
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
-        emptyMessage: "Không tìm thấy bài viết nào phù hợp",
+        rowActions: (row) => renderActiveRowActions(row),
+        emptyMessage: POST_LABELS.NO_POSTS,
       },
       {
         id: "deleted",
-        label: "Đã xóa",
+        label: POST_LABELS.DELETED_VIEW,
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
@@ -727,7 +388,7 @@ export function PostsTableClient({
           ? ({ selectedIds, clearSelection, refresh }) => (
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> bài viết (đã xóa)
+                  {POST_LABELS.SELECTED_DELETED_POSTS(selectedIds.length)}
                 </span>
                 <div className="flex items-center gap-2">
                   {canRestore && (
@@ -735,11 +396,11 @@ export function PostsTableClient({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      disabled={bulkState.isProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
-                      Khôi phục ({selectedIds.length})
+                      {POST_LABELS.RESTORE_SELECTED(selectedIds.length)}
                     </Button>
                   )}
                   {canManage && (
@@ -747,66 +408,76 @@ export function PostsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      disabled={bulkState.isProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn ({selectedIds.length})
+                      {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    Bỏ chọn
+                    {POST_LABELS.CLEAR_SELECTION}
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
-        emptyMessage: "Không có bài viết đã xóa",
+        rowActions: (row) => renderDeletedRowActions(row),
+        emptyMessage: POST_LABELS.NO_DELETED_POSTS,
       },
     ]
 
     return modes
-  }, [canDelete, canRestore, canManage, deletedColumns, executeBulk, isBulkProcessing, renderActiveRowActions, renderDeletedRowActions])
+  }, [
+    canDelete,
+    canRestore,
+    canManage,
+    baseColumns,
+    deletedColumns,
+    executeBulk,
+    bulkState.isProcessing,
+    renderActiveRowActions,
+    renderDeletedRowActions,
+  ])
 
   const initialDataByView = useMemo(
     () => (initialData ? { active: initialData } : undefined),
     [initialData],
   )
 
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!deleteConfirm) return
-    try {
-      await deleteConfirm.onConfirm()
-    } catch {
-      // Error already handled in onConfirm
-    } finally {
-      setDeleteConfirm(null)
-    }
-  }, [deleteConfirm])
-
   const getDeleteConfirmTitle = () => {
     if (!deleteConfirm) return ""
     if (deleteConfirm.type === "hard") {
-      return deleteConfirm.bulkIds
-        ? `Xóa vĩnh viễn ${deleteConfirm.bulkIds.length} bài viết?`
-        : `Xóa vĩnh viễn bài viết "${deleteConfirm.row?.title}"?`
+      return POST_CONFIRM_MESSAGES.HARD_DELETE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
     }
-    return deleteConfirm.bulkIds
-      ? `Xóa ${deleteConfirm.bulkIds.length} bài viết?`
-      : `Xóa bài viết "${deleteConfirm.row?.title}"?`
+    if (deleteConfirm.type === "restore") {
+      return POST_CONFIRM_MESSAGES.RESTORE_TITLE(
+        deleteConfirm.bulkIds?.length,
+      )
+    }
+    return POST_CONFIRM_MESSAGES.DELETE_TITLE(deleteConfirm.bulkIds?.length)
   }
 
   const getDeleteConfirmDescription = () => {
     if (!deleteConfirm) return ""
     if (deleteConfirm.type === "hard") {
-      return deleteConfirm.bulkIds
-        ? `Hành động này sẽ xóa vĩnh viễn ${deleteConfirm.bulkIds.length} bài viết khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
-        : `Hành động này sẽ xóa vĩnh viễn bài viết "${deleteConfirm.row?.title}" khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
+      return POST_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+        deleteConfirm.row?.title,
+      )
     }
-    return deleteConfirm.bulkIds
-      ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} bài viết? Chúng sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
-      : `Bạn có chắc chắn muốn xóa bài viết "${deleteConfirm.row?.title}"? Bài viết sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
+    if (deleteConfirm.type === "restore") {
+      return POST_CONFIRM_MESSAGES.RESTORE_DESCRIPTION(
+        deleteConfirm.bulkIds?.length,
+        deleteConfirm.row?.title,
+      )
+    }
+    return POST_CONFIRM_MESSAGES.DELETE_DESCRIPTION(
+      deleteConfirm.bulkIds?.length,
+      deleteConfirm.row?.title,
+    )
   }
 
   const headerActions = canCreate ? (
@@ -817,14 +488,14 @@ export function PostsTableClient({
       className="h-8 px-3 text-xs sm:text-sm"
     >
       <Plus className="mr-2 h-5 w-5" />
-      Thêm mới
+      {POST_LABELS.ADD_NEW}
     </Button>
   ) : undefined
 
   return (
     <>
       <ResourceTableClient<PostRow>
-        title="Quản lý bài viết"
+        title={POST_LABELS.MANAGE_POSTS}
         baseColumns={baseColumns}
         loader={loader}
         viewModes={viewModes}
@@ -833,7 +504,17 @@ export function PostsTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={(refresh) => {
-          tableRefreshRef.current = refresh
+          const wrapped = () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "none" })
+            refresh()
+          }
+          tableSoftRefreshRef.current = refresh
+          tableRefreshRef.current = wrapped
+
+          if (pendingRealtimeRefreshRef.current) {
+            pendingRealtimeRefreshRef.current = false
+            refresh()
+          }
         }}
       />
 
@@ -846,11 +527,26 @@ export function PostsTableClient({
           }}
           title={getDeleteConfirmTitle()}
           description={getDeleteConfirmDescription()}
-          variant={deleteConfirm.type === "hard" ? "destructive" : "destructive"}
-          confirmLabel={deleteConfirm.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
-          cancelLabel="Hủy"
+          variant={deleteConfirm.type === "hard" ? "destructive" : deleteConfirm.type === "restore" ? "default" : "destructive"}
+          confirmLabel={
+            deleteConfirm.type === "hard" 
+              ? POST_CONFIRM_MESSAGES.HARD_DELETE_LABEL 
+              : deleteConfirm.type === "restore"
+              ? POST_CONFIRM_MESSAGES.RESTORE_LABEL
+              : POST_CONFIRM_MESSAGES.CONFIRM_LABEL
+          }
+          cancelLabel={POST_CONFIRM_MESSAGES.CANCEL_LABEL}
           onConfirm={handleDeleteConfirm}
-          isLoading={isBulkProcessing}
+          isLoading={
+            bulkState.isProcessing ||
+            (deleteConfirm.row
+              ? deleteConfirm.type === "restore"
+                ? restoringPosts.has(deleteConfirm.row.id)
+                : deleteConfirm.type === "hard"
+                ? hardDeletingPosts.has(deleteConfirm.row.id)
+                : deletingPosts.has(deleteConfirm.row.id)
+              : false)
+          }
         />
       )}
 

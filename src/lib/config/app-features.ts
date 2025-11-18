@@ -192,16 +192,6 @@ export const appFeatures: FeatureDefinition[] = [
           url: "/admin/posts/new",
           permissions: [PERMISSIONS.POSTS_CREATE],
         },
-        {
-          title: "Bài viết của tôi",
-          url: "/admin/posts/my-posts",
-          permissions: [PERMISSIONS.POSTS_VIEW],
-        },
-        {
-          title: "Đã xuất bản",
-          url: "/admin/posts/published",
-          permissions: [PERMISSIONS.POSTS_PUBLISH],
-        },
       ],
     },
     api: {
