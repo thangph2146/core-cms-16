@@ -98,7 +98,7 @@ export function ChatTemplate({
     }
   }, [setContactsState, currentUserId])
 
-  // Group actions hook
+  // Group actions hook (for refresh and cleanup)
   const { handleGroupUpdated, handleHardDeleteGroup } = useGroupActions({
     currentChat,
     setCurrentChat,
@@ -305,6 +305,8 @@ export function ChatTemplate({
             isGroupDeleted,
             currentUserRole,
             onHardDeleteGroup: isGroupDeleted ? handleHardDeleteGroup : undefined,
+            role,
+            setContactsState,
           }
         : null,
     [
@@ -333,6 +335,8 @@ export function ChatTemplate({
       isGroupDeleted,
       currentUserRole,
       handleHardDeleteGroup,
+      role,
+      setContactsState,
     ]
   )
 
@@ -343,9 +347,12 @@ export function ChatTemplate({
           group={currentChat.group}
           currentUserRole={currentUserRole}
           onGroupUpdated={handleGroupUpdated}
+          currentUserId={currentUserId}
+          role={role}
+          setContactsState={setContactsState}
         />
       ) : undefined,
-    [currentChat, isGroupDeleted, currentUserRole, handleGroupUpdated]
+    [currentChat, isGroupDeleted, currentUserRole, handleGroupUpdated, currentUserId, role, setContactsState]
   )
 
   return (

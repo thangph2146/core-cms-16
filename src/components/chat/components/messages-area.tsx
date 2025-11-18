@@ -23,6 +23,8 @@ interface MessagesAreaProps {
   group?: import("../types").Group | null
   onHardDeleteGroup?: () => void
   onScrollToMessage?: (messageId: string) => void
+  role?: string | null
+  setContactsState?: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function MessagesArea({
@@ -41,6 +43,8 @@ export function MessagesArea({
   group,
   onHardDeleteGroup,
   onScrollToMessage,
+  role,
+  setContactsState,
 }: MessagesAreaProps) {
   // Deduplicate messages by ID (tránh duplicate key error)
   const uniqueMessages = deduplicateMessages(messages)
@@ -84,6 +88,9 @@ export function MessagesArea({
                 currentUserRole={currentUserRole}
                 group={group}
                 onHardDeleteGroup={onHardDeleteGroup}
+                currentUserId={currentUserId}
+                role={role}
+                setContactsState={setContactsState}
               />
             )}
           </>
@@ -99,6 +106,9 @@ export function MessagesArea({
               currentUserRole={currentUserRole}
               group={group}
               onHardDeleteGroup={onHardDeleteGroup}
+              currentUserId={currentUserId}
+              role={role}
+              setContactsState={setContactsState}
             />
           </>
         ) : (

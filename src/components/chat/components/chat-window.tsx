@@ -39,6 +39,8 @@ export interface ChatWindowProps {
   onHardDeleteGroup?: () => void
   onBack?: () => void
   showBackButton?: boolean
+  role?: string | null
+  setContactsState?: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function ChatWindow({
@@ -70,6 +72,8 @@ export function ChatWindow({
   onHardDeleteGroup,
   onBack,
   showBackButton,
+  role,
+  setContactsState,
 }: ChatWindowProps) {
   return (
     <>
@@ -99,6 +103,8 @@ export function ChatWindow({
         currentUserRole={currentUserRole}
         group={currentChat.type === "GROUP" ? currentChat.group : null}
         onHardDeleteGroup={onHardDeleteGroup}
+        role={role}
+        setContactsState={setContactsState}
       />
       <ChatInput
         inputRef={inputRef}

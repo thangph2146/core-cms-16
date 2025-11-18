@@ -19,12 +19,18 @@ interface GroupManagementMenuProps {
   group: Group | null
   currentUserRole?: GroupRole
   onGroupUpdated?: () => void
+  currentUserId: string
+  role?: string | null
+  setContactsState: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function GroupManagementMenu({
   group,
   currentUserRole,
   onGroupUpdated,
+  currentUserId,
+  role,
+  setContactsState,
 }: GroupManagementMenuProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
@@ -100,6 +106,9 @@ export function GroupManagementMenu({
         onSuccess={() => {
           onGroupUpdated?.()
         }}
+        currentUserId={currentUserId}
+        role={role}
+        setContactsState={setContactsState}
       />
     </>
   )

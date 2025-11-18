@@ -14,12 +14,18 @@ interface DeletedGroupBannerProps {
   currentUserRole?: GroupRole
   group?: Group | null
   onHardDeleteGroup?: () => void
+  currentUserId: string
+  role?: string | null
+  setContactsState?: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function DeletedGroupBanner({
   currentUserRole,
   group,
   onHardDeleteGroup,
+  currentUserId,
+  role,
+  setContactsState,
 }: DeletedGroupBannerProps) {
   const [hardDeleteDialogOpen, setHardDeleteDialogOpen] = useState(false)
   const canHardDelete = currentUserRole === "OWNER" && onHardDeleteGroup
@@ -60,12 +66,17 @@ export function DeletedGroupBanner({
         )}
       </div>
 
-      <HardDeleteGroupDialog
-        open={hardDeleteDialogOpen}
-        onOpenChange={setHardDeleteDialogOpen}
-        group={group || null}
-        onSuccess={handleHardDeleteSuccess}
-      />
+      {currentUserId && setContactsState && (
+        <HardDeleteGroupDialog
+          open={hardDeleteDialogOpen}
+          onOpenChange={setHardDeleteDialogOpen}
+          group={group || null}
+          onSuccess={handleHardDeleteSuccess}
+          currentUserId={currentUserId}
+          role={role}
+          setContactsState={setContactsState}
+        />
+      )}
     </>
   )
 }

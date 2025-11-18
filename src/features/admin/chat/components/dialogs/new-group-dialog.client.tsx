@@ -225,7 +225,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
                   <CommandEmpty>Không tìm thấy người dùng nào</CommandEmpty>
                 )}
                 {!isLoading && users.length > 0 && (
-                  <CommandGroup heading="Người dùng">
+                  <CommandGroup heading="Người dùng" className="gap-2">
                     {users.map((user) => {
                       const selected = selectedUsers.some((u) => u.id === user.id)
                       return (
@@ -233,7 +233,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
                           key={user.id}
                           value={user.id}
                           onSelect={() => toggleUser(user)}
-                          className={`flex items-center gap-3 cursor-pointer ${selected ? "bg-accent" : ""}`}
+                          className={`flex items-center gap-3 cursor-pointer ${selected ? "bg-accent/10" : ""} mb-1`}
                         >
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={user.avatar || undefined} alt={user.name || user.email} />
@@ -243,7 +243,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
                           </Avatar>
                           <div className="flex flex-col flex-1 min-w-0">
                             <span className="text-sm font-medium truncate">{user.name || user.email}</span>
-                            {user.name && <span className="text-xs text-muted-foreground truncate">{user.email}</span>}
+                            {user.name && <span className="text-xs truncate">{user.email}</span>}
                           </div>
                           {selected && <span className="text-xs">Đã chọn</span>}
                         </CommandItem>

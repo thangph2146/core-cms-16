@@ -7,6 +7,7 @@ import {
 } from "@/features/admin/resources/server"
 import { getSocketServer } from "@/lib/socket/state"
 import { logger } from "@/lib/config"
+import { emitGroupDeleted, emitGroupHardDeleted, emitGroupRestored } from "./events"
 
 export interface CreateMessageInput {
   content: string
@@ -1109,25 +1110,7 @@ export async function deleteGroup(ctx: AuthContext, groupId: string) {
   })
 
   // Emit socket event
-  const io = getSocketServer()
-  if (io) {
-    try {
-      const groupMembers = await prisma.groupMember.findMany({
-        where: {
-          groupId,
-          leftAt: null,
-        },
-        select: { userId: true },
-      })
-
-      const memberIds = groupMembers.map((m) => m.userId)
-      memberIds.forEach((userId) => {
-        io.to(`user:${userId}`).emit("group:deleted", { id: groupId })
-      })
-    } catch (error) {
-      logger.error("Failed to emit socket group delete", error instanceof Error ? error : new Error(String(error)))
-    }
-  }
+  await emitGroupDeleted(groupId)
 
   return deleted
 }
@@ -1163,31 +1146,24 @@ export async function hardDeleteGroup(ctx: AuthContext, groupId: string) {
     throw new NotFoundError("Nhóm không tồn tại")
   }
 
+  // Get members before deletion (for socket event)
+  const groupMembers = await prisma.groupMember.findMany({
+    where: {
+      groupId,
+      leftAt: null,
+    },
+    select: { userId: true },
+  })
+
+  const memberIds = groupMembers.map((m) => m.userId)
+
   // Hard delete group (cascade will delete members and messages)
   await prisma.group.delete({
     where: { id: groupId },
   })
 
-  // Emit socket event
-  const io = getSocketServer()
-  if (io) {
-    try {
-      const groupMembers = await prisma.groupMember.findMany({
-        where: {
-          groupId,
-          leftAt: null,
-        },
-        select: { userId: true },
-      })
-
-      const memberIds = groupMembers.map((m) => m.userId)
-      memberIds.forEach((userId) => {
-        io.to(`user:${userId}`).emit("group:hard-deleted", { id: groupId })
-      })
-    } catch (error) {
-      logger.error("Failed to emit socket group hard delete", error instanceof Error ? error : new Error(String(error)))
-    }
-  }
+  // Emit socket event (using cached memberIds)
+  await emitGroupHardDeleted(groupId, memberIds)
 
   return { success: true }
 }
@@ -1236,25 +1212,7 @@ export async function restoreGroup(ctx: AuthContext, groupId: string) {
   })
 
   // Emit socket event
-  const io = getSocketServer()
-  if (io) {
-    try {
-      const groupMembers = await prisma.groupMember.findMany({
-        where: {
-          groupId,
-          leftAt: null,
-        },
-        select: { userId: true },
-      })
-
-      const memberIds = groupMembers.map((m) => m.userId)
-      memberIds.forEach((userId) => {
-        io.to(`user:${userId}`).emit("group:restored", { id: groupId })
-      })
-    } catch (error) {
-      logger.error("Failed to emit socket group restore", error instanceof Error ? error : new Error(String(error)))
-    }
-  }
+  await emitGroupRestored(groupId)
 
   return restored
 }

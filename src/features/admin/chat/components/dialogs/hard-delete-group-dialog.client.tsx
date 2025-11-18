@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,16 +11,21 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2, AlertTriangle } from "lucide-react"
 import type { Group } from "@/components/chat/types"
-import { apiRoutes } from "@/lib/api/routes"
-import { requestJson } from "@/lib/api/client"
-import { withApiBase } from "@/lib/config/api-paths"
-import { useToast } from "@/hooks/use-toast"
+import { useGroupDeleteConfirm } from "../../hooks/use-group-delete-confirm"
+import { useGroupDialogActions } from "../../hooks/use-group-dialog-actions"
+import { useGroupFeedback } from "../../hooks/use-group-feedback"
+import { GROUP_CONFIRM_MESSAGES, GROUP_LABELS } from "../../constants"
+import { useChatSocketBridge } from "../../hooks/use-chat-socket-bridge"
+import { FeedbackDialog } from "@/components/dialogs"
 
 interface HardDeleteGroupDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   group: Group | null
   onSuccess?: () => void
+  currentUserId: string
+  role?: string | null
+  setContactsState: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function HardDeleteGroupDialog({
@@ -29,50 +33,111 @@ export function HardDeleteGroupDialog({
   onOpenChange,
   group,
   onSuccess,
+  currentUserId,
+  role,
+  setContactsState,
 }: HardDeleteGroupDialogProps) {
-  const [isDeleting, setIsDeleting] = useState(false)
-  const { toast } = useToast()
+  const { socket } = useChatSocketBridge({
+    currentUserId,
+    role,
+    setContactsState,
+  })
+  const { feedback, showFeedback, handleFeedbackOpenChange } = useGroupFeedback()
+  const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useGroupDeleteConfirm()
+  const { executeSingleAction, hardDeletingGroups } = useGroupDialogActions({
+    canDelete: false,
+    canRestore: false,
+    canManage: true,
+    isSocketConnected: socket?.connected ?? false,
+    showFeedback,
+    onSuccess: () => {
+      onOpenChange(false)
+      onSuccess?.()
+    },
+  })
 
   const handleConfirm = async () => {
     if (!group) return
 
-    setIsDeleting(true)
-    try {
-      const res = await requestJson(withApiBase(apiRoutes.adminGroups.hardDelete(group.id)), { method: "DELETE" })
-      if (!res.ok) throw new Error(res.error || "Failed to hard delete group")
-      toast({ title: "Thành công", description: res.message || "Đã xóa vĩnh viễn nhóm" })
-
-      onOpenChange(false)
-      setTimeout(() => { onSuccess?.() }, 100)
-    } catch (error) {
-      console.error("Error hard deleting group:", error)
-      toast({ title: "Lỗi", description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa vĩnh viễn nhóm", variant: "destructive" })
-    } finally {
-      setIsDeleting(false)
-    }
+    setDeleteConfirm({
+      open: true,
+      type: "hard",
+      group,
+      onConfirm: async () => {
+        await executeSingleAction("hard-delete", group)
+      },
+    })
   }
 
+  const isDeleting = group ? hardDeletingGroups.has(group.id) : false
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            Xóa vĩnh viễn nhóm
-          </DialogTitle>
-          <DialogDescription>Hành động này không thể hoàn tác.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2 py-2">
-          Bạn có chắc chắn muốn xóa vĩnh viễn nhóm <strong>{group?.name}</strong> không?
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>Hủy</Button>
-          <Button variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
-            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Xóa vĩnh viễn
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {GROUP_CONFIRM_MESSAGES.HARD_DELETE_TITLE(group?.name)}
+            </DialogTitle>
+            <DialogDescription>
+              {GROUP_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(group?.name)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {GROUP_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(group?.name)}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
+              {GROUP_CONFIRM_MESSAGES.CANCEL_LABEL}
+            </Button>
+            <Button variant="destructive" onClick={handleConfirm} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {GROUP_CONFIRM_MESSAGES.HARD_DELETE_LABEL}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <Dialog open={deleteConfirm.open} onOpenChange={(open) => {
+          if (!open) setDeleteConfirm(null)
+        }}>
+          <DialogContent className="sm:max-w-[460px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                {GROUP_CONFIRM_MESSAGES.HARD_DELETE_TITLE(deleteConfirm.group?.name)}
+              </DialogTitle>
+              <DialogDescription>
+                {GROUP_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(deleteConfirm.group?.name)}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
+                {GROUP_CONFIRM_MESSAGES.CANCEL_LABEL}
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
+                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {GROUP_CONFIRM_MESSAGES.HARD_DELETE_LABEL}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Feedback Dialog */}
+      {feedback && (
+        <FeedbackDialog
+          open={feedback.open}
+          onOpenChange={handleFeedbackOpenChange}
+          variant={feedback.variant}
+          title={feedback.title}
+          description={feedback.description}
+          details={feedback.details}
+        />
+      )}
+    </>
   )
 }
