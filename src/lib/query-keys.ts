@@ -68,6 +68,10 @@ export interface AdminSessionsListParams extends BaseListParams {
   status?: "active" | "deleted" | "all"
 }
 
+export interface AdminCategoriesListParams extends BaseListParams {
+  status?: "active" | "deleted" | "all"
+}
+
 /**
  * Helper để tạo query key với optional params
  */
@@ -279,6 +283,22 @@ export const queryKeys = {
      */
     list: (params: AdminSessionsListParams): readonly unknown[] => {
       return ["adminSessions", normalizeListParams(params)]
+    },
+  },
+
+  /**
+   * Admin Categories query keys
+   */
+  adminCategories: {
+    /**
+     * Tất cả admin categories queries
+     */
+    all: (): readonly unknown[] => ["adminCategories"],
+    /**
+     * Admin categories list với normalized params
+     */
+    list: (params: AdminCategoriesListParams): readonly unknown[] => {
+      return ["adminCategories", normalizeListParams(params)]
     },
   },
 } as const

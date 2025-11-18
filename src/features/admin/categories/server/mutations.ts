@@ -10,6 +10,7 @@ import {
   UpdateCategorySchema,
 } from "./schemas"
 import { notifySuperAdminsOfCategoryAction } from "./notifications"
+import { emitCategoryUpsert, emitCategoryRemove } from "./events"
 import {
   ApplicationError,
   ForbiddenError,
@@ -70,6 +71,9 @@ export async function createCategory(ctx: AuthContext, input: unknown): Promise<
   })
 
   const sanitized = sanitizeCategory(category)
+
+  // Emit socket event for real-time updates
+  await emitCategoryUpsert(sanitized.id, null)
 
   // Emit notification realtime
   await notifySuperAdminsOfCategoryAction(
@@ -171,6 +175,10 @@ export async function updateCategory(ctx: AuthContext, id: string, input: unknow
 
   const sanitized = sanitizeCategory(category)
 
+  // Emit socket event for real-time updates
+  const previousStatus: "active" | "deleted" = existing.deletedAt ? "deleted" : "active"
+  await emitCategoryUpsert(sanitized.id, previousStatus)
+
   // Emit notification realtime
   await notifySuperAdminsOfCategoryAction(
     "update",
@@ -200,6 +208,9 @@ export async function softDeleteCategory(ctx: AuthContext, id: string): Promise<
       deletedAt: new Date(),
     },
   })
+
+  // Emit socket event for real-time updates
+  await emitCategoryUpsert(id, "active")
 
   // Emit notification realtime
   await notifySuperAdminsOfCategoryAction(
@@ -239,8 +250,9 @@ export async function bulkSoftDeleteCategories(ctx: AuthContext, ids: string[]):
     },
   })
 
-  // Emit notifications realtime cho từng category
+  // Emit socket events và notifications realtime cho từng category
   for (const category of categories) {
+    await emitCategoryUpsert(category.id, "active")
     await notifySuperAdminsOfCategoryAction(
       "delete",
       ctx.actorId,
@@ -265,6 +277,9 @@ export async function restoreCategory(ctx: AuthContext, id: string): Promise<voi
       deletedAt: null,
     },
   })
+
+  // Emit socket event for real-time updates
+  await emitCategoryUpsert(id, "deleted")
 
   // Emit notification realtime
   await notifySuperAdminsOfCategoryAction(
@@ -304,8 +319,9 @@ export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Pr
     },
   })
 
-  // Emit notifications realtime cho từng category
+  // Emit socket events và notifications realtime cho từng category
   for (const category of categories) {
+    await emitCategoryUpsert(category.id, "deleted")
     await notifySuperAdminsOfCategoryAction(
       "restore",
       ctx.actorId,
@@ -323,16 +339,21 @@ export async function hardDeleteCategory(ctx: AuthContext, id: string): Promise<
 
   const category = await prisma.category.findUnique({
     where: { id },
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, deletedAt: true },
   })
 
   if (!category) {
     throw new NotFoundError("Danh mục không tồn tại")
   }
 
+  const previousStatus: "active" | "deleted" = category.deletedAt ? "deleted" : "active"
+  
   await prisma.category.delete({
     where: { id },
   })
+
+  // Emit socket event for real-time updates
+  emitCategoryRemove(id, previousStatus)
 
   // Emit notification realtime
   await notifySuperAdminsOfCategoryAction(
