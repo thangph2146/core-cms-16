@@ -187,15 +187,24 @@ export function CategoriesTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      const response = await apiClient.get<CategoriesResponse>(url)
-      const payload = response.data
+      const response = await apiClient.get<{
+        success: boolean
+        data?: CategoriesResponse
+        error?: string
+        message?: string
+      }>(url)
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể tải danh sách danh mục")
+      }
 
       return {
         rows: payload.data,
-        page: payload.pagination.page,
-        limit: payload.pagination.limit,
-        total: payload.pagination.total,
-        totalPages: payload.pagination.totalPages,
+        page: payload.pagination?.page ?? 1,
+        limit: payload.pagination?.limit ?? 10,
+        total: payload.pagination?.total ?? 0,
+        totalPages: payload.pagination?.totalPages ?? 0,
       } satisfies DataTableResult<CategoryRow>
     },
     [],
@@ -211,11 +220,11 @@ export function CategoriesTableClient({
         onConfirm: async () => {
           try {
             await apiClient.delete(apiRoutes.categories.delete(row.id))
-            showFeedback("success", "Xóa thành công", `Đã xóa danh mục ${row.name}`)
+            showFeedback("success", "Xóa tạm thời thành công", `Đã xóa tạm thời danh mục "${row.name}". Danh mục đã được chuyển vào thùng rác và có thể khôi phục sau.`)
             refresh()
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa thất bại", `Không thể xóa danh mục ${row.name}`, errorMessage)
+            showFeedback("error", "Xóa tạm thời thất bại", `Không thể xóa tạm thời danh mục "${row.name}"`, errorMessage)
             throw error
           }
         },
@@ -226,7 +235,10 @@ export function CategoriesTableClient({
 
   const handleHardDeleteSingle = useCallback(
     (row: CategoryRow, refresh: () => void) => {
-      if (!canManage) return
+      if (!canManage) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền xóa vĩnh viễn danh mục. Chỉ có quyền MANAGE mới có thể thực hiện hành động này.")
+        return
+      }
       setDeleteConfirm({
         open: true,
         type: "hard",
@@ -234,11 +246,11 @@ export function CategoriesTableClient({
         onConfirm: async () => {
           try {
             await apiClient.delete(apiRoutes.categories.hardDelete(row.id))
-            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn danh mục ${row.name}`)
+            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn danh mục "${row.name}". Hành động này không thể hoàn tác.`)
             refresh()
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn danh mục ${row.name}`, errorMessage)
+            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn danh mục "${row.name}"`, errorMessage)
             throw error
           }
         },
@@ -249,21 +261,41 @@ export function CategoriesTableClient({
 
   const handleRestoreSingle = useCallback(
     async (row: CategoryRow, refresh: () => void) => {
-      if (!canRestore) return
+      if (!canRestore) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền khôi phục danh mục")
+        return
+      }
 
       try {
         await apiClient.post(apiRoutes.categories.restore(row.id))
+        showFeedback("success", "Khôi phục thành công", `Đã khôi phục danh mục "${row.name}"`)
         refresh()
-      } catch (error) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục danh mục "${row.name}"`, errorMessage)
         console.error("Failed to restore category", error)
       }
     },
-    [canRestore],
+    [canRestore, showFeedback],
   )
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
       if (ids.length === 0) return
+
+      // Kiểm tra permissions trước khi thực hiện action
+      if (action === "delete" && !canDelete) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền xóa danh mục")
+        return
+      }
+      if (action === "restore" && !canRestore) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền khôi phục danh mục")
+        return
+      }
+      if (action === "hard-delete" && !canManage) {
+        showFeedback("error", "Không có quyền", "Bạn không có quyền xóa vĩnh viễn danh mục")
+        return
+      }
 
       if (action === "delete") {
         setDeleteConfirm({
@@ -274,12 +306,12 @@ export function CategoriesTableClient({
             setIsBulkProcessing(true)
             try {
               await apiClient.post(apiRoutes.categories.bulk, { action, ids })
-              showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} danh mục`)
+              showFeedback("success", "Xóa tạm thời thành công", `Đã xóa tạm thời ${ids.length} danh mục. Các danh mục đã được chuyển vào thùng rác và có thể khôi phục sau.`)
               clearSelection()
               refresh()
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-              showFeedback("error", "Xóa hàng loạt thất bại", `Không thể xóa ${ids.length} danh mục`, errorMessage)
+              showFeedback("error", "Xóa tạm thời hàng loạt thất bại", `Không thể xóa tạm thời ${ids.length} danh mục`, errorMessage)
               throw error
             } finally {
               setIsBulkProcessing(false)
@@ -324,7 +356,7 @@ export function CategoriesTableClient({
         })()
       }
     },
-    [showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const viewModes = useMemo<ResourceViewMode<CategoryRow>[]>(() => {
@@ -333,24 +365,38 @@ export function CategoriesTableClient({
         id: "active",
         label: "Đang hoạt động",
         status: "active",
-        selectionEnabled: canDelete,
-        selectionActions: canDelete
+        selectionEnabled: canDelete || canManage,
+        selectionActions: canDelete || canManage
           ? ({ selectedIds, clearSelection, refresh }) => (
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>
                   Đã chọn <strong>{selectedIds.length}</strong> danh mục
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={isBulkProcessing}
-                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    Xóa đã chọn
-                  </Button>
+                  {canDelete && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing}
+                      onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <Trash2 className="mr-2 h-5 w-5" />
+                      Xóa tạm thời đã chọn
+                    </Button>
+                  )}
+                  {canManage && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing}
+                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      Xóa vĩnh viễn đã chọn
+                    </Button>
+                  )}
                   <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
@@ -359,7 +405,7 @@ export function CategoriesTableClient({
             )
           : undefined,
         rowActions:
-          canDelete || canRestore
+          canDelete || canRestore || canManage
             ? (row, { refresh }) => (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -378,7 +424,16 @@ export function CategoriesTableClient({
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
+                        Xóa tạm thời
+                      </DropdownMenuItem>
+                    )}
+                    {canManage && (
+                      <DropdownMenuItem 
+                        onClick={() => handleHardDeleteSingle(row, refresh)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <AlertTriangle className="mr-2 h-5 w-5 text-destructive" />
+                        Xóa vĩnh viễn
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -535,17 +590,17 @@ export function CategoriesTableClient({
             setDeleteConfirm(null)
           }
         }}
-        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa danh mục?"}
+        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa tạm thời?"}
         description={
           deleteConfirm?.type === "hard"
             ? deleteConfirm.bulkIds
-              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} danh mục đã chọn? Hành động này không thể hoàn tác.`
-              : `Bạn có chắc chắn muốn xóa vĩnh viễn danh mục "${deleteConfirm?.row?.name}"? Hành động này không thể hoàn tác.`
+              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} danh mục đã chọn? Hành động này không thể hoàn tác và sẽ xóa vĩnh viễn khỏi hệ thống. Danh mục sẽ bị xóa ngay lập tức, không thể khôi phục.`
+              : `Bạn có chắc chắn muốn xóa vĩnh viễn danh mục "${deleteConfirm?.row?.name}"? Hành động này không thể hoàn tác và sẽ xóa vĩnh viễn khỏi hệ thống. Danh mục sẽ bị xóa ngay lập tức, không thể khôi phục.`
             : deleteConfirm?.bulkIds
-              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} danh mục đã chọn?`
-              : `Bạn có chắc chắn muốn xóa danh mục "${deleteConfirm?.row?.name}"?`
+              ? `Bạn có chắc chắn muốn xóa tạm thời ${deleteConfirm.bulkIds.length} danh mục đã chọn? Danh mục sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
+              : `Bạn có chắc chắn muốn xóa tạm thời danh mục "${deleteConfirm?.row?.name}"? Danh mục sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
         }
-        confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
+        confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa tạm thời"}
         cancelLabel="Hủy"
         variant={deleteConfirm?.type === "hard" ? "destructive" : "default"}
         onConfirm={handleDeleteConfirm}

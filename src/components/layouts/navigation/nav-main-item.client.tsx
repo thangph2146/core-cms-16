@@ -54,7 +54,7 @@ export function NavMainItem({
     return null
   }
 
-  const showBadge = badgeCount > 0
+  const showBadge = badgeCount > 0 && isMounted // Chỉ hiển thị badge sau khi mount trên client
 
   // Render placeholder trên server để tránh hydration mismatch
   if (!isMounted) {
@@ -62,15 +62,11 @@ export function NavMainItem({
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={title} isActive={isActive}>
           <Link href={url} className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0" suppressHydrationWarning>
               {iconElement}
               <span>{title}</span>
             </div>
-            {showBadge && (
-              <Badge variant="destructive" className="ml-auto shrink-0">
-                {badgeCount > 99 ? "99+" : badgeCount}
-              </Badge>
-            )}
+            {/* Không render badge trên server để tránh hydration mismatch */}
           </Link>
         </SidebarMenuButton>
         {items?.length && isActive ? (
@@ -95,12 +91,16 @@ export function NavMainItem({
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={title} isActive={isActive}>
           <Link href={url} className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0" suppressHydrationWarning>
               {iconElement}
               <span>{title}</span>
             </div>
             {showBadge && (
-              <Badge variant="destructive" className="ml-auto shrink-0">
+              <Badge 
+                variant="destructive" 
+                className="ml-auto shrink-0"
+                suppressHydrationWarning
+              >
                 {badgeCount > 99 ? "99+" : badgeCount}
               </Badge>
             )}

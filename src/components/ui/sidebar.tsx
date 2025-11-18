@@ -381,6 +381,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
         "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
+      suppressHydrationWarning
       {...props}
     />
   )
@@ -392,6 +393,7 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-group"
       data-sidebar="group"
       className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      suppressHydrationWarning
       {...props}
     />
   )
@@ -413,6 +415,7 @@ function SidebarGroupLabel({
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}
+      suppressHydrationWarning
       {...props}
     />
   )
@@ -450,6 +453,7 @@ function SidebarGroupContent({
       data-slot="sidebar-group-content"
       data-sidebar="group-content"
       className={cn("w-full text-sm", className)}
+      suppressHydrationWarning
       {...props}
     />
   )
