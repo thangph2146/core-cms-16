@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Edit } from "lucide-react"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Pencil, Check, X } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -83,6 +84,14 @@ export function ContactRequestsTableClient({
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [togglingRequests, setTogglingRequests] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
+
+  type RowActionConfig = {
+    label: string
+    icon: LucideIcon
+    onSelect: () => void
+    destructive?: boolean
+    disabled?: boolean
+  }
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -449,12 +458,15 @@ export function ContactRequestsTableClient({
 
       try {
         await apiClient.post(apiRoutes.contactRequests.restore(row.id))
+        showFeedback("success", "Khôi phục thành công", `Đã khôi phục yêu cầu liên hệ "${row.subject}"`)
         refresh()
-      } catch (error) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục yêu cầu liên hệ "${row.subject}"`, errorMessage)
         console.error("Failed to restore contact request", error)
       }
     },
-    [canRestore],
+    [canRestore, showFeedback],
   )
 
   const executeBulk = useCallback(
@@ -523,6 +535,168 @@ export function ContactRequestsTableClient({
     [showFeedback],
   )
 
+  const renderRowActions = useCallback(
+    (actions: RowActionConfig[]) => {
+      if (actions.length === 0) {
+        return null
+      }
+
+      if (actions.length === 1) {
+        const singleAction = actions[0]
+        const Icon = singleAction.icon
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={singleAction.disabled}
+            onClick={() => {
+              if (singleAction.disabled) return
+              singleAction.onSelect()
+            }}
+          >
+            <Icon className="mr-2 h-5 w-5" />
+            {singleAction.label}
+          </Button>
+        )
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  disabled={action.disabled}
+                  onClick={() => {
+                    if (action.disabled) return
+                    action.onSelect()
+                  }}
+                  className={
+                    action.destructive
+                      ? "text-destructive focus:text-destructive disabled:opacity-50"
+                      : "disabled:opacity-50"
+                  }
+                >
+                  <Icon
+                    className={
+                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
+                    }
+                  />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+    [],
+  )
+
+  const renderActiveRowActions = useCallback(
+    (row: ContactRequestRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/contact-requests/${row.id}`),
+        },
+      ]
+
+      if (canUpdate) {
+        actions.push({
+          label: "Chỉnh sửa",
+          icon: Pencil,
+          onSelect: () => router.push(`/admin/contact-requests/${row.id}/edit`),
+        })
+      }
+
+      if (canUpdate) {
+        if (row.isRead) {
+          actions.push({
+            label: "Đánh dấu chưa đọc",
+            icon: X,
+            onSelect: () => {
+              if (tableRefreshRef.current) {
+                handleToggleRead(row, false, tableRefreshRef.current)
+              }
+            },
+          })
+        } else {
+          actions.push({
+            label: "Đánh dấu đã đọc",
+            icon: Check,
+            onSelect: () => {
+              if (tableRefreshRef.current) {
+                handleToggleRead(row, true, tableRefreshRef.current)
+              }
+            },
+          })
+        }
+      }
+
+      if (canDelete) {
+        actions.push({
+          label: "Xóa",
+          icon: Trash2,
+          onSelect: () => handleDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canDelete, canManage, canUpdate, handleDeleteSingle, handleHardDeleteSingle, handleToggleRead, renderRowActions, router],
+  )
+
+  const renderDeletedRowActions = useCallback(
+    (row: ContactRequestRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/contact-requests/${row.id}`),
+        },
+      ]
+
+      if (canRestore) {
+        actions.push({
+          label: "Khôi phục",
+          icon: RotateCcw,
+          onSelect: () => handleRestoreSingle(row, refresh),
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
+  )
+
   const viewModes = useMemo<ResourceViewMode<ContactRequestRow>[]>(() => {
     const modes: ResourceViewMode<ContactRequestRow>[] = [
       {
@@ -542,62 +716,33 @@ export function ContactRequestsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
                     >
                       <Trash2 className="mr-2 h-5 w-5" />
-                      Xóa đã chọn
+                      Xóa đã chọn ({selectedIds.length})
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  {canManage && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      Xóa vĩnh viễn ({selectedIds.length})
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canUpdate || canDelete
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/contact-requests/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canUpdate && (
-                      <DropdownMenuItem onClick={() => router.push(`/admin/contact-requests/${row.id}/edit`)}>
-                        <Edit className="mr-2 h-5 w-5" />
-                        Chỉnh sửa
-                      </DropdownMenuItem>
-                    )}
-                    {canDelete && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/contact-requests/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy yêu cầu liên hệ mới nào",
       },
       {
@@ -617,62 +762,33 @@ export function ContactRequestsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
                     >
                       <Trash2 className="mr-2 h-5 w-5" />
-                      Xóa đã chọn
+                      Xóa đã chọn ({selectedIds.length})
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  {canManage && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      Xóa vĩnh viễn ({selectedIds.length})
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canUpdate || canDelete
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/contact-requests/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canUpdate && (
-                      <DropdownMenuItem onClick={() => router.push(`/admin/contact-requests/${row.id}/edit`)}>
-                        <Edit className="mr-2 h-5 w-5" />
-                        Chỉnh sửa
-                      </DropdownMenuItem>
-                    )}
-                    {canDelete && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/contact-requests/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy yêu cầu liên hệ nào phù hợp",
       },
       {
@@ -693,7 +809,7 @@ export function ContactRequestsTableClient({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
@@ -705,46 +821,21 @@ export function ContactRequestsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
+                      Xóa vĩnh viễn ({selectedIds.length})
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canRestore || canManage
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {canRestore && (
-                      <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
-                        <RotateCcw className="mr-2 h-5 w-5" />
-                        Khôi phục
-                      </DropdownMenuItem>
-                    )}
-                    {canManage && (
-                      <DropdownMenuItem onClick={() => handleHardDeleteSingle(row, refresh)}>
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        Xóa vĩnh viễn
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : undefined,
+        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy yêu cầu liên hệ đã xóa nào",
       },
     ]
@@ -755,13 +846,11 @@ export function ContactRequestsTableClient({
     canRestore,
     canManage,
     canUpdate,
-    isBulkProcessing,
-    executeBulk,
-    handleDeleteSingle,
-    handleRestoreSingle,
-    handleHardDeleteSingle,
     deletedColumns,
-    router,
+    executeBulk,
+    isBulkProcessing,
+    renderActiveRowActions,
+    renderDeletedRowActions,
   ])
 
   const initialDataByView = useMemo(
@@ -802,20 +891,29 @@ export function ContactRequestsTableClient({
             setDeleteConfirm(null)
           }
         }}
-        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa yêu cầu liên hệ?"}
+        title={
+          deleteConfirm?.type === "hard"
+            ? deleteConfirm.bulkIds
+              ? `Xóa vĩnh viễn ${deleteConfirm.bulkIds.length} yêu cầu liên hệ?`
+              : `Xóa vĩnh viễn yêu cầu liên hệ "${deleteConfirm?.row?.subject}"?`
+            : deleteConfirm?.bulkIds
+              ? `Xóa ${deleteConfirm.bulkIds.length} yêu cầu liên hệ?`
+              : `Xóa yêu cầu liên hệ "${deleteConfirm?.row?.subject}"?`
+        }
         description={
           deleteConfirm?.type === "hard"
             ? deleteConfirm.bulkIds
-              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} yêu cầu liên hệ đã chọn? Hành động này không thể hoàn tác.`
-              : `Bạn có chắc chắn muốn xóa vĩnh viễn yêu cầu liên hệ "${deleteConfirm?.row?.subject}"? Hành động này không thể hoàn tác.`
+              ? `Hành động này sẽ xóa vĩnh viễn ${deleteConfirm.bulkIds.length} yêu cầu liên hệ khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
+              : `Hành động này sẽ xóa vĩnh viễn yêu cầu liên hệ "${deleteConfirm?.row?.subject}" khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
             : deleteConfirm?.bulkIds
-              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} yêu cầu liên hệ đã chọn?`
-              : `Bạn có chắc chắn muốn xóa yêu cầu liên hệ "${deleteConfirm?.row?.subject}"?`
+              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} yêu cầu liên hệ? Chúng sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
+              : `Bạn có chắc chắn muốn xóa yêu cầu liên hệ "${deleteConfirm?.row?.subject}"? Yêu cầu sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
         }
         confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
         cancelLabel="Hủy"
-        variant={deleteConfirm?.type === "hard" ? "destructive" : "default"}
+        variant="destructive"
         onConfirm={handleDeleteConfirm}
+        isLoading={isBulkProcessing}
       />
 
       <FeedbackDialog

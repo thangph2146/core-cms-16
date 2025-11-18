@@ -91,6 +91,7 @@ export const apiRoutes = {
     detail: (id: string) => `/notifications/${id}`,
     markRead: (id: string) => `/notifications/${id}`,
     markAllRead: "/notifications/mark-all-read",
+    bulk: "/notifications/bulk",
     delete: (id: string) => `/notifications/${id}`,
     deleteAll: "/notifications",
   },

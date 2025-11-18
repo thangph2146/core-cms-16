@@ -2,7 +2,15 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
+import {
+  RotateCcw,
+  Trash2,
+  MoreHorizontal,
+  AlertTriangle,
+  Eye,
+  Plus,
+  Pencil,
+} from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -22,6 +30,7 @@ import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 
 import type { RoleRow, RolesResponse, RolesTableClientProps } from "../types"
+import type { LucideIcon } from "lucide-react"
 
 interface FeedbackState {
   open: boolean
@@ -53,6 +62,14 @@ export function RolesTableClient({
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [togglingRoles, setTogglingRoles] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
+
+  type RowActionConfig = {
+    label: string
+    icon: LucideIcon
+    onSelect: () => void
+    destructive?: boolean
+    disabled?: boolean
+  }
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -373,12 +390,15 @@ export function RolesTableClient({
 
       try {
         await apiClient.post(apiRoutes.roles.restore(row.id))
+        showFeedback("success", "Khôi phục thành công", `Đã khôi phục vai trò "${row.displayName}"`)
         refresh()
-      } catch (error) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục vai trò "${row.displayName}"`, errorMessage)
         console.error("Failed to restore role", error)
       }
     },
-    [canRestore],
+    [canRestore, showFeedback],
   )
 
   const executeBulk = useCallback(
@@ -447,6 +467,147 @@ export function RolesTableClient({
     [showFeedback],
   )
 
+  const renderRowActions = useCallback(
+    (actions: RowActionConfig[]) => {
+      if (actions.length === 0) {
+        return null
+      }
+
+      if (actions.length === 1) {
+        const singleAction = actions[0]
+        const Icon = singleAction.icon
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={singleAction.disabled}
+            onClick={() => {
+              if (singleAction.disabled) return
+              singleAction.onSelect()
+            }}
+          >
+            <Icon className="mr-2 h-5 w-5" />
+            {singleAction.label}
+          </Button>
+        )
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  disabled={action.disabled}
+                  onClick={() => {
+                    if (action.disabled) return
+                    action.onSelect()
+                  }}
+                  className={
+                    action.destructive
+                      ? "text-destructive focus:text-destructive disabled:opacity-50"
+                      : "disabled:opacity-50"
+                  }
+                >
+                  <Icon
+                    className={
+                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
+                    }
+                  />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+    [],
+  )
+
+  const renderActiveRowActions = useCallback(
+    (row: RoleRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/roles/${row.id}`),
+        },
+      ]
+
+      if (canManage) {
+        actions.push({
+          label: "Chỉnh sửa",
+          icon: Pencil,
+          onSelect: () => router.push(`/admin/roles/${row.id}/edit`),
+        })
+      }
+
+      if (canDelete) {
+        actions.push({
+          label: "Xóa",
+          icon: Trash2,
+          onSelect: () => handleDeleteSingle(row, refresh),
+          destructive: true,
+          disabled: row.name === "super_admin",
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+          disabled: row.name === "super_admin",
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canDelete, canManage, handleDeleteSingle, handleHardDeleteSingle, renderRowActions, router],
+  )
+
+  const renderDeletedRowActions = useCallback(
+    (row: RoleRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/roles/${row.id}`),
+        },
+      ]
+
+      if (canRestore) {
+        actions.push({
+          label: "Khôi phục",
+          icon: RotateCcw,
+          onSelect: () => handleRestoreSingle(row, refresh),
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+          disabled: row.name === "super_admin",
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
+  )
+
   const viewModes = useMemo<ResourceViewMode<RoleRow>[]>(() => {
     const modes: ResourceViewMode<RoleRow>[] = [
       {
@@ -455,65 +616,66 @@ export function RolesTableClient({
         status: "active",
         selectionEnabled: canDelete,
         selectionActions: canDelete
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> vai trò
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={isBulkProcessing}
-                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    Xóa đã chọn
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
-                    Bỏ chọn
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
-        rowActions:
-          canDelete || canRestore
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/roles/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canDelete && row.name !== "super_admin" && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
+          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
+              const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
+              const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span>
+                    Đã chọn <strong>{selectedIds.length}</strong> vai trò
+                    {hasSuperAdmin && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Không thể xóa vai trò super_admin)
+                      </span>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing || deletableRows.length === 0}
+                      onClick={() =>
+                        executeBulk(
+                          "delete",
+                          deletableRows.map((row) => row.id),
+                          refresh,
+                          clearSelection,
+                        )
+                      }
+                    >
+                      <Trash2 className="mr-2 h-5 w-5" />
+                      Xóa đã chọn ({deletableRows.length})
+                    </Button>
+                    {canManage && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBulkProcessing || deletableRows.length === 0}
+                        onClick={() =>
+                          executeBulk(
+                            "hard-delete",
+                            deletableRows.map((row) => row.id),
+                            refresh,
+                            clearSelection,
+                          )
+                        }
+                      >
+                        <AlertTriangle className="mr-2 h-5 w-5" />
+                        Xóa vĩnh viễn ({deletableRows.length})
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                      Bỏ chọn
+                    </Button>
+                  </div>
+                </div>
               )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/roles/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+            }
+          : undefined,
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy vai trò nào phù hợp",
       },
       {
@@ -523,88 +685,76 @@ export function RolesTableClient({
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
         selectionActions: canRestore || canManage
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> vai trò (đã xóa)
-                </span>
-                <div className="flex items-center gap-2">
-                  {canRestore && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isBulkProcessing}
-                      onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
-                    >
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      Khôi phục
+          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
+              const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
+              const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span>
+                    Đã chọn <strong>{selectedIds.length}</strong> vai trò (đã xóa)
+                    {hasSuperAdmin && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (Không thể xóa vĩnh viễn super_admin)
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {canRestore && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isBulkProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                      >
+                        <RotateCcw className="mr-2 h-5 w-5" />
+                        Khôi phục
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBulkProcessing || deletableRows.length === 0}
+                        onClick={() =>
+                          executeBulk(
+                            "hard-delete",
+                            deletableRows.map((row) => row.id),
+                            refresh,
+                            clearSelection,
+                          )
+                        }
+                      >
+                        <AlertTriangle className="mr-2 h-5 w-5" />
+                        Xóa vĩnh viễn ({deletableRows.length})
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                      Bỏ chọn
                     </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBulkProcessing}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
-                    Bỏ chọn
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            )
+              )
+            }
           : undefined,
-        rowActions: canRestore || canManage
-          ? (row, { refresh }) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/admin/roles/${row.id}`)}>
-                    <Eye className="mr-2 h-5 w-5" />
-                    Xem chi tiết
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
-                    <RotateCcw className="mr-2 h-5 w-5" />
-                    Khôi phục
-                  </DropdownMenuItem>
-                  {canManage && row.name !== "super_admin" && (
-                    <DropdownMenuItem
-                      onClick={() => handleHardDeleteSingle(row, refresh)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )
-          : (row) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/admin/roles/${row.id}`)}
-              >
-                <Eye className="mr-2 h-5 w-5" />
-                Xem
-              </Button>
-            ),
+        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
         emptyMessage: "Không có vai trò đã xóa",
       },
     ]
 
     return modes
-  }, [canDelete, canRestore, canManage, deletedColumns, executeBulk, handleDeleteSingle, handleRestoreSingle, handleHardDeleteSingle, isBulkProcessing, router])
+  }, [
+    canDelete,
+    canRestore,
+    canManage,
+    deletedColumns,
+    executeBulk,
+    isBulkProcessing,
+    renderActiveRowActions,
+    renderDeletedRowActions,
+  ])
 
   const initialDataByView = useMemo(
     () => (initialData ? { active: initialData } : undefined),

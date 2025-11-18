@@ -26,8 +26,9 @@ const rateLimitStore: RateLimitStore = {}
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { windowMs: 60 * 1000, maxRequests: 60 }, // 60 requests per minute
   auth: { windowMs: 15 * 60 * 1000, maxRequests: 5 }, // 5 requests per 15 minutes
-  write: { windowMs: 60 * 1000, maxRequests: 30 }, // 30 requests per minute
+  write: { windowMs: 60 * 1000, maxRequests: 60 }, // 60 requests per minute (tăng từ 30)
   read: { windowMs: 60 * 1000, maxRequests: 100 }, // 100 requests per minute
+  bulk: { windowMs: 60 * 1000, maxRequests: 100 }, // 100 requests per minute cho bulk operations
 }
 
 // Maximum request body size (5MB)
@@ -115,6 +116,11 @@ function getRateLimitConfig(pathname: string, method: string): RateLimitConfig {
     return RATE_LIMITS.auth
   }
 
+  // Bulk operations - higher limits vì có thể cần xử lý nhiều items cùng lúc
+  if (pathname.includes("/bulk")) {
+    return RATE_LIMITS.bulk
+  }
+
   // Write operations - moderate limits
   if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
     return RATE_LIMITS.write
@@ -178,13 +184,14 @@ export function withRateLimit(
   handler: (req: NextRequest, ...args: unknown[]) => Promise<NextResponse>,
   options?: {
     config?: RateLimitConfig
-    endpointType?: "auth" | "write" | "read" | "default"
+    endpointType?: "auth" | "write" | "read" | "default" | "bulk"
   }
 ) {
   return async (req: NextRequest, ...args: unknown[]): Promise<NextResponse> => {
     try {
       const config =
         options?.config ||
+        (options?.endpointType && RATE_LIMITS[options.endpointType]) ||
         getRateLimitConfig(req.nextUrl.pathname, req.method)
 
       const identifier = getClientIdentifier(req)
@@ -268,7 +275,7 @@ export function withSecurity(
   handler: (req: NextRequest, ...args: unknown[]) => Promise<NextResponse>,
   options?: {
     rateLimit?: RateLimitConfig
-    endpointType?: "auth" | "write" | "read" | "default"
+    endpointType?: "auth" | "write" | "read" | "default" | "bulk"
     requireAuth?: boolean
   }
 ) {

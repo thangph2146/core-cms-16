@@ -18,7 +18,7 @@ export interface ApiRouteOptions {
   /** Tự động detect permissions từ config (default: true) */
   autoDetectPermissions?: boolean
   /** Rate limit configuration */
-  rateLimit?: "auth" | "write" | "read" | "default"
+  rateLimit?: "auth" | "write" | "read" | "default" | "bulk"
   /** Whether authentication is required */
   requireAuth?: boolean
   /** Allow super admin to bypass permission checks (default: true) */

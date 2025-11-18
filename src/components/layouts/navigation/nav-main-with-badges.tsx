@@ -109,12 +109,6 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
     return false
   }, [pathname])
 
-  // Get unread counts với polling fallback
-  const { data: unreadCounts } = useUnreadCounts({
-    refetchInterval: 30000, // 30 seconds (fallback khi không có socket)
-    enabled: !!userId,
-  })
-
   // Setup socket bridge cho notifications
   useNotificationsSocketBridge()
 
@@ -124,63 +118,44 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
     role: primaryRole,
   })
 
-  // Invalidate unread counts khi có socket events
+  // Track socket connection status để tắt polling khi socket connected
+  const [isSocketConnected, setIsSocketConnected] = React.useState(false)
+
   React.useEffect(() => {
-    if (!socket || !userId) return
-
-    const handleMessageNew = () => {
-      // Invalidate unread counts khi có message mới
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    if (!socket) {
+      setIsSocketConnected(false)
+      return
     }
 
-    const handleMessageUpdated = () => {
-      // Invalidate unread counts khi message được cập nhật (read/unread)
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    // Check initial connection status
+    setIsSocketConnected(socket.connected)
+
+    const handleConnect = () => {
+      setIsSocketConnected(true)
     }
 
-    const handleNotificationNew = () => {
-      // Invalidate unread counts khi có notification mới
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    const handleDisconnect = () => {
+      setIsSocketConnected(false)
     }
 
-    const handleNotificationUpdated = () => {
-      // Invalidate unread counts khi notification được cập nhật
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
-    }
-
-    // Listen to socket events
-    if (socket.connected) {
-      socket.on("message:new", handleMessageNew)
-      socket.on("message:updated", handleMessageUpdated)
-      socket.on("notification:new", handleNotificationNew)
-      socket.on("notification:updated", handleNotificationUpdated)
-    } else {
-      const onConnect = () => {
-        socket.on("message:new", handleMessageNew)
-        socket.on("message:updated", handleMessageUpdated)
-        socket.on("notification:new", handleNotificationNew)
-        socket.on("notification:updated", handleNotificationUpdated)
-      }
-      socket.once("connect", onConnect)
-    }
+    socket.on("connect", handleConnect)
+    socket.on("disconnect", handleDisconnect)
 
     return () => {
-      if (socket) {
-        socket.off("message:new", handleMessageNew)
-        socket.off("message:updated", handleMessageUpdated)
-        socket.off("notification:new", handleNotificationNew)
-        socket.off("notification:updated", handleNotificationUpdated)
-      }
+      socket.off("connect", handleConnect)
+      socket.off("disconnect", handleDisconnect)
     }
-  }, [socket, userId, queryClient])
+  }, [socket])
+
+  // Get unread counts với polling fallback
+  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
+  const { data: unreadCounts } = useUnreadCounts({
+    refetchInterval: 60000, // 60 seconds (fallback khi không có socket)
+    enabled: !!userId,
+    disablePolling: isSocketConnected, // Tắt polling nếu có socket connection
+  })
+
+  // Socket bridge đã handle unread counts updates, không cần invalidate ở đây nữa
 
   // Map unread counts và active state to menu items
   // Tạo lại icon trong client component vì React elements không thể serialize qua server/client boundary

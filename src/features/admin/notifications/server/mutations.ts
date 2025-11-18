@@ -551,6 +551,87 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
 }
 
 /**
+ * Bulk mark notifications as unread - chỉ cho phép user cập nhật notifications của chính mình
+ * Best Practice: Ownership verification và batch update với userId filter
+ */
+export async function bulkMarkAsUnread(notificationIds: string[], userId: string) {
+  if (!notificationIds || notificationIds.length === 0) {
+    return { count: 0 }
+  }
+
+  if (!userId) {
+    throw new Error("User ID is required")
+  }
+
+  const notifications = await prisma.notification.findMany({
+    where: { id: { in: notificationIds } },
+    select: { id: true, userId: true, isRead: true },
+  })
+
+  const ownNotificationIds = notifications
+    .filter((n) => n.userId === userId && n.isRead)
+    .map((n) => n.id)
+
+  const invalidNotifications = notifications.filter((n) => n.userId !== userId)
+  if (invalidNotifications.length > 0) {
+    logger.warn("User attempted to mark notifications as unread without ownership", {
+      userId,
+      invalidCount: invalidNotifications.length,
+      totalCount: notificationIds.length,
+    })
+    throw new Error("Forbidden: You can only mark your own notifications as unread")
+  }
+
+  if (ownNotificationIds.length === 0) {
+    logger.debug("No read notifications to mark as unread", { userId, totalCount: notificationIds.length })
+    return { count: 0 }
+  }
+
+  const result = await prisma.notification.updateMany({
+    where: {
+      id: { in: ownNotificationIds },
+      userId,
+    },
+    data: {
+      isRead: false,
+      readAt: null,
+    },
+  })
+
+  logger.info("Bulk notifications marked as unread", {
+    userId,
+    count: result.count,
+    totalRequested: notificationIds.length,
+  })
+
+  const io = getSocketServer()
+  if (io && result.count > 0) {
+    try {
+      const updatedNotifications = await prisma.notification.findMany({
+        where: { id: { in: ownNotificationIds }, userId },
+        take: 50,
+      })
+
+      const payloads = updatedNotifications.map(mapNotificationToPayload)
+
+      payloads.forEach((payload) => {
+        storeNotificationInCache(userId, payload)
+      })
+
+      io.to(`user:${userId}`).emit("notifications:sync", payloads)
+      logger.debug("Socket notifications sync emitted (unread)", { userId, count: payloads.length })
+    } catch (error) {
+      logger.error(
+        "Failed to emit socket notifications sync after marking unread",
+        error instanceof Error ? error : new Error(String(error)),
+      )
+    }
+  }
+
+  return { count: result.count }
+}
+
+/**
  * Bulk delete notifications - chỉ cho phép user xóa notifications cá nhân của chính mình
  * Thông báo hệ thống (SYSTEM) không bao giờ được xóa
  * Best Practice: Ownership verification và kind check trước khi delete

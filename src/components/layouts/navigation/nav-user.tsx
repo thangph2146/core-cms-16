@@ -101,12 +101,6 @@ export function NavUser({ className }: { className?: string }) {
   const user = session?.user
   const primaryRole = session?.roles?.[0]
 
-  // Get unread counts với realtime updates
-  const { data: unreadCounts } = useUnreadCounts({
-    refetchInterval: 30000, // 30 seconds (fallback khi không có socket)
-    enabled: !!userId,
-  })
-
   // Setup socket bridge cho notifications
   useNotificationsSocketBridge()
 
@@ -116,59 +110,44 @@ export function NavUser({ className }: { className?: string }) {
     role: primaryRoleName,
   })
 
-  // Invalidate unread counts khi có socket events
+  // Track socket connection status để tắt polling khi socket connected
+  const [isSocketConnected, setIsSocketConnected] = React.useState(false)
+
   React.useEffect(() => {
-    if (!socket || !userId) return
-
-    const handleMessageNew = () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    if (!socket) {
+      setIsSocketConnected(false)
+      return
     }
 
-    const handleMessageUpdated = () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    // Check initial connection status
+    setIsSocketConnected(socket.connected)
+
+    const handleConnect = () => {
+      setIsSocketConnected(true)
     }
 
-    const handleNotificationNew = () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
+    const handleDisconnect = () => {
+      setIsSocketConnected(false)
     }
 
-    const handleNotificationUpdated = () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.unreadCounts.user(userId),
-      })
-    }
-
-    // Listen to socket events
-    if (socket.connected) {
-      socket.on("message:new", handleMessageNew)
-      socket.on("message:updated", handleMessageUpdated)
-      socket.on("notification:new", handleNotificationNew)
-      socket.on("notification:updated", handleNotificationUpdated)
-    } else {
-      const onConnect = () => {
-        socket.on("message:new", handleMessageNew)
-        socket.on("message:updated", handleMessageUpdated)
-        socket.on("notification:new", handleNotificationNew)
-        socket.on("notification:updated", handleNotificationUpdated)
-      }
-      socket.once("connect", onConnect)
-    }
+    socket.on("connect", handleConnect)
+    socket.on("disconnect", handleDisconnect)
 
     return () => {
-      if (socket) {
-        socket.off("message:new", handleMessageNew)
-        socket.off("message:updated", handleMessageUpdated)
-        socket.off("notification:new", handleNotificationNew)
-        socket.off("notification:updated", handleNotificationUpdated)
-      }
+      socket.off("connect", handleConnect)
+      socket.off("disconnect", handleDisconnect)
     }
-  }, [socket, userId, queryClient])
+  }, [socket])
+
+  // Get unread counts với realtime updates
+  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
+  const { data: unreadCounts } = useUnreadCounts({
+    refetchInterval: 60000, // 60 seconds (fallback khi không có socket)
+    enabled: !!userId,
+    disablePolling: isSocketConnected, // Tắt polling nếu có socket connection
+  })
+
+  // Socket bridge đã handle unread counts updates, không cần invalidate ở đây nữa
 
   const unreadMessagesCount = unreadCounts?.unreadMessages || 0
   const unreadNotificationsCount = unreadCounts?.unreadNotifications || 0

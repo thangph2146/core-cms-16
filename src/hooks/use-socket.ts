@@ -412,6 +412,12 @@ export function useSocket({ userId, role }: UseSocketOptions) {
     [createSocketListener],
   )
 
+  const on = useCallback(
+    <Args extends unknown[]>(event: string, handler: (...args: Args) => void) =>
+      createSocketListener(event, handler),
+    [createSocketListener],
+  )
+
   return {
     socket: clientSocket,
     joinConversation,
@@ -426,5 +432,6 @@ export function useSocket({ userId, role }: UseSocketOptions) {
     markAllNotificationsAsRead,
     onContactRequestCreated,
     onContactRequestAssigned,
+    on,
   }
 }

@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye } from "lucide-react"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Check, X } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -20,8 +21,13 @@ import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query-keys"
+import { useCommentsSocketBridge } from "@/features/admin/comments/hooks/use-comments-socket-bridge"
 
+import type { AdminCommentsListParams } from "@/lib/query-keys"
 import type { CommentRow, CommentsResponse, CommentsTableClientProps } from "../types"
+import { logger } from "@/lib/config"
 
 interface FeedbackState {
   open: boolean
@@ -47,11 +53,25 @@ export function CommentsTableClient({
   initialData,
 }: CommentsTableClientProps) {
   const router = useResourceRouter()
+  const queryClient = useQueryClient()
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+  const isBulkProcessingRef = useRef(false) // Ref để tránh race condition
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [togglingComments, setTogglingComments] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
+  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
+  const pendingRealtimeRefreshRef = useRef(false)
+
+  const { isSocketConnected, cacheVersion } = useCommentsSocketBridge()
+
+  type RowActionConfig = {
+    label: string
+    icon: LucideIcon
+    onSelect: () => void
+    destructive?: boolean
+    disabled?: boolean
+  }
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -101,6 +121,22 @@ export function CommentsTableClient({
 
       setTogglingComments((prev) => new Set(prev).add(row.id))
 
+      // Không cần optimistic update khi có socket connection
+      // Socket event sẽ cập nhật cache ngay sau khi server xử lý xong
+      // Optimistic update chỉ khi không có socket (fallback)
+      if (!isSocketConnected) {
+        queryClient.setQueriesData<DataTableResult<CommentRow>>(
+          { queryKey: queryKeys.adminComments.all() as unknown[] },
+          (oldData) => {
+            if (!oldData) return oldData
+            const updatedRows = oldData.rows.map((r) =>
+              r.id === row.id ? { ...r, approved: newStatus } : r
+            )
+            return { ...oldData, rows: updatedRows }
+          },
+        )
+      }
+
       try {
         if (newStatus) {
           await apiClient.post(apiRoutes.comments.approve(row.id))
@@ -109,10 +145,17 @@ export function CommentsTableClient({
           await apiClient.post(apiRoutes.comments.unapprove(row.id))
           showFeedback("success", "Hủy duyệt thành công", `Đã hủy duyệt bình luận từ ${row.authorName || row.authorEmail}`)
         }
+        if (!isSocketConnected) {
         refresh()
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
         showFeedback("error", newStatus ? "Duyệt thất bại" : "Hủy duyệt thất bại", `Không thể ${newStatus ? "duyệt" : "hủy duyệt"} bình luận`, errorMessage)
+        
+        // Rollback optimistic update nếu có lỗi
+        if (isSocketConnected) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all() })
+        }
       } finally {
         setTogglingComments((prev) => {
           const next = new Set(prev)
@@ -121,7 +164,7 @@ export function CommentsTableClient({
         })
       }
     },
-    [canApprove, showFeedback],
+    [canApprove, isSocketConnected, showFeedback, queryClient],
   )
 
   const baseColumns = useMemo<DataTableColumn<CommentRow>[]>(
@@ -301,17 +344,38 @@ export function CommentsTableClient({
     [baseColumns, dateFormatter],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<CommentRow>) => {
+  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
+    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (value) {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+  }, [])
+
+  const fetchComments = useCallback(
+    async ({
+      page,
+      limit,
+      status,
+      search,
+      filters,
+    }: {
+      page: number
+      limit: number
+      status: "active" | "deleted" | "all"
+      search?: string
+      filters?: Record<string, string>
+    }): Promise<DataTableResult<CommentRow>> => {
       const baseUrl = apiRoutes.comments.list({
-        page: query.page,
-        limit: query.limit,
-        status: view.status ?? "active",
-        search: query.search.trim() || undefined,
+        page,
+        limit,
+        status,
+        search,
       })
 
       const filterParams = new URLSearchParams()
-      Object.entries(query.filters).forEach(([key, value]) => {
+      Object.entries(filters ?? {}).forEach(([key, value]) => {
         if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
@@ -320,18 +384,59 @@ export function CommentsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      const response = await apiClient.get<CommentsResponse>(url)
-      const payload = response.data
+      const response = await apiClient.get<{
+        success: boolean
+        data?: CommentsResponse
+        error?: string
+        message?: string
+      }>(url)
+
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể tải danh sách bình luận")
+      }
 
       return {
         rows: payload.data,
-        page: payload.pagination.page,
-        limit: payload.pagination.limit,
-        total: payload.pagination.total,
-        totalPages: payload.pagination.totalPages,
-      } satisfies DataTableResult<CommentRow>
+        page: payload.pagination?.page ?? page,
+        limit: payload.pagination?.limit ?? limit,
+        total: payload.pagination?.total ?? 0,
+        totalPages: payload.pagination?.totalPages ?? 0,
+      }
     },
     [],
+  )
+
+  const loader = useCallback(
+    async (query: DataTableQueryState, view: ResourceViewMode<CommentRow>) => {
+      const status = (view.status ?? "active") as AdminCommentsListParams["status"]
+      const search = query.search.trim() || undefined
+      const filters = buildFiltersRecord(query.filters)
+
+      const params: AdminCommentsListParams = {
+        status,
+        page: query.page,
+        limit: query.limit,
+        search,
+        filters,
+      }
+
+      const queryKey = queryKeys.adminComments.list(params)
+
+      return await queryClient.fetchQuery({
+        queryKey,
+        staleTime: Infinity,
+        queryFn: () =>
+          fetchComments({
+            page: query.page,
+            limit: query.limit,
+            status,
+            search,
+            filters,
+          }),
+      })
+    },
+    [buildFiltersRecord, fetchComments, queryClient],
   )
 
   const handleDeleteSingle = useCallback(
@@ -343,18 +448,20 @@ export function CommentsTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(apiRoutes.comments.delete(row.id))
-            showFeedback("success", "Xóa thành công", `Đã xóa bình luận từ ${row.authorName || row.authorEmail}`)
+            await apiClient.post(apiRoutes.comments.bulk, { action: "delete", ids: [row.id] })
+            showFeedback("success", "Xóa thành công", `Đã xóa bình luận của ${row.authorName || row.authorEmail}`)
+            if (!isSocketConnected) {
             refresh()
+            }
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa thất bại", `Không thể xóa bình luận`, errorMessage)
+            showFeedback("error", "Xóa thất bại", `Không thể xóa bình luận của ${row.authorName || row.authorEmail}`, errorMessage)
             throw error
           }
         },
       })
     },
-    [canDelete, showFeedback],
+    [canDelete, isSocketConnected, showFeedback],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -366,18 +473,20 @@ export function CommentsTableClient({
         row,
         onConfirm: async () => {
           try {
-            await apiClient.delete(apiRoutes.comments.hardDelete(row.id))
-            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn bình luận từ ${row.authorName || row.authorEmail}`)
+            await apiClient.post(apiRoutes.comments.bulk, { action: "hard-delete", ids: [row.id] })
+            showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn bình luận của ${row.authorName || row.authorEmail}`)
+            if (!isSocketConnected) {
             refresh()
+            }
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn bình luận`, errorMessage)
+            showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn bình luận của ${row.authorName || row.authorEmail}`, errorMessage)
             throw error
           }
         },
       })
     },
-    [canManage, showFeedback],
+    [canManage, isSocketConnected, showFeedback],
   )
 
   const handleRestoreSingle = useCallback(
@@ -385,19 +494,22 @@ export function CommentsTableClient({
       if (!canRestore) return
 
       try {
-        await apiClient.post(apiRoutes.comments.restore(row.id))
-        showFeedback("success", "Khôi phục thành công", `Đã khôi phục bình luận từ ${row.authorName || row.authorEmail}`)
+        await apiClient.post(apiRoutes.comments.bulk, { action: "restore", ids: [row.id] })
+        showFeedback("success", "Khôi phục thành công", `Đã khôi phục bình luận của ${row.authorName || row.authorEmail}`)
+        if (!isSocketConnected) {
         refresh()
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
-        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục bình luận`, errorMessage)
+        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục bình luận của ${row.authorName || row.authorEmail}`, errorMessage)
+        console.error("Failed to restore comment", error)
       }
     },
-    [canRestore, showFeedback],
+    [canRestore, isSocketConnected, showFeedback],
   )
 
   const executeBulk = useCallback(
-    (action: "approve" | "unapprove" | "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
+    (action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove", ids: string[], refresh: () => void, clearSelection: () => void) => {
       if (ids.length === 0) return
 
       if (action === "delete") {
@@ -406,17 +518,23 @@ export function CommentsTableClient({
           type: "soft",
           bulkIds: ids,
           onConfirm: async () => {
+            if (isBulkProcessingRef.current) return
+            isBulkProcessingRef.current = true
             setIsBulkProcessing(true)
             try {
               await apiClient.post(apiRoutes.comments.bulk, { action, ids })
               showFeedback("success", "Xóa thành công", `Đã xóa ${ids.length} bình luận`)
               clearSelection()
+              if (!isSocketConnected) {
               refresh()
+              }
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
               showFeedback("error", "Xóa hàng loạt thất bại", `Không thể xóa ${ids.length} bình luận`, errorMessage)
               throw error
             } finally {
+              // Luôn reset processing state trong finally để đảm bảo không bị stuck
+              isBulkProcessingRef.current = false
               setIsBulkProcessing(false)
             }
           },
@@ -427,22 +545,30 @@ export function CommentsTableClient({
           type: "hard",
           bulkIds: ids,
           onConfirm: async () => {
+            if (isBulkProcessingRef.current) return
+            isBulkProcessingRef.current = true
             setIsBulkProcessing(true)
             try {
               await apiClient.post(apiRoutes.comments.bulk, { action, ids })
               showFeedback("success", "Xóa vĩnh viễn thành công", `Đã xóa vĩnh viễn ${ids.length} bình luận`)
               clearSelection()
+              if (!isSocketConnected) {
               refresh()
+              }
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
               showFeedback("error", "Xóa vĩnh viễn thất bại", `Không thể xóa vĩnh viễn ${ids.length} bình luận`, errorMessage)
               throw error
             } finally {
+              // Luôn reset processing state trong finally để đảm bảo không bị stuck
+              isBulkProcessingRef.current = false
               setIsBulkProcessing(false)
             }
           },
         })
       } else {
+        if (isBulkProcessingRef.current) return
+        isBulkProcessingRef.current = true
         setIsBulkProcessing(true)
         ;(async () => {
           try {
@@ -455,17 +581,175 @@ export function CommentsTableClient({
               showFeedback("success", "Khôi phục thành công", `Đã khôi phục ${ids.length} bình luận`)
             }
             clearSelection()
+            if (!isSocketConnected) {
             refresh()
+            }
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
             showFeedback("error", "Thao tác thất bại", `Không thể thực hiện thao tác cho ${ids.length} bình luận`, errorMessage)
           } finally {
+            // Luôn reset processing state trong finally để đảm bảo không bị stuck
+            isBulkProcessingRef.current = false
             setIsBulkProcessing(false)
           }
         })()
       }
     },
-    [showFeedback],
+    [isSocketConnected, showFeedback],
+  )
+
+  const renderRowActions = useCallback(
+    (actions: RowActionConfig[]) => {
+      if (actions.length === 0) {
+        return null
+      }
+
+      if (actions.length === 1) {
+        const singleAction = actions[0]
+        const Icon = singleAction.icon
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={singleAction.disabled}
+            onClick={() => {
+              if (singleAction.disabled) return
+              singleAction.onSelect()
+            }}
+          >
+            <Icon className="mr-2 h-5 w-5" />
+            {singleAction.label}
+          </Button>
+        )
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  disabled={action.disabled}
+                  onClick={() => {
+                    if (action.disabled) return
+                    action.onSelect()
+                  }}
+                  className={
+                    action.destructive
+                      ? "text-destructive focus:text-destructive disabled:opacity-50"
+                      : "disabled:opacity-50"
+                  }
+                >
+                  <Icon
+                    className={
+                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
+                    }
+                  />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+    [],
+  )
+
+  const renderActiveRowActions = useCallback(
+    (row: CommentRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/comments/${row.id}`),
+        },
+      ]
+
+      if (canApprove) {
+        if (row.approved) {
+          actions.push({
+            label: "Hủy duyệt",
+            icon: X,
+            onSelect: () => {
+              if (tableRefreshRef.current) {
+                handleToggleApprove(row, false, tableRefreshRef.current)
+              }
+            },
+          })
+        } else {
+          actions.push({
+            label: "Duyệt",
+            icon: Check,
+            onSelect: () => {
+              if (tableRefreshRef.current) {
+                handleToggleApprove(row, true, tableRefreshRef.current)
+              }
+            },
+          })
+        }
+      }
+
+      if (canDelete) {
+        actions.push({
+          label: "Xóa",
+          icon: Trash2,
+          onSelect: () => handleDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canApprove, canDelete, canManage, handleDeleteSingle, handleHardDeleteSingle, handleToggleApprove, renderRowActions, router],
+  )
+
+  const renderDeletedRowActions = useCallback(
+    (row: CommentRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/comments/${row.id}`),
+        },
+      ]
+
+      if (canRestore) {
+        actions.push({
+          label: "Khôi phục",
+          icon: RotateCcw,
+          onSelect: () => handleRestoreSingle(row, refresh),
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
   )
 
   const viewModes = useMemo<ResourceViewMode<CommentRow>[]>(() => {
@@ -476,67 +760,73 @@ export function CommentsTableClient({
         status: "active",
         selectionEnabled: canDelete || canApprove,
         selectionActions: canDelete || canApprove
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  Đã chọn <strong>{selectedIds.length}</strong> bình luận
-                </span>
-                <div className="flex items-center gap-2">
-                  {canDelete && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={isBulkProcessing}
-                      onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <Trash2 className="mr-2 h-5 w-5" />
-                      Xóa đã chọn
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
-                    Bỏ chọn
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
-        rowActions:
-          canDelete || canApprove
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/comments/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canDelete && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
+          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
+              const approvedCount = selectedRows.filter((r) => r.approved).length
+              const unapprovedCount = selectedRows.filter((r) => !r.approved).length
+
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <span>
+                    Đã chọn <strong>{selectedIds.length}</strong> bình luận
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {canApprove && unapprovedCount > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isBulkProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("approve", selectedIds, refresh, clearSelection)}
                       >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
+                        <Check className="mr-2 h-5 w-5" />
+                        Duyệt ({unapprovedCount})
+                      </Button>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    {canApprove && approvedCount > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isBulkProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("unapprove", selectedIds, refresh, clearSelection)}
+                      >
+                        <X className="mr-2 h-5 w-5" />
+                        Hủy duyệt ({approvedCount})
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBulkProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+                      >
+                        <Trash2 className="mr-2 h-5 w-5" />
+                        Xóa đã chọn ({selectedIds.length})
+                      </Button>
+                    )}
+                    {canManage && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={isBulkProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                      >
+                        <AlertTriangle className="mr-2 h-5 w-5" />
+                        Xóa vĩnh viễn ({selectedIds.length})
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                      Bỏ chọn
+                    </Button>
+                  </div>
+                </div>
               )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/comments/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+            }
+          : undefined,
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy bình luận nào phù hợp",
       },
       {
@@ -557,7 +847,7 @@ export function CommentsTableClient({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
@@ -569,46 +859,21 @@ export function CommentsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
+                      Xóa vĩnh viễn ({selectedIds.length})
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canRestore || canManage
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {canRestore && (
-                      <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
-                        <RotateCcw className="mr-2 h-5 w-5" />
-                        Khôi phục
-                      </DropdownMenuItem>
-                    )}
-                    {canManage && (
-                      <DropdownMenuItem onClick={() => handleHardDeleteSingle(row, refresh)}>
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        Xóa vĩnh viễn
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : undefined,
+        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy bình luận đã xóa nào",
       },
     ]
@@ -619,19 +884,49 @@ export function CommentsTableClient({
     canRestore,
     canManage,
     canApprove,
-    isBulkProcessing,
-    executeBulk,
-    handleDeleteSingle,
-    handleRestoreSingle,
-    handleHardDeleteSingle,
     deletedColumns,
-    router,
+    executeBulk,
+    isBulkProcessing,
+    renderActiveRowActions,
+    renderDeletedRowActions,
   ])
 
   const initialDataByView = useMemo(
     () => (initialData ? { active: initialData } : undefined),
     [initialData],
   )
+
+  useEffect(() => {
+    if (cacheVersion === 0) return
+    if (tableSoftRefreshRef.current) {
+      tableSoftRefreshRef.current()
+      pendingRealtimeRefreshRef.current = false
+    } else {
+      pendingRealtimeRefreshRef.current = true
+    }
+  }, [cacheVersion])
+
+  // Set initialData vào React Query cache để socket bridge có thể cập nhật
+  useEffect(() => {
+    if (!initialData) return
+    
+    const params: AdminCommentsListParams = {
+      status: "active",
+      page: initialData.page,
+      limit: initialData.limit,
+      search: undefined,
+      filters: undefined,
+    }
+    
+    const queryKey = queryKeys.adminComments.list(params)
+    queryClient.setQueryData(queryKey, initialData)
+    
+    logger.debug("Set initial data to cache", {
+      queryKey: queryKey.slice(0, 2),
+      rowsCount: initialData.rows.length,
+      total: initialData.total,
+    })
+  }, [initialData, queryClient])
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteConfirm) return
@@ -655,7 +950,17 @@ export function CommentsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         onRefreshReady={(refresh) => {
-          tableRefreshRef.current = refresh
+          const wrapped = () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "none" })
+            refresh()
+          }
+          tableSoftRefreshRef.current = refresh
+          tableRefreshRef.current = wrapped
+
+          if (pendingRealtimeRefreshRef.current) {
+            pendingRealtimeRefreshRef.current = false
+            refresh()
+          }
         }}
       />
 
@@ -666,20 +971,29 @@ export function CommentsTableClient({
             setDeleteConfirm(null)
           }
         }}
-        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa bình luận?"}
+        title={
+          deleteConfirm?.type === "hard"
+            ? deleteConfirm.bulkIds
+              ? `Xóa vĩnh viễn ${deleteConfirm.bulkIds.length} bình luận?`
+              : `Xóa vĩnh viễn bình luận?`
+            : deleteConfirm?.bulkIds
+              ? `Xóa ${deleteConfirm.bulkIds.length} bình luận?`
+              : `Xóa bình luận?`
+        }
         description={
           deleteConfirm?.type === "hard"
             ? deleteConfirm.bulkIds
-              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} bình luận đã chọn? Hành động này không thể hoàn tác.`
-              : `Bạn có chắc chắn muốn xóa vĩnh viễn bình luận này? Hành động này không thể hoàn tác.`
+              ? `Hành động này sẽ xóa vĩnh viễn ${deleteConfirm.bulkIds.length} bình luận khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
+              : `Hành động này sẽ xóa vĩnh viễn bình luận khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
             : deleteConfirm?.bulkIds
-              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} bình luận đã chọn?`
-              : `Bạn có chắc chắn muốn xóa bình luận này?`
+              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} bình luận? Chúng sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
+              : `Bạn có chắc chắn muốn xóa bình luận? Bình luận sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
         }
         confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
         cancelLabel="Hủy"
-        variant={deleteConfirm?.type === "hard" ? "destructive" : "default"}
+        variant="destructive"
         onConfirm={handleDeleteConfirm}
+        isLoading={isBulkProcessing}
       />
 
       <FeedbackDialog

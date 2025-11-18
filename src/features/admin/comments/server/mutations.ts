@@ -20,6 +20,7 @@ import {
   ensurePermission,
   type AuthContext,
 } from "@/features/admin/resources/server"
+import { emitCommentUpsert, emitCommentRemove } from "./events"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
@@ -129,6 +130,8 @@ export async function updateComment(ctx: AuthContext, id: string, input: unknown
     Object.keys(changes).length > 0 ? changes : undefined
   )
 
+  await emitCommentUpsert(comment.id, existing.deletedAt ? "deleted" : "active")
+
   return sanitized
 }
 
@@ -179,6 +182,8 @@ export async function approveComment(ctx: AuthContext, id: string): Promise<void
       postTitle: comment.post.title,
     }
   )
+
+  await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
 }
 
 export async function unapproveComment(ctx: AuthContext, id: string): Promise<void> {
@@ -228,6 +233,8 @@ export async function unapproveComment(ctx: AuthContext, id: string): Promise<vo
       postTitle: comment.post.title,
     }
   )
+
+  await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
 }
 
 export async function softDeleteComment(ctx: AuthContext, id: string): Promise<void> {
@@ -275,6 +282,8 @@ export async function softDeleteComment(ctx: AuthContext, id: string): Promise<v
       postTitle: comment.post.title,
     }
   )
+
+  await emitCommentUpsert(comment.id, "active")
 }
 
 export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -330,6 +339,7 @@ export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): P
         postTitle: comment.post.title,
       }
     )
+    await emitCommentUpsert(comment.id, "active")
   }
 
   return { success: true, message: `Đã xóa ${result.count} bình luận`, affected: result.count }
@@ -380,6 +390,8 @@ export async function restoreComment(ctx: AuthContext, id: string): Promise<void
       postTitle: comment.post.title,
     }
   )
+
+  await emitCommentUpsert(comment.id, "deleted")
 }
 
 export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -435,6 +447,7 @@ export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Prom
         postTitle: comment.post.title,
       }
     )
+    await emitCommentUpsert(comment.id, "deleted")
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} bình luận`, affected: result.count }
@@ -489,6 +502,8 @@ export async function hardDeleteComment(ctx: AuthContext, id: string): Promise<v
       postTitle: comment.post.title,
     }
   )
+
+  emitCommentRemove(comment.id, "deleted")
 }
 
 export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -544,6 +559,7 @@ export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): P
         postTitle: comment.post.title,
       }
     )
+    emitCommentRemove(comment.id, "deleted")
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} bình luận`, affected: result.count }
@@ -604,6 +620,7 @@ export async function bulkApproveComments(ctx: AuthContext, ids: string[]): Prom
         postTitle: comment.post.title,
       }
     )
+    await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
   }
 
   return { success: true, message: `Đã duyệt ${result.count} bình luận`, affected: result.count }
@@ -664,6 +681,7 @@ export async function bulkUnapproveComments(ctx: AuthContext, ids: string[]): Pr
         postTitle: comment.post.title,
       }
     )
+    await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
   }
 
   return { success: true, message: `Đã hủy duyệt ${result.count} bình luận`, affected: result.count }

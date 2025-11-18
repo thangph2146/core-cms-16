@@ -23,12 +23,41 @@ export function NotificationBell() {
   const { data: session } = useSession()
   const { socket } = useNotificationsSocketBridge()
   
+  // Track socket connection status để tắt polling khi socket connected
+  const [isSocketConnected, setIsSocketConnected] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!socket) {
+      setIsSocketConnected(false)
+      return
+    }
+
+    // Check initial connection status
+    setIsSocketConnected(socket.connected)
+
+    const handleConnect = () => {
+      setIsSocketConnected(true)
+    }
+
+    const handleDisconnect = () => {
+      setIsSocketConnected(false)
+    }
+
+    socket.on("connect", handleConnect)
+    socket.on("disconnect", handleDisconnect)
+
+    return () => {
+      socket.off("connect", handleConnect)
+      socket.off("disconnect", handleDisconnect)
+    }
+  }, [socket])
+  
   // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
   // Chỉ polling nếu không có socket connection (fallback)
   const { data, isLoading } = useNotifications({ 
     limit: 10, 
-    disablePolling: !!socket, // Tắt polling nếu có socket
-    refetchInterval: 30000 // 30 giây (fallback khi không có socket)
+    disablePolling: isSocketConnected, // Tắt polling nếu có socket connection
+    refetchInterval: 60000 // 60 giây (fallback khi không có socket)
   })
   const markAllAsRead = useMarkAllAsRead()
   const markAsRead = useMarkNotificationRead()

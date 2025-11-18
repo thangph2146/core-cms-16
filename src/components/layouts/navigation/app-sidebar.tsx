@@ -31,10 +31,12 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
   const isLoading = status === "loading"
   const resourceSegment = useResourceSegment()
 
-  // Get unread counts
+  // Get unread counts - chỉ đọc từ cache, không polling
+  // Polling được handle bởi nav-user và nav-main-with-badges
   const { data: unreadCounts } = useUnreadCounts({
-    refetchInterval: 30000, // 30 seconds
+    refetchInterval: false, // Không polling ở đây
     enabled: !!session?.user?.id,
+    disablePolling: true, // Tắt polling hoàn toàn
   })
 
   // Get menu data based on permissions

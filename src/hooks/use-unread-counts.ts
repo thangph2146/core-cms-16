@@ -16,9 +16,11 @@ export interface UnreadCountsResponse {
 export function useUnreadCounts(options?: {
   refetchInterval?: number
   enabled?: boolean
+  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
+  disablePolling?: boolean
 }) {
   const { data: session } = useSession()
-  const { refetchInterval = 30000, enabled = true } = options || {}
+  const { refetchInterval = 60000, enabled = true, disablePolling = false } = options || {}
 
   return useQuery<UnreadCountsResponse>({
     queryKey: queryKeys.unreadCounts.user(session?.user?.id),
@@ -38,8 +40,18 @@ export function useUnreadCounts(options?: {
       return payload
     },
     enabled: enabled && !!session?.user?.id,
-    refetchInterval,
-    staleTime: 10000, // 10 seconds
+    // Chỉ polling nếu không có socket connection (disablePolling = false)
+    // Socket sẽ handle real-time updates, polling chỉ là fallback
+    refetchInterval: disablePolling ? false : refetchInterval,
+    // Tăng staleTime để giảm refetch không cần thiết
+    // staleTime phải >= refetchInterval để tránh refetch liên tục
+    staleTime: disablePolling ? 120000 : refetchInterval, // 120s nếu có socket, bằng refetchInterval nếu không
+    // Tăng gcTime để cache lâu hơn
+    gcTime: 5 * 60 * 1000, // 5 phút
+    // Tránh refetch khi component remount hoặc window focus
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Chỉ refetch khi data thực sự stale
+    refetchOnReconnect: true, // Chỉ refetch khi reconnect
   })
 }
 

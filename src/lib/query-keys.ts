@@ -7,6 +7,29 @@
 
 import type { QueryClient } from "@tanstack/react-query"
 
+type FilterRecord = Record<string, string | undefined>
+
+function normalizeFilters(filters?: FilterRecord) {
+  if (!filters) return undefined
+  const entries = Object.entries(filters).filter(([, value]) => value !== undefined && value !== "")
+  if (entries.length === 0) return undefined
+  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return entries.reduce<Record<string, string>>((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value
+    }
+    return acc
+  }, {})
+}
+
+export interface AdminCommentsListParams {
+  status: "active" | "deleted" | "all"
+  page: number
+  limit: number
+  search?: string
+  filters?: Record<string, string>
+}
+
 /**
  * Query Keys Factory Pattern
  * Giúp type-safe và dễ quản lý query keys
@@ -63,6 +86,21 @@ export const queryKeys = {
       return ["unreadCounts", "user", userId]
     },
     all: (): readonly unknown[] => ["unreadCounts"],
+  },
+
+  // Admin Comments
+  adminComments: {
+    all: (): readonly unknown[] => ["adminComments"],
+    list: (params: AdminCommentsListParams): readonly unknown[] => {
+      const normalized: AdminCommentsListParams = {
+        status: params.status,
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        filters: normalizeFilters(params.filters),
+      }
+      return ["adminComments", normalized]
+    },
   },
 }
 

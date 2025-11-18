@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus, Pencil } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableColumn, DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -50,6 +51,14 @@ export function TagsTableClient({
   const [feedback, setFeedback] = useState<FeedbackState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const tableRefreshRef = useRef<(() => void) | null>(null)
+
+  type RowActionConfig = {
+    label: string
+    icon: LucideIcon
+    onSelect: () => void
+    destructive?: boolean
+    disabled?: boolean
+  }
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -246,12 +255,15 @@ export function TagsTableClient({
 
       try {
         await apiClient.post(apiRoutes.tags.restore(row.id))
+        showFeedback("success", "Khôi phục thành công", `Đã khôi phục thẻ tag "${row.name}"`)
         refresh()
-      } catch (error) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định"
+        showFeedback("error", "Khôi phục thất bại", `Không thể khôi phục thẻ tag "${row.name}"`, errorMessage)
         console.error("Failed to restore tag", error)
       }
     },
-    [canRestore],
+    [canRestore, showFeedback],
   )
 
   const executeBulk = useCallback(
@@ -320,6 +332,144 @@ export function TagsTableClient({
     [showFeedback],
   )
 
+  const renderRowActions = useCallback(
+    (actions: RowActionConfig[]) => {
+      if (actions.length === 0) {
+        return null
+      }
+
+      if (actions.length === 1) {
+        const singleAction = actions[0]
+        const Icon = singleAction.icon
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={singleAction.disabled}
+            onClick={() => {
+              if (singleAction.disabled) return
+              singleAction.onSelect()
+            }}
+          >
+            <Icon className="mr-2 h-5 w-5" />
+            {singleAction.label}
+          </Button>
+        )
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  disabled={action.disabled}
+                  onClick={() => {
+                    if (action.disabled) return
+                    action.onSelect()
+                  }}
+                  className={
+                    action.destructive
+                      ? "text-destructive focus:text-destructive disabled:opacity-50"
+                      : "disabled:opacity-50"
+                  }
+                >
+                  <Icon
+                    className={
+                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
+                    }
+                  />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+    [],
+  )
+
+  const renderActiveRowActions = useCallback(
+    (row: TagRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/tags/${row.id}`),
+        },
+      ]
+
+      if (canManage) {
+        actions.push({
+          label: "Chỉnh sửa",
+          icon: Pencil,
+          onSelect: () => router.push(`/admin/tags/${row.id}/edit`),
+        })
+      }
+
+      if (canDelete) {
+        actions.push({
+          label: "Xóa",
+          icon: Trash2,
+          onSelect: () => handleDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canDelete, canManage, handleDeleteSingle, handleHardDeleteSingle, renderRowActions, router],
+  )
+
+  const renderDeletedRowActions = useCallback(
+    (row: TagRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/tags/${row.id}`),
+        },
+      ]
+
+      if (canRestore) {
+        actions.push({
+          label: "Khôi phục",
+          icon: RotateCcw,
+          onSelect: () => handleRestoreSingle(row, refresh),
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
+  )
+
   const viewModes = useMemo<ResourceViewMode<TagRow>[]>(() => {
     const modes: ResourceViewMode<TagRow>[] = [
       {
@@ -338,55 +488,32 @@ export function TagsTableClient({
                     type="button"
                     size="sm"
                     variant="destructive"
-                    disabled={isBulkProcessing}
+                    disabled={isBulkProcessing || selectedIds.length === 0}
                     onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
                   >
                     <Trash2 className="mr-2 h-5 w-5" />
-                    Xóa đã chọn
+                    Xóa đã chọn ({selectedIds.length})
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  {canManage && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={isBulkProcessing || selectedIds.length === 0}
+                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                    >
+                      <AlertTriangle className="mr-2 h-5 w-5" />
+                      Xóa vĩnh viễn ({selectedIds.length})
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canDelete || canRestore
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/tags/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canDelete && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/tags/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy thẻ tag nào phù hợp",
       },
       {
@@ -407,7 +534,7 @@ export function TagsTableClient({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
@@ -419,46 +546,21 @@ export function TagsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
+                      Xóa vĩnh viễn ({selectedIds.length})
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="outline" onClick={clearSelection}>
+                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
                     Bỏ chọn
                   </Button>
                 </div>
               </div>
             )
           : undefined,
-        rowActions:
-          canRestore || canManage
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {canRestore && (
-                      <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
-                        <RotateCcw className="mr-2 h-5 w-5" />
-                        Khôi phục
-                      </DropdownMenuItem>
-                    )}
-                    {canManage && (
-                      <DropdownMenuItem onClick={() => handleHardDeleteSingle(row, refresh)}>
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        Xóa vĩnh viễn
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : undefined,
+        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy thẻ tag đã xóa nào",
       },
     ]
@@ -468,13 +570,11 @@ export function TagsTableClient({
     canDelete,
     canRestore,
     canManage,
-    isBulkProcessing,
-    executeBulk,
-    handleDeleteSingle,
-    handleRestoreSingle,
-    handleHardDeleteSingle,
     deletedColumns,
-    router,
+    executeBulk,
+    isBulkProcessing,
+    renderActiveRowActions,
+    renderDeletedRowActions,
   ])
 
   const initialDataByView = useMemo(
@@ -528,20 +628,29 @@ export function TagsTableClient({
             setDeleteConfirm(null)
           }
         }}
-        title={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn?" : "Xóa thẻ tag?"}
+        title={
+          deleteConfirm?.type === "hard"
+            ? deleteConfirm.bulkIds
+              ? `Xóa vĩnh viễn ${deleteConfirm.bulkIds.length} thẻ tag?`
+              : `Xóa vĩnh viễn thẻ tag "${deleteConfirm?.row?.name}"?`
+            : deleteConfirm?.bulkIds
+              ? `Xóa ${deleteConfirm.bulkIds.length} thẻ tag?`
+              : `Xóa thẻ tag "${deleteConfirm?.row?.name}"?`
+        }
         description={
           deleteConfirm?.type === "hard"
             ? deleteConfirm.bulkIds
-              ? `Bạn có chắc chắn muốn xóa vĩnh viễn ${deleteConfirm.bulkIds.length} thẻ tag đã chọn? Hành động này không thể hoàn tác.`
-              : `Bạn có chắc chắn muốn xóa vĩnh viễn thẻ tag "${deleteConfirm?.row?.name}"? Hành động này không thể hoàn tác.`
+              ? `Hành động này sẽ xóa vĩnh viễn ${deleteConfirm.bulkIds.length} thẻ tag khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
+              : `Hành động này sẽ xóa vĩnh viễn thẻ tag "${deleteConfirm?.row?.name}" khỏi hệ thống. Dữ liệu sẽ không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?`
             : deleteConfirm?.bulkIds
-              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} thẻ tag đã chọn?`
-              : `Bạn có chắc chắn muốn xóa thẻ tag "${deleteConfirm?.row?.name}"?`
+              ? `Bạn có chắc chắn muốn xóa ${deleteConfirm.bulkIds.length} thẻ tag? Chúng sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
+              : `Bạn có chắc chắn muốn xóa thẻ tag "${deleteConfirm?.row?.name}"? Thẻ tag sẽ được chuyển vào thùng rác và có thể khôi phục sau.`
         }
         confirmLabel={deleteConfirm?.type === "hard" ? "Xóa vĩnh viễn" : "Xóa"}
         cancelLabel="Hủy"
-        variant={deleteConfirm?.type === "hard" ? "destructive" : "default"}
+        variant="destructive"
         onConfirm={handleDeleteConfirm}
+        isLoading={isBulkProcessing}
       />
 
       <FeedbackDialog

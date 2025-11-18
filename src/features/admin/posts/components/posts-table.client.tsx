@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
-import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus } from "lucide-react"
+import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Plus, Pencil } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { AxiosError } from "axios"
 
 import { ConfirmDialog } from "@/components/dialogs"
@@ -54,7 +55,15 @@ export function PostsTableClient({
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
   const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
   const tableRefreshRef = useRef<(() => void) | null>(null)
-  const canToggleStatus = canManage || canRestore
+  const canToggleStatus = canManage
+
+  type RowActionConfig = {
+    label: string
+    icon: LucideIcon
+    onSelect: () => void
+    destructive?: boolean
+    disabled?: boolean
+  }
 
   const showFeedback = useCallback(
     (variant: FeedbackVariant, title: string, description?: string, details?: string) => {
@@ -109,6 +118,71 @@ export function PostsTableClient({
       }
     },
     [canToggleStatus, showFeedback],
+  )
+
+  const renderRowActions = useCallback(
+    (actions: RowActionConfig[]) => {
+      if (actions.length === 0) {
+        return null
+      }
+
+      if (actions.length === 1) {
+        const singleAction = actions[0]
+        const Icon = singleAction.icon
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={singleAction.disabled}
+            onClick={() => {
+              if (singleAction.disabled) return
+              singleAction.onSelect()
+            }}
+          >
+            <Icon className="mr-2 h-5 w-5" />
+            {singleAction.label}
+          </Button>
+        )
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <DropdownMenuItem
+                  key={action.label}
+                  disabled={action.disabled}
+                  onClick={() => {
+                    if (action.disabled) return
+                    action.onSelect()
+                  }}
+                  className={
+                    action.destructive
+                      ? "text-destructive focus:text-destructive disabled:opacity-50"
+                      : "disabled:opacity-50"
+                  }
+                >
+                  <Icon
+                    className={
+                      action.destructive ? "mr-2 h-5 w-5 text-destructive" : "mr-2 h-5 w-5"
+                    }
+                  />
+                  {action.label}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+    [],
   )
 
   const dateFormatter = useMemo(
@@ -466,6 +540,70 @@ export function PostsTableClient({
     [canRestore, showFeedback],
   )
 
+  const renderActiveRowActions = useCallback(
+    (row: PostRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/posts/${row.id}`),
+        },
+      ]
+
+      if (canManage) {
+        actions.push({
+          label: "Chỉnh sửa",
+          icon: Pencil,
+          onSelect: () => router.push(`/admin/posts/${row.id}/edit`),
+        })
+      }
+
+      if (canDelete) {
+        actions.push({
+          label: "Xóa",
+          icon: Trash2,
+          onSelect: () => handleDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canDelete, canManage, handleDeleteSingle, renderRowActions, router],
+  )
+
+  const renderDeletedRowActions = useCallback(
+    (row: PostRow, { refresh }: { refresh: () => void }) => {
+      const actions: RowActionConfig[] = [
+        {
+          label: "Xem chi tiết",
+          icon: Eye,
+          onSelect: () => router.push(`/admin/posts/${row.id}`),
+        },
+      ]
+
+      if (canRestore) {
+        actions.push({
+          label: "Khôi phục",
+          icon: RotateCcw,
+          onSelect: () => handleRestoreSingle(row, refresh),
+        })
+      }
+
+      if (canManage) {
+        actions.push({
+          label: "Xóa vĩnh viễn",
+          icon: AlertTriangle,
+          onSelect: () => handleHardDeleteSingle(row, refresh),
+          destructive: true,
+        })
+      }
+
+      return renderRowActions(actions)
+    },
+    [canManage, canRestore, handleHardDeleteSingle, handleRestoreSingle, renderRowActions, router],
+  )
+
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
       if (ids.length === 0) return
@@ -551,22 +689,22 @@ export function PostsTableClient({
                     type="button"
                     size="sm"
                     variant="destructive"
-                    disabled={isBulkProcessing}
+                    disabled={isBulkProcessing || selectedIds.length === 0}
                     onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
                   >
                     <Trash2 className="mr-2 h-5 w-5" />
-                    Xóa đã chọn
+                    Xóa đã chọn ({selectedIds.length})
                   </Button>
                   {canManage && (
                     <Button
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
+                      Xóa vĩnh viễn ({selectedIds.length})
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
@@ -576,42 +714,7 @@ export function PostsTableClient({
               </div>
             )
           : undefined,
-        rowActions:
-          canDelete
-            ? (row, { refresh }) => (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => router.push(`/admin/posts/${row.id}`)}>
-                      <Eye className="mr-2 h-5 w-5" />
-                      Xem chi tiết
-                    </DropdownMenuItem>
-                    {canDelete && (
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteSingle(row, refresh)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-5 w-5 text-destructive" />
-                        Xóa
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            : (row) => (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push(`/admin/posts/${row.id}`)}
-                >
-                  <Eye className="mr-2 h-5 w-5" />
-                  Xem
-                </Button>
-              ),
+        rowActions: (row, { refresh }) => renderActiveRowActions(row, { refresh }),
         emptyMessage: "Không tìm thấy bài viết nào phù hợp",
       },
       {
@@ -632,11 +735,11 @@ export function PostsTableClient({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
                     >
                       <RotateCcw className="mr-2 h-5 w-5" />
-                      Khôi phục
+                      Khôi phục ({selectedIds.length})
                     </Button>
                   )}
                   {canManage && (
@@ -644,11 +747,11 @@ export function PostsTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={isBulkProcessing}
+                      disabled={isBulkProcessing || selectedIds.length === 0}
                       onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
                     >
                       <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
+                      Xóa vĩnh viễn ({selectedIds.length})
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
@@ -658,47 +761,7 @@ export function PostsTableClient({
               </div>
             )
           : undefined,
-        rowActions: canRestore || canManage
-          ? (row, { refresh }) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/admin/posts/${row.id}`)}>
-                    <Eye className="mr-2 h-5 w-5" />
-                    Xem chi tiết
-                  </DropdownMenuItem>
-                  {canRestore && (
-                    <DropdownMenuItem onClick={() => handleRestoreSingle(row, refresh)}>
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      Khôi phục
-                    </DropdownMenuItem>
-                  )}
-                  {canManage && (
-                    <DropdownMenuItem
-                      onClick={() => handleHardDeleteSingle(row, refresh)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      Xóa vĩnh viễn
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )
-          : (row) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/admin/posts/${row.id}`)}
-              >
-                <Eye className="mr-2 h-5 w-5" />
-                Xem
-              </Button>
-            ),
+        rowActions: (row, { refresh }) => renderDeletedRowActions(row, { refresh }),
         emptyMessage: "Không có bài viết đã xóa",
       },
     ]
