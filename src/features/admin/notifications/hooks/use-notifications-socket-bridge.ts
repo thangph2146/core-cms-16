@@ -349,14 +349,11 @@ export function useNotificationsSocketBridge() {
 
   useEffect(() => {
     if (!socket) {
-      setIsConnected(false)
       return
     }
 
     const handleConnect = () => setIsConnected(true)
     const handleDisconnect = () => setIsConnected(false)
-
-    setIsConnected(socket.connected)
 
     socket.on("connect", handleConnect)
     socket.on("disconnect", handleDisconnect)

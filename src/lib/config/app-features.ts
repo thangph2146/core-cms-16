@@ -405,20 +405,6 @@ export const appFeatures: FeatureDefinition[] = [
       resourceName: "contact-requests",
       alias: "contactRequests",
     },
-    components: [
-      {
-        id: "contactRequests.table.server",
-        label: "ContactRequestsTable",
-        mode: "static",
-        modulePath: "@/features/admin/contact-requests/components/contact-requests-table",
-      },
-      {
-        id: "contactRequests.table.client",
-        label: "ContactRequestsTableClient",
-        mode: "dynamic",
-        modulePath: "@/features/admin/contact-requests/components/contact-requests-table.client",
-      },
-    ],
   },
   {
     key: "sessions",

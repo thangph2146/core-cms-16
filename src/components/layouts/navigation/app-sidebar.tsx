@@ -34,7 +34,6 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
   // Get unread counts - chỉ đọc từ cache, không polling
   // Polling được handle bởi nav-user và nav-main-with-badges
   const { data: unreadCounts } = useUnreadCounts({
-    refetchInterval: false, // Không polling ở đây
     enabled: !!session?.user?.id,
     disablePolling: true, // Tắt polling hoàn toàn
   })
@@ -63,6 +62,12 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
         return {
           ...item,
           badgeCount: unreadCounts?.unreadNotifications || 0,
+        }
+      }
+      if (item.key === "contactRequests") {
+        return {
+          ...item,
+          badgeCount: unreadCounts?.contactRequests || 0,
         }
       }
       return item

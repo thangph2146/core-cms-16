@@ -11,6 +11,7 @@ import { queryKeys } from "@/lib/query-keys"
 export interface UnreadCountsResponse {
   unreadMessages: number
   unreadNotifications: number
+  contactRequests: number
 }
 
 export function useUnreadCounts(options?: {

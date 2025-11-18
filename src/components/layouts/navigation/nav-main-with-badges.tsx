@@ -3,7 +3,6 @@
 import * as React from "react"
 import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useQueryClient } from "@tanstack/react-query"
 import {
   BadgeHelp,
   Bell,
@@ -27,8 +26,8 @@ import {
 import { NavMain } from "./nav-main"
 import { useUnreadCounts } from "@/hooks/use-unread-counts"
 import { useNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { useContactRequestsSocketBridge } from "@/features/admin/contact-requests/hooks/use-contact-requests-socket-bridge"
 import { useSocket } from "@/hooks/use-socket"
-import { queryKeys } from "@/lib/query-keys"
 import type { MenuItem } from "@/lib/config"
 import type { LucideIcon } from "lucide-react"
 
@@ -68,7 +67,6 @@ interface NavMainWithBadgesProps {
  */
 export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
   const { data: session } = useSession()
-  const queryClient = useQueryClient()
   const pathname = usePathname()
   const userId = session?.user?.id
   const primaryRole = session?.roles?.[0]?.name ?? null
@@ -111,6 +109,9 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
 
   // Setup socket bridge cho notifications
   useNotificationsSocketBridge()
+
+  // Setup socket bridge cho contact requests
+  useContactRequestsSocketBridge()
 
   // Setup socket cho messages để invalidate unread counts
   const { socket } = useSocket({
@@ -184,6 +185,12 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
         updatedItem = {
           ...updatedItem,
           badgeCount: unreadCounts?.unreadNotifications || 0,
+        }
+      }
+      if (item.key === "contactRequests") {
+        updatedItem = {
+          ...updatedItem,
+          badgeCount: unreadCounts?.contactRequests || 0,
         }
       }
       

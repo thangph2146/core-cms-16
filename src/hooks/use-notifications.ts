@@ -3,7 +3,7 @@
  */
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
@@ -35,13 +35,42 @@ export interface NotificationsResponse {
   hasMore: boolean
 }
 
-// Fetch notifications
+/**
+ * Helper function để parse notification dates từ API response
+ */
+function parseNotificationDates(notification: {
+  createdAt: string | Date
+  updatedAt: string | Date
+  expiresAt?: string | Date | null
+  readAt?: string | Date | null
+}): {
+  createdAt: Date
+  updatedAt: Date
+  expiresAt: Date | null
+  readAt: Date | null
+} {
+  return {
+    createdAt: notification.createdAt instanceof Date ? notification.createdAt : new Date(notification.createdAt),
+    updatedAt: notification.updatedAt instanceof Date ? notification.updatedAt : new Date(notification.updatedAt),
+    expiresAt: notification.expiresAt ? (notification.expiresAt instanceof Date ? notification.expiresAt : new Date(notification.expiresAt)) : null,
+    readAt: notification.readAt ? (notification.readAt instanceof Date ? notification.readAt : new Date(notification.readAt)) : null,
+  }
+}
+
+/**
+ * Hook để fetch notifications với pagination và filters
+ * @param options - Options cho việc fetch notifications
+ * @param options.limit - Số lượng notifications mỗi lần fetch (default: 20)
+ * @param options.offset - Offset cho pagination (default: 0)
+ * @param options.unreadOnly - Chỉ fetch unread notifications (default: false)
+ * @param options.refetchInterval - Interval để refetch (default: 30000ms)
+ * @param options.disablePolling - Tắt polling khi có socket connection (default: false)
+ */
 export function useNotifications(options?: {
   limit?: number
   offset?: number
   unreadOnly?: boolean
   refetchInterval?: number
-  // Tắt polling khi có socket connection (socket sẽ handle real-time updates)
   disablePolling?: boolean
 }) {
   const { data: session } = useSession()
@@ -66,10 +95,7 @@ export function useNotifications(options?: {
         ...payload,
         notifications: payload.notifications.map((notification) => ({
           ...notification,
-          createdAt: new Date(notification.createdAt),
-          updatedAt: new Date(notification.updatedAt),
-          expiresAt: notification.expiresAt ? new Date(notification.expiresAt) : null,
-          readAt: notification.readAt ? new Date(notification.readAt) : null,
+          ...parseNotificationDates(notification),
         })),
       }
     },
@@ -89,7 +115,10 @@ export function useNotifications(options?: {
   })
 }
 
-// Mark notification as read
+/**
+ * Hook để đánh dấu notification là đã đọc/chưa đọc
+ * Tự động invalidate queries sau khi thành công
+ */
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -110,10 +139,7 @@ export function useMarkNotificationRead() {
 
       return {
         ...payload,
-        createdAt: new Date(payload.createdAt),
-        updatedAt: new Date(payload.updatedAt),
-        expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : null,
-        readAt: payload.readAt ? new Date(payload.readAt) : null,
+        ...parseNotificationDates(payload),
       }
     },
     onSuccess: () => {
@@ -125,7 +151,10 @@ export function useMarkNotificationRead() {
   })
 }
 
-// Delete notification
+/**
+ * Hook để xóa một notification
+ * Tự động invalidate queries sau khi thành công
+ */
 export function useDeleteNotification() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -146,7 +175,10 @@ export function useDeleteNotification() {
   })
 }
 
-// Mark all as read
+/**
+ * Hook để đánh dấu tất cả notifications là đã đọc
+ * Tự động invalidate queries sau khi thành công
+ */
 export function useMarkAllAsRead() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -175,7 +207,10 @@ export function useMarkAllAsRead() {
   })
 }
 
-// Delete all notifications
+/**
+ * Hook để xóa tất cả notifications
+ * Tự động invalidate queries sau khi thành công
+ */
 export function useDeleteAllNotifications() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -205,9 +240,18 @@ export function useDeleteAllNotifications() {
   })
 }
 
-// Module-level tracking để đảm bảo chỉ đăng ký listener một lần cho mỗi userId
+/**
+ * Module-level tracking để đảm bảo chỉ đăng ký listener một lần cho mỗi userId
+ */
 const registeredUsers = new Set<string>()
 
+/**
+ * Hook để quản lý Socket.IO real-time updates cho User Notifications.
+ * Tự động cập nhật cache khi có socket events:
+ * - notification:new: Khi có notification mới
+ * - notification:updated: Khi notification được cập nhật
+ * - notifications:sync: Khi có sync request từ server
+ */
 export function useNotificationsSocketBridge() {
   const queryClient = useQueryClient()
   const { data: session } = useSession()
@@ -270,12 +314,15 @@ export function useNotificationsSocketBridge() {
         queryKeys.unreadCounts.user(userId) as unknown[],
         (current) => {
           if (!current) {
+            // Nếu chưa có data và delta < 0, không làm gì (không thể có unread count âm)
             if (delta < 0) {
-              return current
+              return undefined
             }
+            // Nếu delta > 0, tạo data mới
             return {
               unreadMessages: 0,
-              unreadNotifications: delta,
+              unreadNotifications: Math.max(0, delta),
+              contactRequests: 0,
             }
           }
 
@@ -298,6 +345,7 @@ export function useNotificationsSocketBridge() {
             return {
               unreadMessages: 0,
               unreadNotifications: value,
+              contactRequests: 0,
             }
           }
 
@@ -331,7 +379,7 @@ export function useNotificationsSocketBridge() {
         (oldData) => {
           if (!oldData) {
             return oldData
-    }
+          }
 
           const capacity = oldData.notifications.length > 0 ? oldData.notifications.length : 20
           const existingIndex = oldData.notifications.findIndex((n) => n.id === notification.id)
@@ -391,45 +439,43 @@ export function useNotificationsSocketBridge() {
     const stopSync = onNotificationsSync((payloads: SocketNotificationPayload[]) => {
       logger.debug("Socket notifications:sync received", { userId, count: payloads.length })
       
+      // Lọc và convert notifications cho user này
+      const userNotifications = payloads
+        .filter((p) => p.toUserId === userId)
+        .map(convertSocketToNotification)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      
+      const unreadCount = userNotifications.filter((n) => !n.isRead).length
+      
       // Update cache với toàn bộ notifications mới
       queryClient.setQueriesData<NotificationsResponse>(
         { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
         (oldData) => {
-        const notifications = payloads
-          .filter((p) => p.toUserId === userId)
-          .map(convertSocketToNotification)
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        
-        const unreadCount = notifications.filter((n) => !n.isRead).length
-        
           if (!oldData) {
-        return {
-              notifications: notifications.slice(0, 20),
-          total: notifications.length,
-          unreadCount,
-          hasMore: notifications.length > 20,
-        }
+            return {
+              notifications: userNotifications.slice(0, 20),
+              total: userNotifications.length,
+              unreadCount,
+              hasMore: userNotifications.length > 20,
+            }
           }
 
           const capacity = oldData.notifications.length > 0 ? oldData.notifications.length : 20
           const limitedNotifications =
-            capacity > 0 ? notifications.slice(0, capacity) : notifications
-          const hasMore = notifications.length > limitedNotifications.length
+            capacity > 0 ? userNotifications.slice(0, capacity) : userNotifications
+          const hasMore = userNotifications.length > limitedNotifications.length
 
           return {
             ...oldData,
             notifications: limitedNotifications,
-            total: notifications.length,
+            total: userNotifications.length,
             unreadCount,
             hasMore,
           }
         },
       )
 
-      const unreadCount = payloads
-        .filter((p) => p.toUserId === userId)
-        .reduce((count, p) => (p.read ? count : count + 1), 0)
-
+      // Update unread counts
       setUnreadCountsValue(unreadCount)
     })
 

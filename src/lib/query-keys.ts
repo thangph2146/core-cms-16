@@ -9,25 +9,68 @@ import type { QueryClient } from "@tanstack/react-query"
 
 type FilterRecord = Record<string, string | undefined>
 
-function normalizeFilters(filters?: FilterRecord) {
+/**
+ * Normalize filters bằng cách loại bỏ undefined/empty values và sắp xếp keys
+ * @param filters - Record chứa filters
+ * @returns Normalized filters hoặc undefined nếu không có filters hợp lệ
+ */
+function normalizeFilters(filters?: FilterRecord): Record<string, string> | undefined {
   if (!filters) return undefined
-  const entries = Object.entries(filters).filter(([, value]) => value !== undefined && value !== "")
-  if (entries.length === 0) return undefined
-  entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return entries.reduce<Record<string, string>>((acc, [key, value]) => {
-    if (value !== undefined) {
-      acc[key] = value
+  
+  const normalized: Record<string, string> = {}
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") {
+      normalized[key] = value
     }
+  }
+  
+  if (Object.keys(normalized).length === 0) return undefined
+  
+  // Sắp xếp keys để đảm bảo query key consistency
+  const sortedKeys = Object.keys(normalized).sort()
+  return sortedKeys.reduce<Record<string, string>>((acc, key) => {
+    acc[key] = normalized[key]!
     return acc
   }, {})
 }
 
-export interface AdminCommentsListParams {
-  status: "active" | "deleted" | "all"
+/**
+ * Base interface cho list params với pagination và search
+ */
+interface BaseListParams {
   page: number
   limit: number
   search?: string
   filters?: Record<string, string>
+}
+
+export interface AdminCommentsListParams extends BaseListParams {
+  status: "active" | "deleted" | "all"
+}
+
+export interface AdminContactRequestsListParams extends BaseListParams {
+  status?: "active" | "deleted" | "all"
+}
+
+export interface AdminStudentsListParams extends BaseListParams {
+  status?: "active" | "deleted" | "all"
+}
+
+/**
+ * Helper để tạo query key với optional params
+ */
+function createQueryKey(base: readonly string[], ...params: unknown[]): readonly unknown[] {
+  return [...base, ...params.filter(p => p !== undefined)]
+}
+
+/**
+ * Normalize list params để đảm bảo query key consistency
+ */
+function normalizeListParams<T extends BaseListParams>(params: T): T {
+  return {
+    ...params,
+    filters: normalizeFilters(params.filters),
+  }
 }
 
 /**
@@ -35,106 +78,185 @@ export interface AdminCommentsListParams {
  * Giúp type-safe và dễ quản lý query keys
  */
 export const queryKeys = {
-  // Notifications
+  /**
+   * Notification query keys
+   */
   notifications: {
-    // User notifications (NotificationBell)
-    user: (userId: string | undefined, options?: { limit?: number; offset?: number; unreadOnly?: boolean }): readonly unknown[] => {
+    /**
+     * User notifications với optional pagination và filters
+     * @param userId - User ID
+     * @param options - Optional pagination và filter options
+     */
+    user: (
+      userId: string | undefined,
+      options?: { limit?: number; offset?: number; unreadOnly?: boolean }
+    ): readonly unknown[] => {
       if (!userId) return ["notifications", "user", null]
-      const { limit, offset, unreadOnly } = options || {}
-      const keys: unknown[] = ["notifications", "user", userId]
-      if (limit !== undefined) keys.push(limit)
-      if (offset !== undefined) keys.push(offset)
-      if (unreadOnly !== undefined) keys.push(unreadOnly)
-      return keys as readonly unknown[]
+      return createQueryKey(
+        ["notifications", "user", userId],
+        options?.limit,
+        options?.offset,
+        options?.unreadOnly
+      )
     },
-    // Admin notifications (Admin Table)
+    /**
+     * Admin notifications (Admin Table)
+     */
     admin: (): readonly unknown[] => ["notifications", "admin"],
-    // Tất cả user notifications (không phân biệt params)
+    /**
+     * Tất cả user notifications (không phân biệt params)
+     * Dùng để invalidate tất cả queries của user
+     */
     allUser: (userId: string | undefined): readonly unknown[] => {
       if (!userId) return ["notifications", "user"]
       return ["notifications", "user", userId]
     },
-    // Tất cả admin notifications
+    /**
+     * Tất cả admin notifications
+     */
     allAdmin: (): readonly unknown[] => ["notifications", "admin"],
   },
 
-  // Users
+  /**
+   * User query keys
+   */
   users: {
-    list: (params?: { page?: number; limit?: number; search?: string; status?: string }): readonly unknown[] => {
-      const { page, limit, search, status } = params || {}
-      const keys: unknown[] = ["users", "list"]
-      if (page !== undefined) keys.push(page)
-      if (limit !== undefined) keys.push(limit)
-      if (search !== undefined) keys.push(search)
-      if (status !== undefined) keys.push(status)
-      return keys as readonly unknown[]
+    /**
+     * User list với pagination và filters
+     */
+    list: (params?: {
+      page?: number
+      limit?: number
+      search?: string
+      status?: string
+    }): readonly unknown[] => {
+      if (!params) return ["users", "list"]
+      return createQueryKey(
+        ["users", "list"],
+        params.page,
+        params.limit,
+        params.search,
+        params.status
+      )
     },
+    /**
+     * User detail by ID
+     */
     detail: (id: string): readonly unknown[] => ["users", "detail", id],
+    /**
+     * Tất cả user queries (dùng để invalidate)
+     */
     all: (): readonly unknown[] => ["users"],
   },
 
-  // Roles
+  /**
+   * Role query keys
+   */
   roles: {
     list: (): readonly unknown[] => ["roles", "list"],
     all: (): readonly unknown[] => ["roles"],
   },
 
-  // Unread counts
+  /**
+   * Unread counts query keys
+   */
   unreadCounts: {
+    /**
+     * Unread counts cho user cụ thể
+     */
     user: (userId: string | undefined): readonly unknown[] => {
       if (!userId) return ["unreadCounts", "user", null]
       return ["unreadCounts", "user", userId]
     },
+    /**
+     * Tất cả unread counts queries
+     */
     all: (): readonly unknown[] => ["unreadCounts"],
   },
 
-  // Admin Comments
+  /**
+   * Admin Comments query keys
+   */
   adminComments: {
+    /**
+     * Tất cả admin comments queries
+     */
     all: (): readonly unknown[] => ["adminComments"],
+    /**
+     * Admin comments list với normalized params
+     */
     list: (params: AdminCommentsListParams): readonly unknown[] => {
-      const normalized: AdminCommentsListParams = {
-        status: params.status,
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        filters: normalizeFilters(params.filters),
-      }
-      return ["adminComments", normalized]
+      return ["adminComments", normalizeListParams(params)]
     },
   },
-}
+
+  /**
+   * Admin Contact Requests query keys
+   */
+  adminContactRequests: {
+    /**
+     * Tất cả admin contact requests queries
+     */
+    all: (): readonly unknown[] => ["adminContactRequests"],
+    /**
+     * Admin contact requests list với normalized params
+     */
+    list: (params: AdminContactRequestsListParams): readonly unknown[] => {
+      return ["adminContactRequests", normalizeListParams(params)]
+    },
+  },
+
+  /**
+   * Admin Students query keys
+   */
+  adminStudents: {
+    /**
+     * Tất cả admin students queries
+     */
+    all: (): readonly unknown[] => ["adminStudents"],
+    /**
+     * Admin students list với normalized params
+     */
+    list: (params: AdminStudentsListParams): readonly unknown[] => {
+      return ["adminStudents", normalizeListParams(params)]
+    },
+  },
+} as const
 
 /**
  * Helper functions để invalidate queries một cách chính xác
+ * Tuân theo nguyên tắc: chỉ invalidate những queries thực sự cần thiết
  */
 export const invalidateQueries = {
   /**
    * Invalidate user notifications
-   * Chỉ invalidate queries của user cụ thể với các params cụ thể
+   * @param queryClient - TanStack Query client instance
+   * @param userId - User ID cần invalidate
+   * @param options - Options cho việc invalidate
+   * @param options.exact - Nếu true, chỉ invalidate query chính xác (tiết kiệm tài nguyên hơn)
+   *                        Nếu false, invalidate tất cả queries của user (dùng khi không biết params)
    */
-  userNotifications: (queryClient: QueryClient, userId: string | undefined, options?: { exact?: boolean }) => {
+  userNotifications: (
+    queryClient: QueryClient,
+    userId: string | undefined,
+    options?: { exact?: boolean }
+  ): void => {
     if (!userId) return
-    const { exact = false } = options || {}
     
-    if (exact) {
-      // Chỉ invalidate query chính xác với params - tốn ít tài nguyên hơn
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.notifications.user(userId) as unknown[],
-      })
-    } else {
-      // Invalidate tất cả queries của user này (bao gồm các params khác nhau)
-      // Dùng khi không biết chính xác params nào đang được sử dụng
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.notifications.allUser(userId) as unknown[],
-      })
-    }
+    const { exact = false } = options ?? {}
+    const queryKey = exact
+      ? queryKeys.notifications.user(userId)
+      : queryKeys.notifications.allUser(userId)
+    
+    queryClient.invalidateQueries({ queryKey: queryKey as unknown[] })
   },
 
   /**
    * Invalidate admin notifications
    * Chỉ invalidate admin table queries
+   * @param queryClient - TanStack Query client instance
    */
-  adminNotifications: (queryClient: QueryClient) => {
+  adminNotifications: (queryClient: QueryClient): void => {
     queryClient.invalidateQueries({
       queryKey: queryKeys.notifications.admin() as unknown[],
     })
@@ -143,8 +265,15 @@ export const invalidateQueries = {
   /**
    * Invalidate cả user và admin notifications
    * Chỉ dùng khi thay đổi ảnh hưởng đến cả 2 (ví dụ: xóa notification)
+   * @param queryClient - TanStack Query client instance
+   * @param userId - User ID cần invalidate
+   * @param options - Options cho việc invalidate
    */
-  allNotifications: (queryClient: QueryClient, userId: string | undefined, options?: { exact?: boolean }) => {
+  allNotifications: (
+    queryClient: QueryClient,
+    userId: string | undefined,
+    options?: { exact?: boolean }
+  ): void => {
     invalidateQueries.userNotifications(queryClient, userId, options)
     invalidateQueries.adminNotifications(queryClient)
   },
@@ -152,9 +281,12 @@ export const invalidateQueries = {
   /**
    * Invalidate unread counts
    * Dùng khi notifications hoặc messages được đánh dấu đọc/chưa đọc
+   * @param queryClient - TanStack Query client instance
+   * @param userId - User ID cần invalidate
    */
-  unreadCounts: (queryClient: QueryClient, userId: string | undefined) => {
+  unreadCounts: (queryClient: QueryClient, userId: string | undefined): void => {
     if (!userId) return
+    
     queryClient.invalidateQueries({
       queryKey: queryKeys.unreadCounts.user(userId) as unknown[],
     })
@@ -163,10 +295,17 @@ export const invalidateQueries = {
   /**
    * Invalidate cả notifications và unread counts
    * Dùng khi mark notification as read/unread để cập nhật cả badge count
+   * @param queryClient - TanStack Query client instance
+   * @param userId - User ID cần invalidate
+   * @param options - Options cho việc invalidate notifications
    */
-  notificationsAndCounts: (queryClient: QueryClient, userId: string | undefined, options?: { exact?: boolean }) => {
+  notificationsAndCounts: (
+    queryClient: QueryClient,
+    userId: string | undefined,
+    options?: { exact?: boolean }
+  ): void => {
     invalidateQueries.allNotifications(queryClient, userId, options)
     invalidateQueries.unreadCounts(queryClient, userId)
   },
-}
+} as const
 

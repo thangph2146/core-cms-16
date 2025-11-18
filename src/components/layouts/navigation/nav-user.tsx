@@ -5,7 +5,6 @@ import { useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
-import { useQueryClient } from "@tanstack/react-query"
 import {
   BadgeCheck,
   ChevronsUpDown,
@@ -78,13 +77,12 @@ import { cn } from "@/lib/utils"
 import { useClientOnly } from "@/hooks/use-client-only"
 import { useUnreadCounts } from "@/hooks/use-unread-counts"
 import { useNotificationsSocketBridge } from "@/hooks/use-notifications"
+import { useContactRequestsSocketBridge } from "@/features/admin/contact-requests/hooks/use-contact-requests-socket-bridge"
 import { useSocket } from "@/hooks/use-socket"
-import { queryKeys } from "@/lib/query-keys"
 
 
 export function NavUser({ className }: { className?: string }) {
   const { data: session, status } = useSession()
-  const queryClient = useQueryClient()
   const pathname = usePathname()
   const userId = session?.user?.id
   const primaryRoleName = session?.roles?.[0]?.name ?? null
@@ -103,6 +101,9 @@ export function NavUser({ className }: { className?: string }) {
 
   // Setup socket bridge cho notifications
   useNotificationsSocketBridge()
+
+  // Setup socket bridge cho contact requests
+  useContactRequestsSocketBridge()
 
   // Setup socket cho messages để invalidate unread counts
   const { socket } = useSocket({
@@ -151,6 +152,7 @@ export function NavUser({ className }: { className?: string }) {
 
   const unreadMessagesCount = unreadCounts?.unreadMessages || 0
   const unreadNotificationsCount = unreadCounts?.unreadNotifications || 0
+  const contactRequestsCount = unreadCounts?.contactRequests || 0
   
   // Helper function để check nếu pathname match với menu item URL
   const isItemActive = React.useCallback((item: { url: string; items?: Array<{ url: string }> }): boolean => {
@@ -234,10 +236,16 @@ export function NavUser({ className }: { className?: string }) {
           badgeCount: unreadNotificationsCount,
         }
       }
+      if (item.key === "contactRequests") {
+        updatedItem = {
+          ...updatedItem,
+          badgeCount: contactRequestsCount,
+        }
+      }
       
       return updatedItem
     })
-  }, [session, unreadMessagesCount, unreadNotificationsCount, isItemActive])
+  }, [session, unreadMessagesCount, unreadNotificationsCount, contactRequestsCount, isItemActive])
 
   // Tính route cho accounts dựa trên resource segment
   const accountsRoute = useMemo(() => {

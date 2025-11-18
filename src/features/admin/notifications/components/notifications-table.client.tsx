@@ -39,7 +39,7 @@ export function NotificationsTableClient({
   const pendingRealtimeRefreshRef = useRef(false)
 
   const { feedback, showFeedback, handleFeedbackOpenChange } = useNotificationFeedback()
-  const { isSocketConnected, cacheVersion } = useNotificationsSocketBridge()
+  const { cacheVersion } = useNotificationsSocketBridge()
 
   const triggerTableRefresh = useCallback(() => {
     logger.info("triggerTableRefresh called", {

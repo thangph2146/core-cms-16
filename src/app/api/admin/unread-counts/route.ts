@@ -1,6 +1,6 @@
 /**
  * API Route: GET /api/admin/unread-counts
- * Get total unread messages and notifications count for current user
+ * Get total unread messages, notifications, and contact requests count for current user
  */
 
 import { NextRequest } from "next/server"
@@ -38,14 +38,21 @@ async function getUnreadCountsHandler(_req: NextRequest, context: ApiRouteContex
     isRead: false,
   }
 
-  const [unreadNotificationsCount, unreadMessagesCount] = await Promise.all([
+  // Get contact requests count (chỉ active, không deleted)
+  const contactRequestsWhere: Prisma.ContactRequestWhereInput = {
+    deletedAt: null,
+  }
+
+  const [unreadNotificationsCount, unreadMessagesCount, contactRequestsCount] = await Promise.all([
     prisma.notification.count({ where: notificationWhere }),
     getTotalUnreadMessagesCountCached(userId),
+    prisma.contactRequest.count({ where: contactRequestsWhere }),
   ])
 
   return createSuccessResponse({
     unreadMessages: unreadMessagesCount,
     unreadNotifications: unreadNotificationsCount,
+    contactRequests: contactRequestsCount,
   })
 }
 
