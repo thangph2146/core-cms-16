@@ -373,7 +373,7 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
         messageElement.scrollIntoView({ behavior: "smooth", block: "center" })
       }
 
-      // Highlight bubble (inner) with a light yellow ring/background temporarily
+      // Highlight bubble (inner) with a light gray ring/background temporarily
       const bubbleEl = messageElement.querySelector('[data-role="bubble"]') as HTMLElement | null
       if (bubbleEl) {
         const prevBg = bubbleEl.style.backgroundColor
@@ -381,8 +381,8 @@ export function useChat({ contacts, currentUserId, role }: UseChatProps) {
         const prevTransition = bubbleEl.style.transition
 
         bubbleEl.style.transition = "background-color 0.2s ease, box-shadow 0.2s ease"
-        bubbleEl.style.boxShadow = "0 0 0 3px rgba(250, 204, 21, 0.8)" // ring-yellow-300
-        bubbleEl.style.backgroundColor = "rgba(250, 204, 21, 0.20)" // bg-yellow-300 at ~20%
+        bubbleEl.style.boxShadow = "0 0 0 3px rgba(133, 133, 133, 1)" // ring-gray-400
+        bubbleEl.style.backgroundColor = "rgba(133, 133, 133, 1)" // bg-gray-300 at ~30%
 
         window.setTimeout(() => {
           bubbleEl.style.backgroundColor = prevBg

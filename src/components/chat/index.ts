@@ -29,3 +29,6 @@ export * from "./utils/text-helpers"
 
 // Constants
 export { TEXTAREA_MIN_HEIGHT, TEXTAREA_MAX_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "./constants"
+
+// Hooks
+export { useChatElementsHeight, type ChatElementsHeights, type UseChatElementsHeightParams } from "./hooks/use-chat-elements-height"

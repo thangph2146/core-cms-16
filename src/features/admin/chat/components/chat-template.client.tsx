@@ -2,6 +2,9 @@
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { Menu } from "lucide-react"
 import type { ChatTemplateProps, Contact, Group } from "@/components/chat/types"
 import { useChat } from "../hooks/use-chat"
 import { ChatListHeader, type ChatFilterType } from "@/components/chat/components/chat-list-header"
@@ -33,6 +36,7 @@ export function ChatTemplate({
   const [filterType, setFilterType] = useState<ChatFilterType>(initialFilterType)
   const [contactSearch, setContactSearch] = useState("")
   const [searchedContacts, setSearchedContacts] = useState<Contact[] | null>(null)
+  const [isChatListOpen, setIsChatListOpen] = useState(false)
   
   const {
     contactsState,
@@ -355,98 +359,154 @@ export function ChatTemplate({
     [currentChat, isGroupDeleted, currentUserRole, handleGroupUpdated, currentUserId, role, setContactsState]
   )
 
+  // Determine if mobile chat window should be shown
+  const showMobileChatWindow = isMobile && chatWindowProps !== null
+
+  // Handle contact selection - close sheet on mobile when contact is selected
+  const handleContactSelect = useCallback(async (contact: Contact) => {
+    // If personal contact and no messages loaded, fetch messages via API
+    if (contact.type !== "GROUP" && (!contact.messages || contact.messages.length === 0)) {
+      try {
+        const { apiRoutes } = await import("@/lib/api/routes")
+        const url = withApiBase(apiRoutes.adminConversations.list({ otherUserId: contact.id }))
+        const res = await requestJson(url)
+        if (res.ok && Array.isArray(res.data)) {
+          const { mapMessageDetailToMessage } = await import("../utils/contact-transformers")
+          const messages = (res.data as Array<MessageDetailLike>).map(
+            mapMessageDetailToMessage,
+          )
+          setContactsState((prev) => {
+            const exists = prev.find((c) => c.id === contact.id && c.type !== "GROUP")
+            if (exists) {
+              return prev.map((c) => (c.id === contact.id && c.type !== "GROUP" ? { ...c, messages } : c))
+            }
+            return [{ ...contact, messages }, ...prev]
+          })
+          setCurrentChat({ ...contact, messages })
+          if (isMobile) {
+            setIsChatListOpen(false)
+          }
+          return
+        }
+      } catch (e) {
+        console.error("Failed to fetch conversation messages", e)
+      }
+    }
+    setCurrentChat(contact)
+    if (isMobile) {
+      setIsChatListOpen(false)
+    }
+  }, [isMobile, setContactsState, setCurrentChat])
+
+  // Chat List Content Component (reusable for both desktop and mobile)
+  const chatListContent = (
+    <div className="flex flex-col h-full bg-background">
+      <ChatListHeader
+        onNewConversation={handleNewConversation}
+        existingContactIds={contactsState.map((c) => c.id)}
+        newConversationDialog={
+          <NewConversationDialog
+            onSelectUser={handleNewConversation}
+            existingContactIds={contactsState.map((c) => c.id)}
+          />
+        }
+        newGroupDialog={
+          <NewGroupDialog onSelectGroup={handleNewGroup} />
+        }
+        filterType={filterType}
+        onFilterChange={setFilterType}
+      />
+      <ContactList
+        contacts={filteredContacts}
+        selectedContactId={currentChat?.id}
+        onContactSelect={handleContactSelect}
+        searchValue={contactSearch}
+        onSearchChange={setContactSearch}
+      />
+    </div>
+  )
+
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden">
-      <ResizablePanelGroup direction="horizontal" className="flex-1 h-full">
-        {/* Left Panel - Chat List */}
-        <ResizablePanel
-          defaultSize={isMobile ? 100 : 30}
-          minSize={isMobile ? 100 : 25}
-          maxSize={isMobile ? 100 : 50}
-          className="flex flex-col min-w-0"
-        >
-          <div className="flex flex-col h-full border-r bg-background">
-            <ChatListHeader
-              onNewConversation={handleNewConversation}
-              existingContactIds={contactsState.map((c) => c.id)}
-              newConversationDialog={
-                <NewConversationDialog
-                  onSelectUser={handleNewConversation}
-                  existingContactIds={contactsState.map((c) => c.id)}
-                />
-              }
-              newGroupDialog={
-                <NewGroupDialog onSelectGroup={handleNewGroup} />
-              }
-              filterType={filterType}
-              onFilterChange={setFilterType}
-            />
-            <ContactList
-              contacts={filteredContacts}
-              selectedContactId={currentChat?.id}
-              onContactSelect={async (contact) => {
-                // If personal contact and no messages loaded, fetch messages via API
-                if (contact.type !== "GROUP" && (!contact.messages || contact.messages.length === 0)) {
-                  try {
-                    const { apiRoutes } = await import("@/lib/api/routes")
-                    const url = withApiBase(apiRoutes.adminConversations.list({ otherUserId: contact.id }))
-                    const res = await requestJson(url)
-                    if (res.ok && Array.isArray(res.data)) {
-                      const { mapMessageDetailToMessage } = await import("../utils/contact-transformers")
-                      const messages = (res.data as Array<MessageDetailLike>).map(
-                        mapMessageDetailToMessage,
-                      )
-                      setContactsState((prev) => {
-                        const exists = prev.find((c) => c.id === contact.id && c.type !== "GROUP")
-                        if (exists) {
-                          return prev.map((c) => (c.id === contact.id && c.type !== "GROUP" ? { ...c, messages } : c))
-                        }
-                        return [{ ...contact, messages }, ...prev]
-                      })
-                      setCurrentChat({ ...contact, messages })
-                      return
-                    }
-                  } catch (e) {
-                    console.error("Failed to fetch conversation messages", e)
-                  }
-                }
-                setCurrentChat(contact)
-              }}
-              searchValue={contactSearch}
-              onSearchChange={setContactSearch}
-            />
-          </div>
-        </ResizablePanel>
-
-        {!isMobile && <ResizableHandle withHandle />}
-
-        {/* Right Panel - Chat Window */}
-        <ResizablePanel
-          defaultSize={isMobile ? 0 : 70}
-          minSize={isMobile ? 0 : 50}
-          className={`flex flex-col min-w-0 ${isMobile ? "hidden" : ""}`}
-        >
-          {chatWindowProps ? (
-            <div className="flex flex-col h-full bg-background">
-              <ChatWindow {...chatWindowProps} groupManagementMenu={groupMenu} />
+      {/* Desktop: ResizablePanelGroup */}
+      {!isMobile ? (
+        <ResizablePanelGroup direction="horizontal" className="flex-1 h-full">
+          {/* Left Panel - Chat List */}
+          <ResizablePanel
+            defaultSize={30}
+            minSize={25}
+            maxSize={50}
+            className="flex flex-col min-w-0"
+          >
+            <div className="flex flex-col h-full border-r bg-background">
+              {chatListContent}
             </div>
-          ) : (
-            <EmptyState variant="no-chat" />
-          )}
-        </ResizablePanel>
+          </ResizablePanel>
 
-        {/* Mobile Chat Window */}
-        {isMobile && chatWindowProps && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-background md:hidden">
-            <ChatWindow
-              {...chatWindowProps}
-              groupManagementMenu={groupMenu}
-              onBack={() => setCurrentChat(null)}
-              showBackButton
-            />
-          </div>
-        )}
-      </ResizablePanelGroup>
+          <ResizableHandle withHandle />
+
+          {/* Right Panel - Chat Window */}
+          <ResizablePanel
+            defaultSize={70}
+            minSize={50}
+            className="flex flex-col min-w-0"
+          >
+            {chatWindowProps ? (
+              <div className="flex flex-col h-full bg-background">
+                <ChatWindow {...chatWindowProps} groupManagementMenu={groupMenu} />
+              </div>
+            ) : (
+              <EmptyState variant="no-chat" />
+            )}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        /* Mobile: Sheet for Chat List */
+        <>
+          {/* Mobile Chat List Sheet */}
+          <Sheet open={isChatListOpen} onOpenChange={setIsChatListOpen}>
+            <SheetContent side="left" className="w-full sm:max-w-sm p-0">
+              <SheetTitle className="sr-only">Danh sách chat</SheetTitle>
+              {chatListContent}
+            </SheetContent>
+          </Sheet>
+
+          {/* Mobile: Show Chat List Button when no chat is selected */}
+          {!showMobileChatWindow && (
+            <div className="flex flex-1 flex-col h-full">
+              <div className="flex items-center gap-2 h-14 px-4 border-b shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setIsChatListOpen(true)}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+                <h2 className="text-lg font-semibold">Chats</h2>
+              </div>
+              <div className="flex-1 flex items-center justify-center">
+                <EmptyState variant="no-chat" />
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Chat Window */}
+          {showMobileChatWindow && chatWindowProps && (
+            <div className="fixed top-16 bottom-0 left-0 right-0 z-30 flex flex-col bg-background md:hidden">
+              <ChatWindow
+                {...chatWindowProps}
+                groupManagementMenu={groupMenu}
+                onBack={() => {
+                  setCurrentChat(null)
+                  setIsChatListOpen(true)
+                }}
+                showBackButton
+              />
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

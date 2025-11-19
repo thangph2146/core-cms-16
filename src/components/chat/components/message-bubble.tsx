@@ -56,7 +56,7 @@ export function MessageBubble({
         )}
         <div
           className={`max-w-[70%] rounded-lg px-4 py-2 cursor-pointer hover:opacity-90 transition-opacity relative ${
-            isOwnMessage ? "bg-primary text-primary-foreground" : "bg-muted"
+            isOwnMessage ? "bg-primary text-primary-foreground" : ""
           }`}
           data-role="bubble"
           onClick={() => {

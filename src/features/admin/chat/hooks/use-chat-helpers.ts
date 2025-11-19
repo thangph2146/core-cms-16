@@ -12,6 +12,17 @@ import { requestJson } from "@/lib/api/client"
 const ESTIMATED_REPLY_BANNER_HEIGHT = 48
 const ADJUSTMENT_PX = 5
 const MARK_AS_READ_DEBOUNCE_MS = 300
+const MOBILE_BREAKPOINT = 768
+
+/**
+ * Check if current viewport is mobile
+ * Uses same logic as useIsMobile hook
+ * Internal helper - not exported
+ */
+function isMobileViewport(): boolean {
+  if (typeof window === "undefined") return false
+  return window.innerWidth < MOBILE_BREAKPOINT
+}
 
 /**
  * Tính toán base height cho messages area
@@ -23,31 +34,71 @@ function calculateBaseHeight(): number {
 
 /**
  * Tính toán height cho messages area
+ * Automatically detects mobile using same logic as useIsMobile hook
+ * Can use measured heights from useChatElementsHeight hook for more accurate calculations
  */
 export function calculateMessagesHeight(params: {
   textareaHeight: number
   replyingTo: Message | null
-  replyBannerRef: React.RefObject<HTMLDivElement | null>
+  replyBannerRef?: React.RefObject<HTMLDivElement | null>
   deletedBannerRef?: React.RefObject<HTMLDivElement | null>
   isGroupDeleted?: boolean
+  elementHeights?: {
+    chatHeader?: number
+    adminHeader?: number
+    replyBanner?: number
+    deletedBanner?: number
+    chatInput?: number
+  }
 }): { maxHeight: number; minHeight: number } {
-  const { textareaHeight, replyingTo, replyBannerRef, deletedBannerRef, isGroupDeleted = false } = params
-  const baseHeight = calculateBaseHeight()
+  const { 
+    textareaHeight, 
+    replyingTo, 
+    replyBannerRef, 
+    deletedBannerRef, 
+    isGroupDeleted = false,
+    elementHeights,
+  } = params
+  const isMobile = isMobileViewport()
+  let baseHeight = calculateBaseHeight()
+  
+  // Subtract 50px from baseHeight for desktop to account for header and spacing
+  if (!isMobile) {
+    baseHeight -= 50
+  }
+  
   const textareaExtraHeight = Math.max(0, textareaHeight - TEXTAREA_MIN_HEIGHT)
 
-  // Measure actual reply banner height
+  // Use measured heights from hook if available, otherwise fallback to refs
   const replyBannerHeight = replyingTo && !isGroupDeleted
-    ? replyBannerRef.current?.offsetHeight || ESTIMATED_REPLY_BANNER_HEIGHT
+    ? (elementHeights?.replyBanner ?? replyBannerRef?.current?.offsetHeight ?? ESTIMATED_REPLY_BANNER_HEIGHT)
     : 0
 
-  // Measure actual deleted banner height
-  const deletedBannerHeight = isGroupDeleted && deletedBannerRef?.current
-    ? deletedBannerRef.current.offsetHeight
-    : isGroupDeleted
-    ? 40 // Fallback estimate
+  const deletedBannerHeight = isGroupDeleted
+    ? (elementHeights?.deletedBanner ?? deletedBannerRef?.current?.offsetHeight ?? 40)
     : 0
 
-  const totalExtraHeight = textareaExtraHeight + replyBannerHeight + deletedBannerHeight + ADJUSTMENT_PX
+  // On mobile, use fixed height of 717px regardless of textarea height
+  if (isMobile) {
+    const height = 717
+    return { maxHeight: height, minHeight: height }
+  }
+
+  // Desktop: calculate height based on textarea and banners
+  // Also subtract chat header and admin header heights if provided
+  const chatHeaderHeight = elementHeights?.chatHeader ?? 0
+  const adminHeaderHeight = elementHeights?.adminHeader ?? 0
+  const chatInputHeight = elementHeights?.chatInput ?? textareaHeight
+  
+  const totalExtraHeight = 
+    textareaExtraHeight + 
+    replyBannerHeight + 
+    deletedBannerHeight + 
+    chatHeaderHeight + 
+    adminHeaderHeight +
+    (chatInputHeight - TEXTAREA_MIN_HEIGHT) +
+    ADJUSTMENT_PX
+    
   const height = Math.max(0, baseHeight - totalExtraHeight)
 
   return { maxHeight: height, minHeight: height }

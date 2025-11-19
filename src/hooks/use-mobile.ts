@@ -1,4 +1,5 @@
 import * as React from "react"
+import { logger } from "@/lib/config/logger"
 
 const MOBILE_BREAKPOINT = 768
 
@@ -8,10 +9,24 @@ export function useIsMobile() {
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+      const width = window.innerWidth
+      const isMobileValue = width < MOBILE_BREAKPOINT
+      logger.debug("Window width changed", {
+        width,
+        isMobile: isMobileValue,
+        breakpoint: MOBILE_BREAKPOINT,
+      })
+      setIsMobile(isMobileValue)
     }
     mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    const initialWidth = window.innerWidth
+    const initialIsMobile = initialWidth < MOBILE_BREAKPOINT
+    logger.debug("Initial window width", {
+      width: initialWidth,
+      isMobile: initialIsMobile,
+      breakpoint: MOBILE_BREAKPOINT,
+    })
+    setIsMobile(initialIsMobile)
     return () => mql.removeEventListener("change", onChange)
   }, [])
 

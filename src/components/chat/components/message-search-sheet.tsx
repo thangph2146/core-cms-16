@@ -61,7 +61,7 @@ export function MessageSearchSheet({
               <button
                 key={message.id}
                 onClick={() => onMessageClick(message.id)}
-                className="w-full text-left p-3 rounded-lg border hover:bg-accent transition-colors"
+                className="w-full text-left p-3 rounded-lg border hover:bg-accent/10 transition-colors"
               >
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">

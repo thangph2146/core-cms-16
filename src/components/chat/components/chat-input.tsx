@@ -2,13 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Paperclip, Send, Smile } from "lucide-react"
+// import {
+//   DropdownMenu,
+//   DropdownMenuTrigger,
+// } from "@/components/ui/dropdown-menu"
+// import { Paperclip, Send, Smile } from "lucide-react"
+import { Send } from "lucide-react"
 import type { Contact, Message } from "../types"
-import { AttachmentMenu } from "./attachment-menu"
+// import { AttachmentMenu } from "./attachment-menu"
 import { ReplyBanner } from "./reply-banner"
 import { GroupDeletedBanner } from "./group-deleted-banner"
 
@@ -50,7 +51,7 @@ export function ChatInput({
       )}
       {isGroupDeleted && <GroupDeletedBanner ref={deletedBannerRef} />}
       <div className="flex items-end gap-1 min-h-[64px] max-h-[152px] px-4 py-2">
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 mb-0.5" disabled={isDisabled}>
+        {/* <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 mb-0.5" disabled={isDisabled}>
           <Smile className="h-4 w-4" />
         </Button>
         <DropdownMenu>
@@ -60,11 +61,11 @@ export function ChatInput({
             </Button>
           </DropdownMenuTrigger>
           <AttachmentMenu />
-        </DropdownMenu>
+        </DropdownMenu> */}
         <Textarea
           ref={inputRef}
-          className="flex-1 min-h-[36px] resize-none overflow-y-auto"
-          style={{ maxHeight: "120px" }}
+          className="flex-1 resize-none overflow-y-auto"
+          style={{ maxHeight: "120px" , minHeight: "64px" }}
           placeholder={isGroupDeleted ? "Nhóm đã bị xóa" : "Type a message (Enter to send, Shift+Enter for new line)"}
           value={messageInput}
           onChange={(e) => setMessageInput(e.target.value)}
