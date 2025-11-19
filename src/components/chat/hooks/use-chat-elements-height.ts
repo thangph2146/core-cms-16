@@ -49,7 +49,7 @@ export function useChatElementsHeight({
   }, [chatHeaderRef, adminHeaderRef, replyBannerRef, deletedBannerRef, chatInputRef])
 
   // Function để đo height của một element
-  const measureElement = useCallback((ref: React.RefObject<HTMLElement | null>): number => {
+  const measureElement = useCallback((ref?: React.RefObject<HTMLElement | null>): number => {
     if (!ref?.current) return 0
     return ref.current.offsetHeight || ref.current.getBoundingClientRect().height || 0
   }, [])
@@ -84,7 +84,7 @@ export function useChatElementsHeight({
   // Setup ResizeObserver cho mỗi element
   useEffect(() => {
     const observers: ResizeObserver[] = []
-    const elements: Array<{ ref: React.RefObject<HTMLElement | null> }> = [
+    const elements: Array<{ ref?: React.RefObject<HTMLElement | null> }> = [
       { ref: chatHeaderRef },
       { ref: adminHeaderRef },
       { ref: replyBannerRef },
