@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
@@ -259,6 +259,122 @@ export function TagsTableClient({
     })
   }, [initialData, queryClient])
 
+  // Helper function for active view selection actions
+  const createActiveSelectionActions = useCallback(
+    ({ selectedIds, clearSelection, refresh }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={TAG_LABELS.SELECTED_TAGS(selectedIds.length)}
+        actions={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={bulkState.isProcessing || selectedIds.length === 0}
+              onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+              className="whitespace-nowrap"
+            >
+              <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+              <span className="hidden sm:inline">
+                {TAG_LABELS.DELETE_SELECTED(selectedIds.length)}
+              </span>
+              <span className="sm:hidden">Xóa</span>
+            </Button>
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {TAG_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {TAG_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canManage, bulkState.isProcessing, executeBulk],
+  )
+
+  // Helper function for deleted view selection actions
+  const createDeletedSelectionActions = useCallback(
+    ({ selectedIds, clearSelection, refresh }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={TAG_LABELS.SELECTED_DELETED_TAGS(selectedIds.length)}
+        actions={
+          <>
+            {canRestore && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <RotateCcw className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {TAG_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Khôi phục</span>
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {TAG_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {TAG_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canRestore, canManage, bulkState.isProcessing, executeBulk],
+  )
+
   const viewModes = useMemo<ResourceViewMode<TagRow>[]>(() => {
     const modes: ResourceViewMode<TagRow>[] = [
       {
@@ -266,42 +382,7 @@ export function TagsTableClient({
         label: TAG_LABELS.ACTIVE_VIEW,
         status: "active",
         selectionEnabled: canDelete,
-        selectionActions: canDelete
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {TAG_LABELS.SELECTED_TAGS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={bulkState.isProcessing || selectedIds.length === 0}
-                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    {TAG_LABELS.DELETE_SELECTED(selectedIds.length)}
-                  </Button>
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {TAG_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {TAG_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canDelete ? createActiveSelectionActions : undefined,
         rowActions: (row) => renderActiveRowActions(row),
         emptyMessage: TAG_LABELS.NO_TAGS,
       },
@@ -311,44 +392,7 @@ export function TagsTableClient({
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
-        selectionActions: canRestore || canManage
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {TAG_LABELS.SELECTED_DELETED_TAGS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  {canRestore && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
-                    >
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      {TAG_LABELS.RESTORE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {TAG_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {TAG_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canRestore || canManage ? createDeletedSelectionActions : undefined,
         rowActions: (row) => renderDeletedRowActions(row),
         emptyMessage: TAG_LABELS.NO_DELETED_TAGS,
       },
@@ -360,8 +404,8 @@ export function TagsTableClient({
     canRestore,
     canManage,
     deletedColumns,
-    executeBulk,
-    bulkState.isProcessing,
+    createActiveSelectionActions,
+    createDeletedSelectionActions,
     renderActiveRowActions,
     renderDeletedRowActions,
   ])

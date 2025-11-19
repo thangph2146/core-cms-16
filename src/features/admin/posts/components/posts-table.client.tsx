@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
@@ -329,6 +329,130 @@ export function PostsTableClient({
     })
   }, [initialData, queryClient])
 
+  const createActiveSelectionActions = useCallback(
+    ({
+      selectedIds,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={POST_LABELS.SELECTED_POSTS(selectedIds.length)}
+        actions={
+          <>
+            {canDelete && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {POST_LABELS.DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa</span>
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {POST_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canDelete, canManage, bulkState.isProcessing, executeBulk],
+  )
+
+  const createDeletedSelectionActions = useCallback(
+    ({
+      selectedIds,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={POST_LABELS.SELECTED_DELETED_POSTS(selectedIds.length)}
+        actions={
+          <>
+            {canRestore && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <RotateCcw className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {POST_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Khôi phục</span>
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {POST_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canRestore, canManage, bulkState.isProcessing, executeBulk],
+  )
+
   const viewModes = useMemo<ResourceViewMode<PostRow>[]>(() => {
     const modes: ResourceViewMode<PostRow>[] = [
       {
@@ -337,44 +461,7 @@ export function PostsTableClient({
         status: "active",
         columns: baseColumns,
         selectionEnabled: canDelete || canManage,
-        selectionActions: canDelete || canManage
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {POST_LABELS.SELECTED_POSTS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  {canDelete && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <Trash2 className="mr-2 h-5 w-5" />
-                      {POST_LABELS.DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {POST_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canDelete || canManage ? createActiveSelectionActions : undefined,
         rowActions: (row) => renderActiveRowActions(row),
         emptyMessage: POST_LABELS.NO_POSTS,
       },
@@ -384,44 +471,7 @@ export function PostsTableClient({
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
-        selectionActions: canRestore || canManage
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {POST_LABELS.SELECTED_DELETED_POSTS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  {canRestore && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
-                    >
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      {POST_LABELS.RESTORE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {POST_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {POST_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canRestore || canManage ? createDeletedSelectionActions : undefined,
         rowActions: (row) => renderDeletedRowActions(row),
         emptyMessage: POST_LABELS.NO_DELETED_POSTS,
       },
@@ -434,8 +484,8 @@ export function PostsTableClient({
     canManage,
     baseColumns,
     deletedColumns,
-    executeBulk,
-    bulkState.isProcessing,
+    createActiveSelectionActions,
+    createDeletedSelectionActions,
     renderActiveRowActions,
     renderDeletedRowActions,
   ])

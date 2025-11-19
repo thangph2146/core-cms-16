@@ -50,31 +50,22 @@ const VIETNAMESE_MAP: Record<string, string> = {
  * generateSlug("Bài viết về React") // "bai-viet-ve-react"
  */
 export function generateSlug(text: string): string {
-  if (!text || typeof text !== "string") {
-    return ""
-  }
+  if (!text || typeof text !== "string") return ""
 
   let slug = text.trim()
 
   // Replace Vietnamese characters
   for (const [vietnamese, replacement] of Object.entries(VIETNAMESE_MAP)) {
-    slug = slug.replace(new RegExp(vietnamese, "g"), replacement)
+    slug = slug.replaceAll(vietnamese, replacement)
   }
 
   // Normalize remaining diacritics (fallback for any missed characters)
-  slug = slug
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+  slug = slug.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
-  // Convert to lowercase
-  slug = slug.toLowerCase()
-
-  // Replace spaces and special characters with dashes
-  slug = slug.replace(/[^a-z0-9]+/g, "-")
+  // Convert to lowercase and replace spaces/special chars with dashes
+  slug = slug.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 
   // Remove leading and trailing dashes
-  slug = slug.replace(/^-+|-+$/g, "")
-
-  return slug
+  return slug.replace(/^-+|-+$/g, "")
 }
 

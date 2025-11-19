@@ -16,6 +16,7 @@ export { ResourceTableClient } from "./resource-table.client"
 export { ResourceForm } from "./resource-form"
 export { ResourceDetailPage } from "./resource-detail-page"
 export { NotFoundMessage } from "./not-found-message"
+export { SelectionActionsWrapper } from "./selection-actions-wrapper"
 
 // Suspense Wrappers
 export {

@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
@@ -115,10 +115,10 @@ export function UsersTableClient({
           filterParams.set(`filter[${key}]`, value)
         }
       })
-
+      
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
-
+      
       const response = await apiClient.get<UsersResponse>(url)
       const payload = response.data
 
@@ -293,25 +293,31 @@ export function UsersTableClient({
               const hasSuperAdmin = selectedRows.some((row) => row.email === "superadmin@hub.edu.vn")
               
               return (
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <span>
-                    {USER_LABELS.SELECTED_USERS(selectedIds.length)}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+                  <div className="flex-shrink-0">
+                    <span className="block sm:inline">
+                      {USER_LABELS.SELECTED_USERS(selectedIds.length)}
+                    </span>
                     {hasSuperAdmin && (
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="block sm:inline ml-0 sm:ml-2 mt-1 sm:mt-0 text-xs text-muted-foreground">
                         (Tài khoản super admin không thể xóa)
                       </span>
                     )}
-                  </span>
-                  <div className="flex items-center gap-2">
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       type="button"
                       size="sm"
                       variant="destructive"
                       disabled={bulkState.isProcessing || deletableRows.length === 0}
                       onClick={() => executeBulk("delete", deletableRows.map((r) => r.id), deletableRows, refresh, clearSelection)}
+                      className="whitespace-nowrap"
                     >
-                      <Trash2 className="mr-2 h-5 w-5" />
-                      {USER_LABELS.DELETE_SELECTED(deletableRows.length)}
+                      <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+                      <span className="hidden sm:inline">
+                        {USER_LABELS.DELETE_SELECTED(deletableRows.length)}
+                      </span>
+                      <span className="sm:hidden">Xóa</span>
                     </Button>
                     {canManage && (
                       <Button
@@ -320,12 +326,22 @@ export function UsersTableClient({
                         variant="destructive"
                         disabled={bulkState.isProcessing || deletableRows.length === 0}
                         onClick={() => executeBulk("hard-delete", deletableRows.map((r) => r.id), deletableRows, refresh, clearSelection)}
+                        className="whitespace-nowrap"
                       >
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        {USER_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
+                        <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                        <span className="hidden sm:inline">
+                          {USER_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
+                        </span>
+                        <span className="sm:hidden">Xóa vĩnh viễn</span>
                       </Button>
                     )}
-                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={clearSelection}
+                      className="whitespace-nowrap"
+                    >
                       {USER_LABELS.CLEAR_SELECTION}
                     </Button>
                   </div>
@@ -344,21 +360,24 @@ export function UsersTableClient({
         selectionEnabled: canRestore || canManage,
         selectionActions: canRestore || canManage
           ? ({ selectedIds, selectedRows, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {USER_LABELS.SELECTED_DELETED_USERS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
+              <SelectionActionsWrapper
+                label={USER_LABELS.SELECTED_DELETED_USERS(selectedIds.length)}
+                actions={
+                  <>
                   {canRestore && (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("restore", selectedIds, selectedRows, refresh, clearSelection)}
-                    >
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      {USER_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                        disabled={bulkState.isProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("restore", selectedIds, selectedRows, refresh, clearSelection)}
+                        className="whitespace-nowrap"
+                      >
+                        <RotateCcw className="mr-2 h-5 w-5 shrink-0" />
+                        <span className="hidden sm:inline">
+                          {USER_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                        </span>
+                        <span className="sm:hidden">Khôi phục</span>
                     </Button>
                   )}
                   {canManage && (
@@ -366,18 +385,29 @@ export function UsersTableClient({
                       type="button"
                       size="sm"
                       variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, selectedRows, refresh, clearSelection)}
+                        disabled={bulkState.isProcessing || selectedIds.length === 0}
+                        onClick={() => executeBulk("hard-delete", selectedIds, selectedRows, refresh, clearSelection)}
+                        className="whitespace-nowrap"
+                      >
+                        <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                        <span className="hidden sm:inline">
+                          {USER_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                        </span>
+                        <span className="sm:hidden">Xóa vĩnh viễn</span>
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={clearSelection}
+                      className="whitespace-nowrap"
                     >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {USER_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                      {USER_LABELS.CLEAR_SELECTION}
                     </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {USER_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
+                  </>
+                }
+              />
             )
           : undefined,
         rowActions: (row) => renderDeletedRowActions(row),

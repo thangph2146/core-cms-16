@@ -33,14 +33,12 @@ export { useSession }
 export { signIn, signOut }
 
 export const authApi = {
-  signIn: async (data: SignInRequest) => {
-    const result = await signIn("credentials", {
+  signIn: async (data: SignInRequest) =>
+    signIn("credentials", {
       email: data.email,
       password: data.password,
       redirect: false,
-    })
-    return result
-  },
+    }),
 
   signUp: async (data: SignUpRequest): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>(apiRoutes.auth.signUp, data)
@@ -59,4 +57,4 @@ export const authApi = {
     const response = await apiClient.get(apiRoutes.auth.session)
     return response.data
   },
-}
+} as const

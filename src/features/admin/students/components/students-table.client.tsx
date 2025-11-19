@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
@@ -279,6 +279,128 @@ export function StudentsTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
+  const createActiveSelectionActions = useCallback(
+    ({
+      selectedIds,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={STUDENT_LABELS.SELECTED_STUDENTS(selectedIds.length)}
+        actions={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={bulkState.isProcessing || selectedIds.length === 0}
+              onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
+              className="whitespace-nowrap"
+            >
+              <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+              <span className="hidden sm:inline">
+                {STUDENT_LABELS.DELETE_SELECTED(selectedIds.length)}
+              </span>
+              <span className="sm:hidden">Xóa</span>
+            </Button>
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {STUDENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {STUDENT_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canManage, bulkState.isProcessing, executeBulk],
+  )
+
+  const createDeletedSelectionActions = useCallback(
+    ({
+      selectedIds,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => (
+      <SelectionActionsWrapper
+        label={STUDENT_LABELS.SELECTED_DELETED_STUDENTS(selectedIds.length)}
+        actions={
+          <>
+            {canRestore && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <RotateCcw className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {STUDENT_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Khôi phục</span>
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || selectedIds.length === 0}
+                onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
+                className="whitespace-nowrap"
+              >
+                <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {STUDENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
+                </span>
+                <span className="sm:hidden">Xóa vĩnh viễn</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={clearSelection}
+              className="whitespace-nowrap"
+            >
+              {STUDENT_LABELS.CLEAR_SELECTION}
+            </Button>
+          </>
+        }
+      />
+    ),
+    [canRestore, canManage, bulkState.isProcessing, executeBulk],
+  )
+
   const viewModes = useMemo<ResourceViewMode<StudentRow>[]>(() => {
     const modes: ResourceViewMode<StudentRow>[] = [
       {
@@ -287,42 +409,7 @@ export function StudentsTableClient({
         status: "active",
         columns: baseColumns,
         selectionEnabled: canDelete,
-        selectionActions: canDelete
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {STUDENT_LABELS.SELECTED_STUDENTS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    disabled={bulkState.isProcessing || selectedIds.length === 0}
-                    onClick={() => executeBulk("delete", selectedIds, refresh, clearSelection)}
-                  >
-                    <Trash2 className="mr-2 h-5 w-5" />
-                    {STUDENT_LABELS.DELETE_SELECTED(selectedIds.length)}
-                  </Button>
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {STUDENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {STUDENT_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canDelete ? createActiveSelectionActions : undefined,
         rowActions: (row) => renderActiveRowActions(row),
         emptyMessage: STUDENT_LABELS.NO_STUDENTS,
       },
@@ -332,44 +419,7 @@ export function StudentsTableClient({
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
-        selectionActions: canRestore || canManage
-          ? ({ selectedIds, clearSelection, refresh }) => (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>
-                  {STUDENT_LABELS.SELECTED_DELETED_STUDENTS(selectedIds.length)}
-                </span>
-                <div className="flex items-center gap-2">
-                  {canRestore && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
-                    >
-                      <RotateCcw className="mr-2 h-5 w-5" />
-                      {STUDENT_LABELS.RESTORE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  {canManage && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || selectedIds.length === 0}
-                      onClick={() => executeBulk("hard-delete", selectedIds, refresh, clearSelection)}
-                    >
-                      <AlertTriangle className="mr-2 h-5 w-5" />
-                      {STUDENT_LABELS.HARD_DELETE_SELECTED(selectedIds.length)}
-                    </Button>
-                  )}
-                  <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                    {STUDENT_LABELS.CLEAR_SELECTION}
-                  </Button>
-                </div>
-              </div>
-            )
-          : undefined,
+        selectionActions: canRestore || canManage ? createDeletedSelectionActions : undefined,
         rowActions: (row) => renderDeletedRowActions(row),
         emptyMessage: STUDENT_LABELS.NO_DELETED_STUDENTS,
       },
@@ -377,13 +427,13 @@ export function StudentsTableClient({
 
     return modes
   }, [
-    baseColumns,
-    deletedColumns,
     canDelete,
     canRestore,
     canManage,
-    bulkState.isProcessing,
-    executeBulk,
+    baseColumns,
+    deletedColumns,
+    createActiveSelectionActions,
+    createDeletedSelectionActions,
     renderActiveRowActions,
     renderDeletedRowActions,
   ])

@@ -9,7 +9,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { logger } from "@/lib/config"
@@ -162,7 +162,7 @@ export function NotificationsTableClient({
   }, [queryClient])
 
   const loader: ResourceTableLoader<NotificationRow> = useCallback(
-    async (query: DataTableQueryState, _view: ResourceViewMode<NotificationRow>) => {
+    async (query: DataTableQueryState, view: ResourceViewMode<NotificationRow>) => {
       const baseUrl = apiRoutes.adminNotifications.list({
         page: query.page,
         limit: query.limit,
@@ -170,8 +170,17 @@ export function NotificationsTableClient({
       })
 
       const filterParams = new URLSearchParams()
+      
+      // Apply view status filter (isRead)
+      if (view.status === "unread") {
+        filterParams.set("filter[isRead]", "false")
+      } else if (view.status === "read") {
+        filterParams.set("filter[isRead]", "true")
+      }
+      
+      // Apply other filters
       Object.entries(query.filters).forEach(([key, value]) => {
-        if (value) {
+        if (value && key !== "isRead") {
           filterParams.set(`filter[${key}]`, value)
         }
       })
@@ -227,135 +236,198 @@ export function NotificationsTableClient({
     [],
   )
 
-  const viewModes: ResourceViewMode<NotificationRow>[] = useMemo(
-    () => [
-      {
-        id: "all",
-        label: NOTIFICATION_LABELS.ALL,
-        columns: baseColumns,
-        selectionEnabled: canManage,
-        selectionActions: canManage
-          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
-              const ownNotifications = selectedRows.filter((row) => row.userId === session?.user?.id)
-              const otherCount = selectedIds.length - ownNotifications.length
+  // Helper function to create selection actions
+  const createSelectionActions = useCallback(
+    ({ selectedIds, selectedRows, clearSelection, refresh }: {
+      selectedIds: string[]
+      selectedRows: NotificationRow[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => {
+      const ownNotifications = selectedRows.filter((row) => row.userId === session?.user?.id)
+      const otherCount = selectedIds.length - ownNotifications.length
 
-              const unreadNotifications = ownNotifications.filter((row) => !row.isRead)
-              const unreadNotificationIds = unreadNotifications.map((row) => row.id)
-              const readNotifications = ownNotifications.filter((row) => row.isRead)
-              const readNotificationIds = readNotifications.map((row) => row.id)
+      const unreadNotifications = ownNotifications.filter((row) => !row.isRead)
+      const unreadNotificationIds = unreadNotifications.map((row) => row.id)
+      const readNotifications = ownNotifications.filter((row) => row.isRead)
+      const readNotificationIds = readNotifications.map((row) => row.id)
 
-              const deletableNotifications = ownNotifications.filter((row) => row.kind !== "SYSTEM")
-              const deletableNotificationIds = deletableNotifications.map((row) => row.id)
-              const systemCount = ownNotifications.length - deletableNotifications.length
+      const deletableNotifications = ownNotifications.filter((row) => row.kind !== "SYSTEM")
+      const deletableNotificationIds = deletableNotifications.map((row) => row.id)
+      const systemCount = ownNotifications.length - deletableNotifications.length
 
-              const handleBulkMarkAsReadWithRefresh = () => {
-                setDeleteConfirm({
-                  open: true,
-                  type: "mark-read",
-                  bulkIds: unreadNotificationIds,
-                  onConfirm: async () => {
-                    await handleBulkMarkAsRead(unreadNotificationIds, ownNotifications)
-                    refresh?.()
-                  },
-                })
-              }
+      const handleBulkMarkAsReadWithRefresh = () => {
+        setDeleteConfirm({
+          open: true,
+          type: "mark-read",
+          bulkIds: unreadNotificationIds,
+          onConfirm: async () => {
+            await handleBulkMarkAsRead(unreadNotificationIds, ownNotifications)
+            refresh?.()
+          },
+        })
+      }
 
-              const handleBulkMarkAsUnreadWithRefresh = () => {
-                setDeleteConfirm({
-                  open: true,
-                  type: "mark-unread",
-                  bulkIds: readNotificationIds,
-                  onConfirm: async () => {
-                    await handleBulkMarkAsUnread(readNotificationIds, ownNotifications)
-                    refresh?.()
-                  },
-                })
-              }
+      const handleBulkMarkAsUnreadWithRefresh = () => {
+        setDeleteConfirm({
+          open: true,
+          type: "mark-unread",
+          bulkIds: readNotificationIds,
+          onConfirm: async () => {
+            await handleBulkMarkAsUnread(readNotificationIds, ownNotifications)
+            refresh?.()
+          },
+        })
+      }
 
-              const handleBulkDeleteWithRefresh = () => {
-                setDeleteConfirm({
-                  open: true,
-                  type: "delete",
-                  bulkIds: deletableNotificationIds,
-                  onConfirm: async () => {
-                    await handleBulkDelete(selectedIds, selectedRows)
-                    refresh?.()
-                  },
-                })
-              }
+      const handleBulkDeleteWithRefresh = () => {
+        setDeleteConfirm({
+          open: true,
+          type: "delete",
+          bulkIds: deletableNotificationIds,
+          onConfirm: async () => {
+            await handleBulkDelete(selectedIds, selectedRows)
+            refresh?.()
+          },
+        })
+      }
 
-              return (
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <span>
-                    {NOTIFICATION_LABELS.SELECTED_NOTIFICATIONS(selectedIds.length)}
-                    {(otherCount > 0 || systemCount > 0) && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({systemCount > 0 && `${systemCount} hệ thống, `}
-                        {otherCount > 0 && `${otherCount} không thuộc về bạn`}
-                        {systemCount > 0 && otherCount === 0 && "không thể xóa"})
-                      </span>
-                    )}
+      return (
+        <SelectionActionsWrapper
+          label={NOTIFICATION_LABELS.SELECTED_NOTIFICATIONS(selectedIds.length)}
+          labelSuffix={
+            (otherCount > 0 || systemCount > 0) && (
+              <>
+                ({systemCount > 0 && `${systemCount} hệ thống, `}
+                {otherCount > 0 && `${otherCount} không thuộc về bạn`}
+                {systemCount > 0 && otherCount === 0 && "không thể xóa"})
+              </>
+            )
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleBulkMarkAsReadWithRefresh}
+                disabled={bulkState.isProcessing || unreadNotificationIds.length === 0}
+                className="whitespace-nowrap"
+              >
+                <CheckCircle2 className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {NOTIFICATION_LABELS.MARK_READ_SELECTED(unreadNotificationIds.length)}
+                </span>
+                <span className="sm:hidden">Đã đọc</span>
+              </Button>
+              <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleBulkMarkAsUnreadWithRefresh}
+              disabled={bulkState.isProcessing || readNotificationIds.length === 0}
+              className="whitespace-nowrap"
+            >
+                <BellOff className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {NOTIFICATION_LABELS.MARK_UNREAD_SELECTED(readNotificationIds.length)}
+                </span>
+                <span className="sm:hidden">Chưa đọc</span>
+              </Button>
+              {deletableNotificationIds.length > 0 && (
+                <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkDeleteWithRefresh}
+                disabled={bulkState.isProcessing || deletableNotificationIds.length === 0}
+                className="whitespace-nowrap"
+              >
+                  <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {NOTIFICATION_LABELS.DELETE_SELECTED(deletableNotificationIds.length)}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={handleBulkMarkAsReadWithRefresh}
-                      disabled={bulkState.isProcessing || unreadNotificationIds.length === 0}
-                    >
-                      <CheckCircle2 className="mr-2 h-5 w-5" />
-                      {NOTIFICATION_LABELS.MARK_READ_SELECTED(unreadNotificationIds.length)}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={handleBulkMarkAsUnreadWithRefresh}
-                      disabled={bulkState.isProcessing || readNotificationIds.length === 0}
-                    >
-                      <BellOff className="mr-2 h-5 w-5" />
-                      {NOTIFICATION_LABELS.MARK_UNREAD_SELECTED(readNotificationIds.length)}
-                    </Button>
-                    {deletableNotificationIds.length > 0 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={handleBulkDeleteWithRefresh}
-                        disabled={bulkState.isProcessing || deletableNotificationIds.length === 0}
-                      >
-                        <Trash2 className="mr-2 h-5 w-5" />
-                        {NOTIFICATION_LABELS.DELETE_SELECTED(deletableNotificationIds.length)}
-                      </Button>
-                    )}
-                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                      {NOTIFICATION_LABELS.CLEAR_SELECTION}
-                    </Button>
-                  </div>
-                </div>
-              )
-            }
-          : undefined,
-        rowActions: (row) => renderRowActionsForNotifications(row),
-      },
-    ],
+                  <span className="sm:hidden">Xóa</span>
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={clearSelection}
+                className="whitespace-nowrap"
+              >
+                {NOTIFICATION_LABELS.CLEAR_SELECTION}
+              </Button>
+            </>
+          }
+        />
+      )
+    },
     [
-      canManage,
-      baseColumns,
       session?.user?.id,
       handleBulkMarkAsRead,
       handleBulkMarkAsUnread,
       handleBulkDelete,
       bulkState.isProcessing,
-      renderRowActionsForNotifications,
       setDeleteConfirm,
+    ],
+  )
+
+  const viewModes: ResourceViewMode<NotificationRow>[] = useMemo(
+    () => [
+      {
+        id: "all",
+        label: NOTIFICATION_LABELS.ALL,
+        status: "all",
+        columns: baseColumns,
+        selectionEnabled: canManage,
+        selectionActions: canManage ? createSelectionActions : undefined,
+        rowActions: (row) => renderRowActionsForNotifications(row),
+        emptyMessage: NOTIFICATION_LABELS.NO_NOTIFICATIONS,
+      },
+      {
+        id: "unread",
+        label: NOTIFICATION_LABELS.UNREAD_VIEW,
+        status: "unread",
+        columns: baseColumns,
+        selectionEnabled: canManage,
+        selectionActions: canManage ? createSelectionActions : undefined,
+        rowActions: (row) => renderRowActionsForNotifications(row),
+        emptyMessage: "Không có thông báo chưa đọc",
+      },
+      {
+        id: "read",
+        label: NOTIFICATION_LABELS.READ_VIEW,
+        status: "read",
+        columns: baseColumns,
+        selectionEnabled: canManage,
+        selectionActions: canManage ? createSelectionActions : undefined,
+        rowActions: (row) => renderRowActionsForNotifications(row),
+        emptyMessage: "Không có thông báo đã đọc",
+      },
+    ],
+    [
+      canManage,
+      baseColumns,
+      createSelectionActions,
+      renderRowActionsForNotifications,
     ],
   )
 
   const initialDataByView = useMemo(
     () => ({
       all: initialData,
+      unread: {
+        ...initialData,
+        rows: initialData.rows.filter((row) => !row.isRead),
+        total: initialData.rows.filter((row) => !row.isRead).length,
+      },
+      read: {
+        ...initialData,
+        rows: initialData.rows.filter((row) => row.isRead),
+        total: initialData.rows.filter((row) => row.isRead).length,
+      },
     }),
     [initialData],
   )

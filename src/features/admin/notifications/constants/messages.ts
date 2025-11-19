@@ -61,6 +61,8 @@ export const NOTIFICATION_LABELS = {
   
   // View mode labels
   ALL: "Tất cả",
+  UNREAD_VIEW: "Chưa đọc",
+  READ_VIEW: "Đã đọc",
   
   // Empty messages
   NO_NOTIFICATIONS: "Không tìm thấy thông báo nào",

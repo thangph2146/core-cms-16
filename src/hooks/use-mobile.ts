@@ -1,34 +1,24 @@
-import * as React from "react"
-import { logger } from "@/lib/config/logger"
+"use client"
+
+import { useEffect, useState } from "react"
 
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
-
-  React.useEffect(() => {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      const width = window.innerWidth
-      const isMobileValue = width < MOBILE_BREAKPOINT
-      logger.debug("Window width changed", {
-        width,
-        isMobile: isMobileValue,
-        breakpoint: MOBILE_BREAKPOINT,
-      })
-      setIsMobile(isMobileValue)
-    }
+    return mql.matches
+  })
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const onChange = () => setIsMobile(mql.matches)
+
     mql.addEventListener("change", onChange)
-    const initialWidth = window.innerWidth
-    const initialIsMobile = initialWidth < MOBILE_BREAKPOINT
-    logger.debug("Initial window width", {
-      width: initialWidth,
-      isMobile: initialIsMobile,
-      breakpoint: MOBILE_BREAKPOINT,
-    })
-    setIsMobile(initialIsMobile)
+
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }

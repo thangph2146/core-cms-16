@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient } from "@/features/admin/resources/components/resource-table.client"
+import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
@@ -283,73 +283,178 @@ export function RolesTableClient({
     })
   }, [initialData, queryClient])
 
+  const createActiveSelectionActions = useCallback(
+    ({
+      selectedIds,
+      selectedRows,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      selectedRows: RoleRow[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => {
+      const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
+      const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
+
+      return (
+        <SelectionActionsWrapper
+          label={ROLE_LABELS.SELECTED_ROLES(selectedIds.length)}
+          labelSuffix={
+            hasSuperAdmin ? <>{ROLE_LABELS.CANNOT_DELETE_SUPER_ADMIN_HINT}</> : undefined
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={bulkState.isProcessing || deletableRows.length === 0}
+                onClick={() =>
+                  executeBulk(
+                    "delete",
+                    deletableRows.map((row) => row.id),
+                    refresh,
+                    clearSelection,
+                  )
+                }
+                className="whitespace-nowrap"
+              >
+                <Trash2 className="mr-2 h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {ROLE_LABELS.DELETE_SELECTED(deletableRows.length)}
+                </span>
+                <span className="sm:hidden">Xóa</span>
+              </Button>
+              {canManage && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={bulkState.isProcessing || deletableRows.length === 0}
+                  onClick={() =>
+                    executeBulk(
+                      "hard-delete",
+                      deletableRows.map((row) => row.id),
+                      refresh,
+                      clearSelection,
+                    )
+                  }
+                  className="whitespace-nowrap"
+                >
+                  <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {ROLE_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
+                  </span>
+                  <span className="sm:hidden">Xóa vĩnh viễn</span>
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={clearSelection}
+                className="whitespace-nowrap"
+              >
+                {ROLE_LABELS.CLEAR_SELECTION}
+              </Button>
+            </>
+          }
+        />
+      )
+    },
+    [bulkState.isProcessing, canManage, executeBulk],
+  )
+
+  const createDeletedSelectionActions = useCallback(
+    ({
+      selectedIds,
+      selectedRows,
+      clearSelection,
+      refresh,
+    }: {
+      selectedIds: string[]
+      selectedRows: RoleRow[]
+      clearSelection: () => void
+      refresh: () => void
+    }) => {
+      const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
+      const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
+
+      return (
+        <SelectionActionsWrapper
+          label={ROLE_LABELS.SELECTED_DELETED_ROLES(selectedIds.length)}
+          labelSuffix={
+            hasSuperAdmin ? <>{ROLE_LABELS.CANNOT_HARD_DELETE_SUPER_ADMIN_HINT}</> : undefined
+          }
+          actions={
+            <>
+              {canRestore && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={bulkState.isProcessing || selectedIds.length === 0}
+                  onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
+                  className="whitespace-nowrap"
+                >
+                  <RotateCcw className="mr-2 h-5 w-5 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {ROLE_LABELS.RESTORE_SELECTED(selectedIds.length)}
+                  </span>
+                  <span className="sm:hidden">Khôi phục</span>
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={bulkState.isProcessing || deletableRows.length === 0}
+                  onClick={() =>
+                    executeBulk(
+                      "hard-delete",
+                      deletableRows.map((row) => row.id),
+                      refresh,
+                      clearSelection,
+                    )
+                  }
+                  className="whitespace-nowrap"
+                >
+                  <AlertTriangle className="mr-2 h-5 w-5 shrink-0" />
+                  <span className="hidden sm:inline">
+                    {ROLE_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
+                  </span>
+                  <span className="sm:hidden">Xóa vĩnh viễn</span>
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={clearSelection}
+                className="whitespace-nowrap"
+              >
+                {ROLE_LABELS.CLEAR_SELECTION}
+              </Button>
+            </>
+          }
+        />
+      )
+    },
+    [bulkState.isProcessing, canManage, canRestore, executeBulk],
+  )
+
   const viewModes = useMemo<ResourceViewMode<RoleRow>[]>(() => {
     const modes: ResourceViewMode<RoleRow>[] = [
       {
         id: "active",
         label: ROLE_LABELS.ACTIVE_VIEW,
         status: "active",
+        columns: baseColumns,
         selectionEnabled: canDelete,
-        selectionActions: canDelete
-          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
-              const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
-              const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
-
-              return (
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <span>
-                    {ROLE_LABELS.SELECTED_ROLES(selectedIds.length)}
-                    {hasSuperAdmin && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {ROLE_LABELS.CANNOT_DELETE_SUPER_ADMIN_HINT}
-                      </span>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkState.isProcessing || deletableRows.length === 0}
-                      onClick={() =>
-                        executeBulk(
-                          "delete",
-                          deletableRows.map((row) => row.id),
-                          refresh,
-                          clearSelection,
-                        )
-                      }
-                    >
-                      <Trash2 className="mr-2 h-5 w-5" />
-                      {ROLE_LABELS.DELETE_SELECTED(deletableRows.length)}
-                    </Button>
-                    {canManage && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={bulkState.isProcessing || deletableRows.length === 0}
-                        onClick={() =>
-                          executeBulk(
-                            "hard-delete",
-                            deletableRows.map((row) => row.id),
-                            refresh,
-                            clearSelection,
-                          )
-                        }
-                      >
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        {ROLE_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
-                      </Button>
-                    )}
-                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                      {ROLE_LABELS.CLEAR_SELECTION}
-                    </Button>
-                  </div>
-                </div>
-              )
-            }
-          : undefined,
+        selectionActions: canDelete ? createActiveSelectionActions : undefined,
         rowActions: (row) => renderActiveRowActions(row),
         emptyMessage: ROLE_LABELS.NO_ROLES,
       },
@@ -359,61 +464,7 @@ export function RolesTableClient({
         status: "deleted",
         columns: deletedColumns,
         selectionEnabled: canRestore || canManage,
-        selectionActions: canRestore || canManage
-          ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
-              const deletableRows = selectedRows.filter((row) => row.name !== "super_admin")
-              const hasSuperAdmin = selectedRows.some((row) => row.name === "super_admin")
-
-              return (
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <span>
-                    {ROLE_LABELS.SELECTED_DELETED_ROLES(selectedIds.length)}
-                    {hasSuperAdmin && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {ROLE_LABELS.CANNOT_HARD_DELETE_SUPER_ADMIN_HINT}
-                      </span>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {canRestore && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={bulkState.isProcessing || selectedIds.length === 0}
-                        onClick={() => executeBulk("restore", selectedIds, refresh, clearSelection)}
-                      >
-                        <RotateCcw className="mr-2 h-5 w-5" />
-                        {ROLE_LABELS.RESTORE_SELECTED(selectedIds.length)}
-                      </Button>
-                    )}
-                    {canManage && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={bulkState.isProcessing || deletableRows.length === 0}
-                        onClick={() =>
-                          executeBulk(
-                            "hard-delete",
-                            deletableRows.map((row) => row.id),
-                            refresh,
-                            clearSelection,
-                          )
-                        }
-                      >
-                        <AlertTriangle className="mr-2 h-5 w-5" />
-                        {ROLE_LABELS.HARD_DELETE_SELECTED(deletableRows.length)}
-                      </Button>
-                    )}
-                    <Button type="button" size="sm" variant="ghost" onClick={clearSelection}>
-                      {ROLE_LABELS.CLEAR_SELECTION}
-                    </Button>
-                  </div>
-                </div>
-              )
-            }
-          : undefined,
+        selectionActions: canRestore || canManage ? createDeletedSelectionActions : undefined,
         rowActions: (row) => renderDeletedRowActions(row),
         emptyMessage: ROLE_LABELS.NO_DELETED_ROLES,
       },
@@ -424,9 +475,10 @@ export function RolesTableClient({
     canDelete,
     canRestore,
     canManage,
+    baseColumns,
     deletedColumns,
-    executeBulk,
-    bulkState.isProcessing,
+    createActiveSelectionActions,
+    createDeletedSelectionActions,
     renderActiveRowActions,
     renderDeletedRowActions,
   ])

@@ -5,26 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Users, MessageSquare, Bell, ArrowRight, GraduationCap, Check, Phone, Mail } from "lucide-react"
 import { ContactForm } from "@/components/forms/contact-form"
-import { appFeatures } from "@/lib/config/app-features"
-import { getResourceMainRoute } from "@/lib/permissions/route-helpers"
-
-/**
- * Helper function để lấy route từ appFeatures
- */
-function getRouteFromFeature(key: string): string | null {
-  const feature = appFeatures.find((f) => f.key === key)
-  if (!feature?.navigation) return null
-
-  const nav = feature.navigation
-  if (nav.href) return nav.href
-
-  if (nav.resourceName) {
-    const route = getResourceMainRoute(nav.resourceName)
-    return route?.path || null
-  }
-
-  return null
-}
+import { getRouteFromFeature } from "@/lib/utils"
 
 // Routes constants - Lấy từ appFeatures
 const HOME_ROUTES = {

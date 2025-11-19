@@ -17,28 +17,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect, useRef, useMemo } from "react"
 import type React from "react"
-import { appFeatures } from "@/lib/config/app-features"
-import { getResourceMainRoute } from "@/lib/permissions/route-helpers"
 import { Timeline } from "@/components/ui/timeline"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-
-/**
- * Helper function để lấy route từ appFeatures
- */
-function _getRouteFromFeature(key: string): string | null {
-  const feature = appFeatures.find((f) => f.key === key)
-  if (!feature?.navigation) return null
-
-  const nav = feature.navigation
-  if (nav.href) return nav.href
-
-  if (nav.resourceName) {
-    const route = getResourceMainRoute(nav.resourceName)
-    return route?.path || null
-  }
-
-  return null
-}
 
 /**
  * Helper function để highlight "HUB" trong text với màu secondary

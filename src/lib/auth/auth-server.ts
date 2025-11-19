@@ -58,7 +58,7 @@ export async function getPermissions(): Promise<Permission[]> {
         userId: user.id,
         roles: user.userRoles.map((ur) => ur.role.name),
         permissionsCount: permissions.length,
-        permissions: permissions.slice(0, 10), // Log first 10 for debugging
+        permissions: permissions.slice(0, 10),
       })
     }
     
