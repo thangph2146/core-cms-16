@@ -32,3 +32,4 @@ export { TEXTAREA_MIN_HEIGHT, TEXTAREA_MAX_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } 
 
 // Hooks
 export { useChatElementsHeight, type ChatElementsHeights, type UseChatElementsHeightParams } from "./hooks/use-chat-elements-height"
+export { useChatMessagesHeight, type UseChatMessagesHeightOptions } from "./hooks/use-chat-messages-height"

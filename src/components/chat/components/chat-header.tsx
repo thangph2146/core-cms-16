@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, forwardRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CardDescription, CardTitle } from "@/components/ui/card"
@@ -26,16 +26,20 @@ interface ChatHeaderProps {
   groupManagementMenu?: React.ReactNode
 }
 
-export function ChatHeader({ 
-  contact, 
-  onBack, 
-  showBackButton = false,
-  searchQuery = "",
-  onSearchChange,
-  currentMessages = [],
-  onScrollToMessage,
-  groupManagementMenu,
-}: ChatHeaderProps) {
+export const ChatHeader = forwardRef<HTMLDivElement, ChatHeaderProps>(
+function ChatHeader(
+  { 
+    contact, 
+    onBack, 
+    showBackButton = false,
+    searchQuery = "",
+    onSearchChange,
+    currentMessages = [],
+    onScrollToMessage,
+    groupManagementMenu,
+  }: ChatHeaderProps,
+  ref,
+) {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // Sync local state with prop
@@ -66,7 +70,7 @@ export function ChatHeader({
 
   return (
     <>
-      <div className="flex items-center gap-3 h-16 px-4 border-b shrink-0">
+      <div ref={ref} className="flex items-center gap-3 h-16 px-4 border-b shrink-0">
         {showBackButton && onBack && (
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -110,5 +114,7 @@ export function ChatHeader({
       </Sheet>
     </>
   )
-}
+})
+
+ChatHeader.displayName = "ChatHeader"
 

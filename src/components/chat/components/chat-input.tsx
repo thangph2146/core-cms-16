@@ -12,6 +12,7 @@ import type { Contact, Message } from "../types"
 // import { AttachmentMenu } from "./attachment-menu"
 import { ReplyBanner } from "./reply-banner"
 import { GroupDeletedBanner } from "./group-deleted-banner"
+import { forwardRef } from "react"
 
 interface ChatInputProps {
   inputRef: React.RefObject<HTMLTextAreaElement | null>
@@ -27,23 +28,27 @@ interface ChatInputProps {
   isGroupDeleted?: boolean
 }
 
-export function ChatInput({
-  inputRef,
-  messageInput,
-  setMessageInput,
-  handleKeyDown,
-  handleSendMessage,
-  currentChat,
-  replyingTo,
-  onCancelReply,
-  replyBannerRef,
-  deletedBannerRef,
-  isGroupDeleted = false,
-}: ChatInputProps) {
+export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
+function ChatInput(
+  {
+    inputRef,
+    messageInput,
+    setMessageInput,
+    handleKeyDown,
+    handleSendMessage,
+    currentChat,
+    replyingTo,
+    onCancelReply,
+    replyBannerRef,
+    deletedBannerRef,
+    isGroupDeleted = false,
+  }: ChatInputProps,
+  ref,
+) {
   const isDisabled = !currentChat || isGroupDeleted
 
   return (
-    <div className="flex flex-col border-t shrink-0">
+    <div ref={ref} className="flex flex-col border-t shrink-0">
       {replyingTo && !isGroupDeleted && (
         <div ref={replyBannerRef}>
           <ReplyBanner replyingTo={replyingTo} onCancel={onCancelReply} />
@@ -85,5 +90,7 @@ export function ChatInput({
       </div>
     </div>
   )
-}
+})
+
+ChatInput.displayName = "ChatInput"
 

@@ -9,6 +9,7 @@ import type { Contact, Message, GroupRole } from "../types"
 import { ChatHeader } from "./chat-header"
 import { MessagesArea } from "./messages-area"
 import { ChatInput } from "./chat-input"
+import { useChatMessagesHeight } from "../hooks/use-chat-messages-height"
 
 export interface ChatWindowProps {
   currentChat: Contact
@@ -75,9 +76,19 @@ export function ChatWindow({
   role,
   setContactsState,
 }: ChatWindowProps) {
+  const {
+    chatHeaderRef,
+    chatInputRef,
+    messagesHeight: calculatedMessagesHeight,
+  } = useChatMessagesHeight()
+
+  const resolvedMaxHeight = calculatedMessagesHeight ?? messagesMaxHeight
+  const resolvedMinHeight = calculatedMessagesHeight ?? messagesMinHeight
+
   return (
     <>
       <ChatHeader 
+        ref={chatHeaderRef}
         contact={currentChat} 
         onBack={onBack} 
         showBackButton={showBackButton}
@@ -90,8 +101,8 @@ export function ChatWindow({
       <MessagesArea
         messages={currentMessages}
         currentUserId={currentUserId}
-        messagesMaxHeight={messagesMaxHeight}
-        messagesMinHeight={messagesMinHeight}
+        messagesMaxHeight={resolvedMaxHeight}
+        messagesMinHeight={resolvedMinHeight}
         scrollAreaRef={scrollAreaRef}
         messagesEndRef={messagesEndRef}
         onReply={handleReplyToMessage}
@@ -107,6 +118,7 @@ export function ChatWindow({
         setContactsState={setContactsState}
       />
       <ChatInput
+        ref={chatInputRef}
         inputRef={inputRef}
         messageInput={messageInput}
         setMessageInput={setMessageInput}
