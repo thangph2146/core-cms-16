@@ -131,7 +131,7 @@ export function useNotificationRowActions({
 
       return renderRowActions(actions)
     },
-    [sessionUserId, onDelete, deletingNotifications],
+    [sessionUserId, onDelete, deletingNotifications, router],
   )
 
   return {

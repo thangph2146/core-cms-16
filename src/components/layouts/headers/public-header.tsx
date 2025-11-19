@@ -175,7 +175,7 @@ export function PublicHeader() {
                 Thành Phố Hồ Chí Minh
               </p>
             </div>
-            <Separator orientation="vertical" className="h-4 bg-border"/>
+            <Separator orientation="vertical" className="h-4" />
           {mounted ? (
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList>

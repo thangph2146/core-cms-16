@@ -81,14 +81,12 @@ export const apiRoutes = {
   // Notifications
   notifications: {
     // User notifications
-    list: (params?: { limit?: number; offset?: number; unreadOnly?: boolean }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.limit) searchParams.set("limit", params.limit.toString())
-      if (params?.offset) searchParams.set("offset", params.offset.toString())
-      if (params?.unreadOnly !== undefined) searchParams.set("unreadOnly", params.unreadOnly.toString())
-      const queryString = searchParams.toString()
-      return `/notifications${queryString ? `?${queryString}` : ""}`
-    },
+    list: (params?: { limit?: number; offset?: number; unreadOnly?: boolean }) =>
+      withQuery("/notifications", {
+        limit: params?.limit,
+        offset: params?.offset,
+        unreadOnly: params?.unreadOnly,
+      }),
     detail: (id: string) => `/notifications/${id}`,
     markRead: (id: string) => `/notifications/${id}`,
     markAllRead: "/notifications/mark-all-read",
@@ -99,22 +97,10 @@ export const apiRoutes = {
 
   // Admin Notifications
   adminNotifications: {
-    list: (params?: { page?: number; limit?: number; search?: string }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.page) searchParams.set("page", params.page.toString())
-      if (params?.limit) searchParams.set("limit", params.limit.toString())
-      if (params?.search) searchParams.set("search", params.search)
-      const queryString = searchParams.toString()
-      return `/admin/notifications${queryString ? `?${queryString}` : ""}`
-    },
-    options: (params?: { column: string; search?: string; limit?: number }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.column) searchParams.set("column", params.column)
-      if (params?.search) searchParams.set("search", params.search)
-      if (params?.limit) searchParams.set("limit", params.limit.toString())
-      const queryString = searchParams.toString()
-      return `/admin/notifications/options${queryString ? `?${queryString}` : ""}`
-    },
+    list: (params?: { page?: number; limit?: number; search?: string }) =>
+      withQuery("/admin/notifications", params),
+    options: (params?: { column: string; search?: string; limit?: number }) =>
+      withQuery("/admin/notifications/options", params),
   },
 
   // Contact Requests - thêm custom actions
@@ -147,13 +133,12 @@ export const apiRoutes = {
       const routes = getResourceAdminApiRoutes("conversations")
       const adminRoute = routes.find((r: { method?: string; path: string }) => r.method === "GET")?.path
       const route = adminRoute ? stripApiBase(adminRoute) : "/admin/conversations"
-      const searchParams = new URLSearchParams()
-      if (params?.page) searchParams.set("page", params.page.toString())
-      if (params?.limit) searchParams.set("limit", params.limit.toString())
-      if (params?.search) searchParams.set("search", params.search)
-      if (params?.otherUserId) searchParams.set("otherUserId", params.otherUserId)
-      const queryString = searchParams.toString()
-      return `${route}${queryString ? `?${queryString}` : ""}`
+      return withQuery(route, {
+        page: params?.page,
+        limit: params?.limit,
+        search: params?.search,
+        otherUserId: params?.otherUserId,
+      })
     },
     markRead: (otherUserId: string) => `/admin/conversations/${otherUserId}/mark-read`,
   },
@@ -164,20 +149,14 @@ export const apiRoutes = {
       const routes = getResourceAdminApiRoutes("users")
       const adminRoute = routes.find((r: { path: string }) => r.path.includes("/search"))?.path
       const route = adminRoute ? stripApiBase(adminRoute) : "/admin/users/search"
-      return `${route}?q=${encodeURIComponent(query)}`
+      return withQuery(route, { q: query })
     },
   },
   // Groups - Chat groups
   adminGroups: {
     create: "/admin/groups",
-    list: (params?: { page?: number; limit?: number; search?: string }) => {
-      const searchParams = new URLSearchParams()
-      if (params?.page) searchParams.set("page", params.page.toString())
-      if (params?.limit) searchParams.set("limit", params.limit.toString())
-      if (params?.search) searchParams.set("search", params.search)
-      const queryString = searchParams.toString()
-      return `/admin/groups${queryString ? `?${queryString}` : ""}`
-    },
+    list: (params?: { page?: number; limit?: number; search?: string }) =>
+      withQuery("/admin/groups", params),
     detail: (id: string) => `/admin/groups/${id}`,
     update: (id: string) => `/admin/groups/${id}`,
     delete: (id: string) => `/admin/groups/${id}`,
@@ -201,4 +180,13 @@ export function buildQueryString(params: Record<string, string | number | boolea
     }
   })
   return searchParams.toString()
+}
+
+export function withQuery(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): string {
+  if (!params) return path
+  const queryString = buildQueryString(params)
+  return queryString ? `${path}?${queryString}` : path
 }
