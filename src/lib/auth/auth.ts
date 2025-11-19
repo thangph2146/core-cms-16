@@ -133,6 +133,19 @@ function mapUserAuthPayload(user: DbUser | null) {
   }
 }
 
+// Validate required environment variables
+// Chỉ validate khi NextAuth được khởi tạo (lazy validation)
+function validateAuthConfig() {
+  // Chỉ check trong runtime (server-side)
+  if (typeof window === "undefined") {
+    if (!process.env.NEXTAUTH_SECRET) {
+      logger.warn("⚠️  NEXTAUTH_SECRET is missing! Authentication may not work properly.")
+      logger.warn("📝 Please set NEXTAUTH_SECRET in your .env.local file")
+      logger.warn("🔑 Generate a secret with: openssl rand -base64 32")
+    }
+  }
+}
+
 export const authConfig: NextAuthConfig = {
   trustHost: true, // Important for Next.js 16
   // Adapter chỉ dùng khi cần database session, không dùng với JWT
@@ -145,37 +158,64 @@ export const authConfig: NextAuthConfig = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            logger.warn("Missing credentials in authorize", {
+              hasEmail: !!credentials?.email,
+              hasPassword: !!credentials?.password,
+            })
+            return null
+          }
 
-        const email = credentials.email as string
-        const password = credentials.password as string
+          const email = credentials.email as string
+          const password = credentials.password as string
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            userRoles: {
-              include: {
-                role: true,
+          const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+              userRoles: {
+                include: {
+                  role: true,
+                },
               },
             },
-          },
-        })
+          })
 
-        // Kiểm tra user tồn tại, đang active và không bị xóa
-        if (!user || !user.isActive || user.deletedAt !== null) {
+          // Kiểm tra user tồn tại, đang active và không bị xóa
+          if (!user || !user.isActive || user.deletedAt !== null) {
+            logger.warn("User not found or inactive", {
+              email,
+              found: !!user,
+              isActive: user?.isActive,
+              deletedAt: user?.deletedAt,
+            })
+            return null
+          }
+
+          const isValidPassword = await bcrypt.compare(password, user.password)
+
+          if (!isValidPassword) {
+            logger.warn("Invalid password", { email })
+            return null
+          }
+
+          // Get user permissions
+          const authPayload = mapUserAuthPayload(user)
+          
+          if (!authPayload) {
+            logger.error("Failed to map user auth payload", { email, userId: user.id })
+            return null
+          }
+
+          return authPayload
+        } catch (error) {
+          logger.error("Error in authorize callback", {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          })
+          // Return null thay vì throw để NextAuth có thể xử lý lỗi đúng cách
           return null
         }
-
-        const isValidPassword = await bcrypt.compare(password, user.password)
-
-        if (!isValidPassword) {
-          return null
-        }
-
-        // Get user permissions
-        return mapUserAuthPayload(user)
       },
     }),
     GoogleProvider({
@@ -575,6 +615,12 @@ export const authConfig: NextAuthConfig = {
   // JWT signing algorithm mặc định là HS256 (an toàn)
   // Có thể custom JWT thông qua jwt callback
   secret: process.env.NEXTAUTH_SECRET,
+}
+
+// Validate config trước khi khởi tạo NextAuth (chỉ trong runtime)
+// Điều này đảm bảo validation chỉ chạy khi thực sự cần, không trong build time
+if (typeof window === "undefined") {
+  validateAuthConfig()
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig)

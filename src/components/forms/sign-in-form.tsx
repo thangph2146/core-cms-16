@@ -70,10 +70,19 @@ export function SignIn({
         redirect: false,
       })
 
-      if (result?.error) {
-        setError("Email hoặc mật khẩu không đúng")
+      // Kiểm tra result có tồn tại không
+      if (!result) {
+        setError("Không nhận được phản hồi từ server. Vui lòng thử lại.")
         setIsLoading(false)
-      } else {
+        return
+      }
+
+      if (result.error) {
+        // Map NextAuth error codes to Vietnamese messages
+        const errorMessage = ERROR_MESSAGES[result.error] || ERROR_MESSAGES.Default
+        setError(errorMessage)
+        setIsLoading(false)
+      } else if (result.ok) {
         // Session sẽ được tạo tự động bởi useCreateLoginSession hook trong SessionProvider
         // Không cần tạo ở đây nữa để tránh duplicate
 
@@ -95,9 +104,29 @@ export function SignIn({
         
         router.push(redirectUrl)
         router.refresh()
+      } else {
+        // Trường hợp result không có error nhưng cũng không ok
+        setError("Đã xảy ra lỗi không xác định. Vui lòng thử lại.")
+        setIsLoading(false)
       }
-    } catch {
-      setError("Đã xảy ra lỗi. Vui lòng thử lại.")
+    } catch (error) {
+      // Xử lý lỗi network hoặc JSON parsing
+      console.error("Sign in error:", error)
+      
+      // Kiểm tra các loại lỗi phổ biến
+      let errorMessage = "Đã xảy ra lỗi. Vui lòng thử lại."
+      
+      if (error instanceof Error) {
+        if (error.message.includes("JSON") || error.message.includes("Unexpected end")) {
+          errorMessage = "Lỗi kết nối với server. Vui lòng kiểm tra kết nối và thử lại."
+        } else if (error.message.includes("fetch") || error.message.includes("network")) {
+          errorMessage = "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại."
+        } else {
+          errorMessage = `Lỗi: ${error.message}`
+        }
+      }
+      
+      setError(errorMessage)
       setIsLoading(false)
     }
   }

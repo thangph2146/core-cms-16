@@ -49,7 +49,7 @@ export function useCreateLoginSession() {
       try {
         logger.debug("Creating login session via hook", { userId })
         
-        await apiClient.post(apiRoutes.auth.session, {})
+        await apiClient.post(apiRoutes.auth.createSession, {})
         
         // Đánh dấu đã tạo session cho user này
         createdSessions.add(sessionKey)

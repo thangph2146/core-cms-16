@@ -74,7 +74,8 @@ export const apiRoutes = {
     signIn: "/auth/sign-in",
     signUp: "/auth/signup",
     signOut: "/auth/sign-out",
-    session: "/auth/session",
+    session: "/auth/session", // NextAuth.js built-in endpoint
+    createSession: "/auth/create-session", // Custom endpoint để tạo Session record
   },
 
   // Notifications
