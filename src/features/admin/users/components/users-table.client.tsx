@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -8,8 +8,17 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -41,9 +50,12 @@ export function UsersTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useUserFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useUserDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminUsers.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     executeSingleAction,
@@ -64,11 +76,9 @@ export function UsersTableClient({
 
   const handleToggleStatus = useCallback(
     (row: UserRow, newStatus: boolean) => {
-      if (tableRefreshRef.current) {
-        executeToggleActive(row, newStatus, tableRefreshRef.current)
-      }
+      executeToggleActive(row, newStatus, refreshTable)
     },
-    [executeToggleActive],
+    [executeToggleActive, refreshTable],
   )
 
   const { baseColumns, deletedColumns } = useUserColumns({
@@ -78,15 +88,6 @@ export function UsersTableClient({
     onToggleStatus: handleToggleStatus,
     showFeedback,
   })
-
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
 
   const fetchUsers = useCallback(
     async ({
@@ -137,37 +138,39 @@ export function UsersTableClient({
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<UserRow>) => {
-      const status = (view.status ?? "active") as AdminUsersListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<UserRow> }): AdminUsersListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
 
-      const params: AdminUsersListParams = {
-        status,
+      return {
+        status: (view.status ?? "active") as AdminUsersListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminUsers.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchUsers({
-            page: query.page,
-            limit: query.limit,
-            status: status ?? "active",
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchUsers, queryClient],
+    [],
   )
+
+  const fetchUsersWithDefaults = useCallback(
+    (params: AdminUsersListParams) =>
+      fetchUsers({
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
+        filters: params.filters,
+      }),
+    [fetchUsers],
+  )
+
+  const loader = useResourceTableLoader<UserRow, AdminUsersListParams>({
+    queryClient,
+    fetcher: fetchUsersWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: queryKeys.adminUsers.list,
+  })
 
   const handleDeleteSingle = useCallback(
     (row: UserRow) => {
@@ -177,11 +180,11 @@ export function UsersTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -192,11 +195,11 @@ export function UsersTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -207,11 +210,11 @@ export function UsersTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useUserRowActions({
@@ -247,37 +250,39 @@ export function UsersTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-
-    const params: AdminUsersListParams = {
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<UserRow>): AdminUsersListParams => ({
       status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
+      page: data.page,
+      limit: data.limit,
       search: undefined,
       filters: undefined,
-    }
-    const queryKey = queryKeys.adminUsers.list(params)
-    queryClient.setQueryData(queryKey, initialData)
+    }),
+    [],
+  )
 
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<UserRow, AdminUsersListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: queryKeys.adminUsers.list,
+    logDebug: logInitialDataCache,
+  })
 
   const viewModes = useMemo<ResourceViewMode<UserRow>[]>(() => {
     const modes: ResourceViewMode<UserRow>[] = [
@@ -490,19 +495,7 @@ export function UsersTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -4,14 +4,18 @@ import type { Server as HTTPServer } from "http"
 
 import { logger } from "@/lib/config"
 import { setupSocketHandlers } from "@/lib/socket/server"
-import { getSocketServer, setSocketServer } from "@/lib/socket/state"
+import {
+  getSocketServer,
+  setSocketServer,
+  getSocketInitPromise,
+  setSocketInitPromise,
+} from "@/lib/socket/state"
 
 type ServerWithIO = HTTPServer & { io?: IOServer }
+const MAX_HTTP_BUFFER_SIZE = 5 * 1024 * 1024
 
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
   try {
-    const existingGlobal = getSocketServer()
-
     // @ts-expect-error - Next.js exposes underlying HTTP server
     const server = res.socket?.server as ServerWithIO | undefined
 
@@ -21,24 +25,79 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
       return
     }
 
+    const existingGlobal = getSocketServer()
+    if (existingGlobal) {
+      if (!server.io) {
+        server.io = existingGlobal
+      }
+      res.end()
+      return
+    }
+
+    const pendingInit = getSocketInitPromise()
+    if (pendingInit) {
+      const io = await pendingInit
+      if (!server.io) {
+        server.io = io
+      }
+      res.end()
+      return
+    }
+
     if (!server.io) {
       logger.info("Initializing Socket.IO server instance")
-      const io = new IOServer(server, {
-        path: "/api/socket",
-        cors: { origin: true, credentials: true },
-      })
+      const initPromise = (async () => {
+        const io = new IOServer(server, {
+          path: "/api/socket",
+          cors: { origin: true, credentials: true },
+          maxHttpBufferSize: MAX_HTTP_BUFFER_SIZE,
+        })
 
-      await setupSocketHandlers(io)
-      server.io = io
-      setSocketServer(io)
+        const engineOptions = io.engine.opts as { maxPayload?: number; maxHttpBufferSize: number }
+        engineOptions.maxHttpBufferSize = MAX_HTTP_BUFFER_SIZE
+        engineOptions.maxPayload = MAX_HTTP_BUFFER_SIZE
 
-      logger.success("Socket.IO server initialized successfully")
-    } else {
-      if (!existingGlobal) {
-        setSocketServer(server.io)
+        await setupSocketHandlers(io)
+        setSocketServer(io)
+
+        logger.success("Socket.IO server initialized successfully")
+        return io
+      })()
+
+      setSocketInitPromise(initPromise)
+
+      let io: IOServer | undefined
+      try {
+        io = await initPromise
+      } finally {
+        setSocketInitPromise(undefined)
       }
-      logger.debug("Reusing existing Socket.IO server instance")
+
+      if (!io) {
+        throw new Error("Socket.IO server initialization returned undefined instance")
+      }
+
+      server.io = io
+      res.end()
+      return
     }
+
+    const currentSize = server.io.engine.opts.maxHttpBufferSize
+    const currentPayload = (server.io.engine.opts as { maxPayload?: number }).maxPayload
+    if (currentSize !== MAX_HTTP_BUFFER_SIZE || currentPayload !== MAX_HTTP_BUFFER_SIZE) {
+      server.io.engine.opts.maxHttpBufferSize = MAX_HTTP_BUFFER_SIZE
+      ;(server.io.engine.opts as { maxPayload?: number }).maxPayload = MAX_HTTP_BUFFER_SIZE
+      logger.info("Socket.IO maxHttpBufferSize updated", {
+        previousBuffer: currentSize,
+        previousPayload: currentPayload ?? null,
+        next: MAX_HTTP_BUFFER_SIZE,
+      })
+    }
+
+    if (!existingGlobal) {
+      setSocketServer(server.io)
+    }
+    logger.debug("Reusing existing Socket.IO server instance")
 
     res.end()
   } catch (error) {
@@ -52,5 +111,3 @@ export const config = {
     bodyParser: false,
   },
 }
-
-

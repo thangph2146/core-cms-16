@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -8,8 +8,17 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -38,9 +47,12 @@ export function TagsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useTagFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useTagDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminTags.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     executeSingleAction,
@@ -67,11 +79,11 @@ export function TagsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, setDeleteConfirm, refreshTable],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -82,11 +94,11 @@ export function TagsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, setDeleteConfirm, refreshTable],
   )
 
   const handleRestoreSingle = useCallback(
@@ -97,11 +109,11 @@ export function TagsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, setDeleteConfirm, refreshTable],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useTagRowActions({
@@ -115,15 +127,6 @@ export function TagsTableClient({
     restoringTags,
     hardDeletingTags,
   })
-
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
 
   const fetchTags = useCallback(
     async ({
@@ -174,37 +177,39 @@ export function TagsTableClient({
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<TagRow>) => {
-      const status = (view.status ?? "active") as AdminTagsListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<TagRow> }): AdminTagsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
 
-      const params: AdminTagsListParams = {
-        status,
+      return {
+        status: (view.status ?? "active") as AdminTagsListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminTags.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchTags({
-            page: query.page,
-            limit: query.limit,
-            status: status ?? "active",
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchTags, queryClient],
+    [],
   )
+
+  const fetchTagsWithDefaults = useCallback(
+    (params: AdminTagsListParams) =>
+      fetchTags({
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
+        filters: params.filters,
+      }),
+    [fetchTags],
+  )
+
+  const loader = useResourceTableLoader<TagRow, AdminTagsListParams>({
+    queryClient,
+    fetcher: fetchTagsWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: queryKeys.adminTags.list,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -227,37 +232,39 @@ export function TagsTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-
-    const params: AdminTagsListParams = {
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<TagRow>): AdminTagsListParams => ({
       status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
+      page: data.page,
+      limit: data.limit,
       search: undefined,
       filters: undefined,
-    }
-    const queryKey = queryKeys.adminTags.list(params)
-    queryClient.setQueryData(queryKey, initialData)
+    }),
+    [],
+  )
 
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<TagRow, AdminTagsListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: queryKeys.adminTags.list,
+    logDebug: logInitialDataCache,
+  })
 
   // Helper function for active view selection actions
   const createActiveSelectionActions = useCallback(
@@ -475,19 +482,7 @@ export function TagsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -164,6 +164,26 @@ export async function setupSocketHandlers(io: IOServer) {
     action: "initialize_handlers",
   })
 
+  io.engine.on("connection_error", (err) => {
+    const error = err as unknown as {
+      message?: string
+      code?: string | number
+      req?: { url?: string | null }
+      context?: Record<string, unknown>
+    }
+
+    // Get active socket connections count instead of accessing protected clients property
+    const activeConnectionsCount = io.sockets.sockets.size
+
+    logger.error("Socket engine connection error", {
+      message: error.message ?? "unknown",
+      code: error.code ?? null,
+      requestUrl: error.req?.url ?? null,
+      context: error.context ?? null,
+      activeConnectionsCount,
+    })
+  })
+
   io.on("connection", async (socket: Socket) => {
     const auth = socket.handshake.auth as { userId?: string; role?: string }
     const userId = auth?.userId
@@ -176,6 +196,41 @@ export async function setupSocketHandlers(io: IOServer) {
       role: role ?? null,
       transport: socket.conn.transport.name,
       remoteAddress: socket.handshake.address,
+    })
+
+    socket.conn.on("upgrade", (transport) => {
+      logger.info("Engine transport upgraded", {
+        socketId,
+        userId: userId || "anonymous",
+        newTransport: transport.name,
+      })
+    })
+
+    socket.conn.on("upgradeError", (error) => {
+      logger.error("Engine transport upgrade error", {
+        socketId,
+        userId: userId || "anonymous",
+        transport: socket.conn.transport?.name ?? null,
+        message: (error as Error)?.message ?? String(error),
+      })
+    })
+
+    socket.conn.on("error", (error) => {
+      logger.error("Engine transport error", {
+        socketId,
+        userId: userId || "anonymous",
+        transport: socket.conn.transport?.name ?? null,
+        message: (error as Error)?.message ?? String(error),
+      })
+    })
+
+    socket.conn.on("close", (reason) => {
+      logger.warn("Engine transport closed", {
+        socketId,
+        userId: userId || "anonymous",
+        transport: socket.conn.transport?.name ?? null,
+        reason,
+      })
     })
 
     if (userId) {

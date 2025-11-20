@@ -8,6 +8,11 @@
 
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
+import {
+  applyDateFilter,
+  applyStringFilter,
+  applyBooleanFilter,
+} from "@/features/admin/resources/server"
 import type { ListSessionsInput, ListedSession, SessionDetail, ListSessionsResult } from "../types"
 import type { SessionRow } from "../types"
 
@@ -60,6 +65,7 @@ export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhere
   }
   // "all" sẽ không filter theo isActive
 
+  // Search filter with relations
   if (params.search) {
     const searchValue = params.search.trim()
     if (searchValue.length > 0) {
@@ -74,6 +80,7 @@ export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhere
     }
   }
 
+  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -85,14 +92,11 @@ export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhere
           where.userId = value
           break
         case "userAgent":
-          where.userAgent = { contains: value, mode: "insensitive" }
-          break
         case "ipAddress":
-          where.ipAddress = { contains: value, mode: "insensitive" }
+          applyStringFilter(where, key, value)
           break
         case "isActive":
-          if (value === "true") where.isActive = true
-          else if (value === "false") where.isActive = false
+          applyBooleanFilter(where, key, value)
           break
         case "status":
           // Session không có deletedAt, sử dụng isActive
@@ -101,21 +105,7 @@ export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhere
           break
         case "expiresAt":
         case "createdAt":
-          try {
-            const filterDate = new Date(value)
-            if (!isNaN(filterDate.getTime())) {
-              const startOfDay = new Date(filterDate)
-              startOfDay.setHours(0, 0, 0, 0)
-              const endOfDay = new Date(filterDate)
-              endOfDay.setHours(23, 59, 59, 999)
-              where[key === "createdAt" ? "createdAt" : "expiresAt"] = {
-                gte: startOfDay,
-                lte: endOfDay,
-              }
-            }
-          } catch {
-            // Invalid date format, skip filter
-          }
+          applyDateFilter(where, key, value)
           break
       }
     }

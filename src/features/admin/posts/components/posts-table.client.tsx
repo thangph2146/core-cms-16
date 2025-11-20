@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -8,8 +8,17 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -35,16 +44,18 @@ export function PostsTableClient({
 }: PostsTableClientProps) {
   const router = useResourceRouter()
   const queryClient = useQueryClient()
+  const { isSocketConnected, cacheVersion } = usePostsSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = usePostFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = usePostDeleteConfirm()
-
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
   const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
   const canToggleStatus = canManage
 
-  const { isSocketConnected, cacheVersion } = usePostsSocketBridge()
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminPosts.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     executeSingleAction,
@@ -109,7 +120,7 @@ export function PostsTableClient({
     togglingPosts,
     canToggleStatus,
     onTogglePublished: handleTogglePublished,
-    tableRefreshRef,
+    refreshTable,
   })
 
   const handleDeleteSingle = useCallback(
@@ -120,11 +131,11 @@ export function PostsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -135,11 +146,11 @@ export function PostsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -150,11 +161,11 @@ export function PostsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = usePostRowActions({
@@ -168,15 +179,6 @@ export function PostsTableClient({
     restoringPosts,
     hardDeletingPosts,
   })
-
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
 
   const fetchPosts = useCallback(
     async ({
@@ -244,37 +246,40 @@ export function PostsTableClient({
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<PostRow>) => {
-      const status = (view.status ?? "active") as AdminPostsListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<PostRow> }): AdminPostsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      const normalizedSearch = normalizeSearch(query.search)
 
-      const params: AdminPostsListParams = {
-        status,
+      return {
+        status: (view.status ?? "active") as AdminPostsListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: normalizedSearch,
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminPosts.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchPosts({
-            page: query.page,
-            limit: query.limit,
-            status: status ?? "active",
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchPosts, queryClient],
+    [],
   )
+
+  const fetchPostsWithDefaults = useCallback(
+    (params: AdminPostsListParams) =>
+      fetchPosts({
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
+        filters: params.filters,
+      }),
+    [fetchPosts],
+  )
+
+  const loader = useResourceTableLoader<PostRow, AdminPostsListParams>({
+    queryClient,
+    fetcher: fetchPostsWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: queryKeys.adminPosts.list,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -297,37 +302,39 @@ export function PostsTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-
-    const params: AdminPostsListParams = {
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<PostRow>): AdminPostsListParams => ({
       status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
+      page: data.page,
+      limit: data.limit,
       search: undefined,
       filters: undefined,
-    }
-    const queryKey = queryKeys.adminPosts.list(params)
-    queryClient.setQueryData(queryKey, initialData)
+    }),
+    [],
+  )
 
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<PostRow, AdminPostsListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: queryKeys.adminPosts.list,
+    logDebug: logInitialDataCache,
+  })
 
   const createActiveSelectionActions = useCallback(
     ({
@@ -553,19 +560,7 @@ export function PostsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -10,6 +10,12 @@ import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
 import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceTableRefresh,
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+} from "@/features/admin/resources/hooks"
+import { sanitizeFilters, normalizeSearch } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -39,9 +45,12 @@ export function SessionsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useSessionFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useSessionDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminSessions.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     handleToggleStatus,
@@ -68,13 +77,11 @@ export function SessionsTableClient({
         type: checked ? "toggle-active" : "toggle-inactive",
         row,
         onConfirm: async () => {
-          if (tableRefreshRef.current) {
-            await handleToggleStatus(row, checked, tableRefreshRef.current)
-          }
+          await handleToggleStatus(row, checked, refreshTable)
         },
       })
     },
-    [canManage, handleToggleStatus, setDeleteConfirm],
+    [canManage, handleToggleStatus, refreshTable, setDeleteConfirm],
   )
 
   const { baseColumns, deletedColumns } = useSessionColumns({
@@ -91,11 +98,11 @@ export function SessionsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -106,11 +113,11 @@ export function SessionsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -121,11 +128,11 @@ export function SessionsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useSessionRowActions({
@@ -142,38 +149,17 @@ export function SessionsTableClient({
     hardDeletingSessions,
   })
 
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
-
   const fetchSessions = useCallback(
-    async ({
-      page,
-      limit,
-      status,
-      search,
-      filters,
-    }: {
-      page: number
-      limit: number
-      status: "active" | "deleted" | "all"
-      search?: string
-      filters?: Record<string, string>
-    }): Promise<DataTableResult<SessionRow>> => {
+    async (params: AdminSessionsListParams): Promise<DataTableResult<SessionRow>> => {
       const baseUrl = apiRoutes.sessions.list({
-        page,
-        limit,
-        status,
-        search,
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
       })
 
       const filterParams = new URLSearchParams()
-      Object.entries(filters ?? {}).forEach(([key, value]) => {
+      Object.entries(params.filters ?? {}).forEach(([key, value]) => {
         if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
@@ -185,41 +171,53 @@ export function SessionsTableClient({
       const response = await apiClient.get<SessionsResponse>(url)
       const payload = response.data
 
-      // Set vào cache với params tương ứng
-      const params: AdminSessionsListParams = {
-        status: status ?? "active",
-        page,
-        limit,
-        search,
-        filters: buildFiltersRecord(filters ?? {}),
-      }
-      const queryKey = queryKeys.adminSessions.list(params)
-      const result: DataTableResult<SessionRow> = {
+      return {
         rows: payload.data,
         page: payload.pagination.page,
         limit: payload.pagination.limit,
         total: payload.pagination.total,
         totalPages: payload.pagination.totalPages,
       }
-      queryClient.setQueryData(queryKey, result)
-
-      return result
     },
-    [buildFiltersRecord, queryClient],
+    [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<SessionRow>) => {
-      return fetchSessions({
+  const buildParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<SessionRow> }): AdminSessionsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      return {
+        status: (view.status ?? "active") as AdminSessionsListParams["status"],
         page: query.page,
         limit: query.limit,
-        status: (view.status ?? "active") as "active" | "deleted" | "all",
-        search: query.search.trim() || undefined,
-        filters: query.filters,
-      })
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
+      }
     },
-    [fetchSessions],
+    [],
   )
+
+  const buildQueryKey = useCallback((params: AdminSessionsListParams) => queryKeys.adminSessions.list(params), [])
+
+  const loader = useResourceTableLoader({
+    queryClient,
+    fetcher: fetchSessions,
+    buildParams,
+    buildQueryKey,
+  })
+
+  useResourceInitialDataCache({
+    initialData,
+    queryClient,
+    buildParams: (data) => ({
+      status: "active" as const,
+      page: data.page,
+      limit: data.limit,
+      search: undefined,
+      filters: undefined,
+    }),
+    buildQueryKey,
+    logDebug: logger.debug,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -242,37 +240,6 @@ export function SessionsTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-
-    const params: AdminSessionsListParams = {
-      status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
-      search: undefined,
-      filters: undefined,
-    }
-    const queryKey = queryKeys.adminSessions.list(params)
-    queryClient.setQueryData(queryKey, initialData)
-
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
 
   const createActiveSelectionActions = useCallback(
     ({
@@ -527,19 +494,7 @@ export function SessionsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminSessions.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -1,16 +1,25 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { CheckCircle2, Trash2, BellOff } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
-import { queryKeys, invalidateQueries } from "@/lib/query-keys"
+import { queryKeys } from "@/lib/query-keys"
 import { apiRoutes } from "@/lib/api/routes"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
-import type { ResourceViewMode, ResourceTableLoader } from "@/features/admin/resources/types"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
+import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { logger } from "@/lib/config"
 import type { NotificationRow } from "../types"
@@ -22,6 +31,14 @@ import { useNotificationColumns } from "../utils/columns"
 import { useNotificationRowActions } from "../utils/row-actions"
 import { NOTIFICATION_LABELS, NOTIFICATION_CONFIRM_MESSAGES } from "../constants"
 import { ConfirmDialog } from "@/components/dialogs"
+
+type AdminNotificationsListParams = {
+  page: number
+  limit: number
+  search?: string
+  filters?: Record<string, string>
+  status?: "all" | "read" | "unread"
+}
 
 interface NotificationsTableClientProps {
   canManage?: boolean
@@ -36,29 +53,21 @@ export function NotificationsTableClient({
 }: NotificationsTableClientProps) {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const { cacheVersion } = useNotificationsSocketBridge()
+  const getInvalidateQueryKey = useCallback(() => queryKeys.notifications.admin(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const { feedback, showFeedback, handleFeedbackOpenChange } = useNotificationFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useNotificationDeleteConfirm()
-  const { cacheVersion } = useNotificationsSocketBridge()
 
   const triggerTableRefresh = useCallback(() => {
-    logger.info("triggerTableRefresh called", {
-      hasRefreshFn: !!tableRefreshRef.current,
-    })
-    
-    invalidateQueries.adminNotifications(queryClient)
-    logger.debug("Admin notifications queries invalidated")
-    
-    if (tableRefreshRef.current) {
-      logger.info("Calling table refresh function")
-      tableRefreshRef.current()
-    } else {
-      logger.warn("Table refresh function not available yet")
-    }
-  }, [queryClient])
+    logger.info("triggerTableRefresh called")
+    refreshTable()
+  }, [refreshTable])
 
   const {
     handleToggleRead,
@@ -83,13 +92,11 @@ export function NotificationsTableClient({
         type: checked ? "mark-read" : "mark-unread",
         row,
         onConfirm: async () => {
-          if (tableRefreshRef.current) {
-            await handleToggleRead(row, checked, tableRefreshRef.current)
-          }
+          await handleToggleRead(row, checked, refreshTable)
         },
       })
     },
-    [handleToggleRead, setDeleteConfirm],
+    [handleToggleRead, refreshTable, setDeleteConfirm],
   )
 
   const handleDeleteSingleWithRefresh = useCallback(
@@ -99,13 +106,11 @@ export function NotificationsTableClient({
         type: "delete",
         row,
         onConfirm: async () => {
-          if (tableRefreshRef.current) {
-            await handleDeleteSingle(row, tableRefreshRef.current)
-          }
+          await handleDeleteSingle(row, refreshTable)
         },
       })
     },
-    [handleDeleteSingle, setDeleteConfirm],
+    [handleDeleteSingle, refreshTable, setDeleteConfirm],
   )
 
   const { baseColumns } = useNotificationColumns({
@@ -120,67 +125,29 @@ export function NotificationsTableClient({
     deletingNotifications,
   })
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-    
-    // Admin notifications query không có params structure như comments
-    // Chúng ta chỉ cần set vào cache với key ["notifications", "admin"]
-    const queryKey = queryKeys.notifications.admin()
-    queryClient.setQueryData(queryKey, initialData)
-    
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
-
-  const handleRefreshReady = useCallback((refresh: () => void) => {
-    const wrapped = () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.admin(), refetchType: "none" })
-      refresh()
-    }
-    tableSoftRefreshRef.current = refresh
-    tableRefreshRef.current = wrapped
-
-    if (pendingRealtimeRefreshRef.current) {
-      pendingRealtimeRefreshRef.current = false
-      refresh()
-    }
-  }, [queryClient])
-
-  const loader: ResourceTableLoader<NotificationRow> = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<NotificationRow>) => {
+  const fetchNotifications = useCallback(
+    async ({
+      page,
+      limit,
+      search,
+      filters,
+      status,
+    }: {
+      page: number
+      limit: number
+      search?: string
+      filters?: Record<string, string>
+      status: "all" | "read" | "unread"
+    }): Promise<DataTableResult<NotificationRow>> => {
       const baseUrl = apiRoutes.adminNotifications.list({
-        page: query.page,
-        limit: query.limit,
-        search: query.search.trim() || undefined,
+        page,
+        limit,
+        search,
       })
 
       const filterParams = new URLSearchParams()
-      
-      // Apply view status filter (isRead)
-      if (view.status === "unread") {
-        filterParams.set("filter[isRead]", "false")
-      } else if (view.status === "read") {
-        filterParams.set("filter[isRead]", "true")
-      }
-      
-      // Apply other filters
-      Object.entries(query.filters).forEach(([key, value]) => {
-        if (value && key !== "isRead") {
+      Object.entries(filters ?? {}).forEach(([key, value]) => {
+        if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
       })
@@ -190,10 +157,11 @@ export function NotificationsTableClient({
 
       logger.debug("Loading notifications from API", {
         url,
-        page: query.page,
-        limit: query.limit,
-        search: query.search.trim() || undefined,
-        filters: query.filters,
+        page,
+        limit,
+        search,
+        filters,
+        status,
       })
 
       const response = await apiClient.get<{
@@ -217,7 +185,9 @@ export function NotificationsTableClient({
           error: response.data.error,
           message: response.data.message,
         })
-        throw new Error(response.data.error || response.data.message || "Không nhận được dữ liệu thông báo")
+        throw new Error(
+          response.data.error || response.data.message || "Không nhận được dữ liệu thông báo",
+        )
       }
 
       logger.info("Notifications loaded successfully (client)", {
@@ -235,6 +205,102 @@ export function NotificationsTableClient({
     },
     [],
   )
+
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<NotificationRow> }): AdminNotificationsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      delete filtersRecord.isRead
+
+      if (view.status === "unread") {
+        filtersRecord.isRead = "false"
+      } else if (view.status === "read") {
+        filtersRecord.isRead = "true"
+      }
+
+      return {
+        status: (view.status ?? "all") as AdminNotificationsListParams["status"],
+        page: query.page,
+        limit: query.limit,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
+      }
+    },
+    [],
+  )
+
+  const buildNotificationsQueryKey = useCallback(
+    (params: AdminNotificationsListParams): readonly unknown[] => {
+      const normalizedFilters = params.filters
+        ? Object.entries(params.filters)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, value]) => `${key}:${value}`)
+        : []
+
+      return [
+        "notifications",
+        "admin",
+        params.status ?? "all",
+        params.page,
+        params.limit,
+        params.search ?? "",
+        ...normalizedFilters,
+      ]
+    },
+    [],
+  )
+
+  const fetchNotificationsWithDefaults = useCallback(
+    (params: AdminNotificationsListParams) =>
+      fetchNotifications({
+        page: params.page,
+        limit: params.limit,
+        search: params.search,
+        filters: params.filters,
+        status: (params.status ?? "all") as "all" | "read" | "unread",
+      }),
+    [fetchNotifications],
+  )
+
+  const loader = useResourceTableLoader<NotificationRow, AdminNotificationsListParams>({
+    queryClient,
+    fetcher: fetchNotificationsWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: buildNotificationsQueryKey,
+  })
+
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<NotificationRow>): AdminNotificationsListParams => ({
+      status: "all",
+      page: data.page,
+      limit: data.limit,
+      search: undefined,
+      filters: undefined,
+    }),
+    [],
+  )
+
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 3) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<NotificationRow, AdminNotificationsListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: buildNotificationsQueryKey,
+    logDebug: logInitialDataCache,
+  })
 
   // Helper function to create selection actions
   const createSelectionActions = useCallback(
@@ -474,7 +540,7 @@ export function NotificationsTableClient({
         defaultViewId="all"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
-        onRefreshReady={handleRefreshReady}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

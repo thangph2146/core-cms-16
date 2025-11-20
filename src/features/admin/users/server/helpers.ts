@@ -7,7 +7,15 @@
 
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
-import { serializeDate } from "@/features/admin/resources/server"
+import {
+  serializeDate,
+  applyStatusFilter,
+  applySearchFilter,
+  applyDateFilter,
+  applyStringFilter,
+  applyBooleanFilter,
+  applyStatusFilterFromFilters,
+} from "@/features/admin/resources/server"
 import type { ListUsersInput, ListedUser, UserDetail, ListUsersResult } from "./queries"
 import type { UserRow } from "../types"
 
@@ -48,24 +56,14 @@ export function mapUserRecord(user: UserWithRoles): ListedUser {
  */
 export function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput {
   const where: Prisma.UserWhereInput = {}
-  const status = params.status ?? "active"
 
-  if (status === "active") {
-    where.deletedAt = null
-  } else if (status === "deleted") {
-    where.deletedAt = { not: null }
-  }
+  // Apply status filter
+  applyStatusFilter(where, params.status)
 
-  if (params.search) {
-    const searchValue = params.search.trim()
-    if (searchValue.length > 0) {
-      where.OR = [
-        { email: { contains: searchValue, mode: "insensitive" } },
-        { name: { contains: searchValue, mode: "insensitive" } },
-      ]
-    }
-  }
+  // Apply search filter
+  applySearchFilter(where, params.search, ["email", "name"])
 
+  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -74,10 +72,8 @@ export function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput 
 
       switch (key) {
         case "email":
-          where.email = { contains: value, mode: "insensitive" }
-          break
         case "name":
-          where.name = { contains: value, mode: "insensitive" }
+          applyStringFilter(where, key, value)
           break
         case "roles":
           where.userRoles = {
@@ -87,30 +83,14 @@ export function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput 
           }
           break
         case "isActive":
-          if (value === "true" || value === "1") where.isActive = true
-          else if (value === "false" || value === "0") where.isActive = false
+          applyBooleanFilter(where, key, value)
           break
         case "status":
-          if (value === "deleted") where.deletedAt = { not: null }
-          else if (value === "active") where.deletedAt = null
+          applyStatusFilterFromFilters(where, value)
           break
         case "createdAt":
         case "deletedAt":
-          try {
-            const filterDate = new Date(value)
-            if (!isNaN(filterDate.getTime())) {
-              const startOfDay = new Date(filterDate)
-              startOfDay.setHours(0, 0, 0, 0)
-              const endOfDay = new Date(filterDate)
-              endOfDay.setHours(23, 59, 59, 999)
-              where[key === "createdAt" ? "createdAt" : "deletedAt"] = {
-                gte: startOfDay,
-                lte: endOfDay,
-              }
-            }
-          } catch {
-            // Invalid date format, skip filter
-          }
+          applyDateFilter(where, key, value)
           break
       }
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { RotateCcw, Trash2, AlertTriangle, Plus } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
@@ -9,6 +9,12 @@ import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
 import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceTableRefresh,
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+} from "@/features/admin/resources/hooks"
+import { sanitizeFilters, normalizeSearch } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -19,12 +25,12 @@ import { useStudentFeedback } from "../hooks/use-student-feedback"
 import { useStudentDeleteConfirm } from "../hooks/use-student-delete-confirm"
 import { useStudentColumns } from "../utils/columns"
 import { useStudentRowActions } from "../utils/row-actions"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 
 import type { AdminStudentsListParams } from "@/lib/query-keys"
 import type { StudentRow, StudentsResponse, StudentsTableClientProps } from "../types"
 import { STUDENT_CONFIRM_MESSAGES, STUDENT_LABELS } from "../constants"
 import { logger } from "@/lib/config"
-import { useResourceRouter } from "@/hooks/use-resource-segment"
 
 export function StudentsTableClient({
   canDelete = false,
@@ -41,9 +47,12 @@ export function StudentsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useStudentFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useStudentDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminStudents.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     handleToggleStatus,
@@ -64,11 +73,9 @@ export function StudentsTableClient({
 
   const handleToggleStatusWithRefresh = useCallback(
     (row: StudentRow, checked: boolean) => {
-      if (tableRefreshRef.current) {
-        handleToggleStatus(row, checked, tableRefreshRef.current)
-      }
+      handleToggleStatus(row, checked, refreshTable)
     },
-    [handleToggleStatus],
+    [handleToggleStatus, refreshTable],
   )
 
   const { baseColumns, deletedColumns } = useStudentColumns({
@@ -85,11 +92,11 @@ export function StudentsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -100,11 +107,11 @@ export function StudentsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -115,11 +122,11 @@ export function StudentsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useStudentRowActions({
@@ -135,71 +142,17 @@ export function StudentsTableClient({
     hardDeletingStudents,
   })
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-    
-    // Set initial data với params từ initialData
-    const params: AdminStudentsListParams = {
-      status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
-      search: undefined,
-      filters: undefined,
-    }
-    const queryKey = queryKeys.adminStudents.list(params)
-    queryClient.setQueryData(queryKey, initialData)
-    
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
-
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
-
   const fetchStudents = useCallback(
-    async ({
-      page,
-      limit,
-      status,
-      search,
-      filters,
-    }: {
-      page: number
-      limit: number
-      status: "active" | "deleted" | "all"
-      search?: string
-      filters?: Record<string, string>
-    }): Promise<DataTableResult<StudentRow>> => {
+    async (params: AdminStudentsListParams): Promise<DataTableResult<StudentRow>> => {
       const baseUrl = apiRoutes.students.list({
-        page,
-        limit,
-        status,
-        search,
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
       })
 
       const filterParams = new URLSearchParams()
-      Object.entries(filters ?? {}).forEach(([key, value]) => {
+      Object.entries(params.filters ?? {}).forEach(([key, value]) => {
         if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
@@ -217,8 +170,8 @@ export function StudentsTableClient({
 
       return {
         rows: payload.data || [],
-        page: payload.pagination?.page ?? page,
-        limit: payload.pagination?.limit ?? limit,
+        page: payload.pagination?.page ?? params.page,
+        limit: payload.pagination?.limit ?? params.limit,
         total: payload.pagination?.total ?? 0,
         totalPages: payload.pagination?.totalPages ?? 0,
       }
@@ -226,37 +179,42 @@ export function StudentsTableClient({
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<StudentRow>) => {
-      const status = (view.status ?? "active") as AdminStudentsListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
-
-      const params: AdminStudentsListParams = {
-        status,
+  const buildParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<StudentRow> }): AdminStudentsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      return {
+        status: (view.status ?? "active") as AdminStudentsListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminStudents.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchStudents({
-            page: query.page,
-            limit: query.limit,
-            status: status ?? "active",
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchStudents, queryClient],
+    [],
   )
+
+  const buildQueryKey = useCallback((params: AdminStudentsListParams) => queryKeys.adminStudents.list(params), [])
+
+  const loader = useResourceTableLoader({
+    queryClient,
+    fetcher: fetchStudents,
+    buildParams,
+    buildQueryKey,
+  })
+
+  useResourceInitialDataCache({
+    initialData,
+    queryClient,
+    buildParams: (data) => ({
+      status: "active" as const,
+      page: data.page,
+      limit: data.limit,
+      search: undefined,
+      filters: undefined,
+    }),
+    buildQueryKey,
+    logDebug: logger.debug,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -506,19 +464,7 @@ export function StudentsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

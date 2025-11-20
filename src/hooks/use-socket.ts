@@ -223,7 +223,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
       // Polling có độ tin cậy cao hơn, websocket nhanh hơn nhưng có thể bị block
       const selectedTransports = isVercel 
         ? (["polling"] as const) 
-        : (["polling", "websocket"] as const) // Polling trước, websocket sau
+        : (["websocket", "polling"] as const) // Ưu tiên websocket, fallback sang polling
       const disableUpgrade = false // Cho phép upgrade từ polling sang websocket
 
       const socket = io({

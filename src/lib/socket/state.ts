@@ -28,6 +28,7 @@ export interface SocketNotificationPayload {
 
 type GlobalSocketState = typeof globalThis & {
   ioServer?: IOServer
+  ioInitPromise?: Promise<IOServer>
   notificationCache?: Map<string, SocketNotificationPayload[]>
 }
 
@@ -39,6 +40,14 @@ export function getSocketServer(): IOServer | undefined {
 
 export function setSocketServer(io: IOServer) {
   globalState.ioServer = io
+}
+
+export function getSocketInitPromise(): Promise<IOServer> | undefined {
+  return globalState.ioInitPromise
+}
+
+export function setSocketInitPromise(promise: Promise<IOServer> | undefined) {
+  globalState.ioInitPromise = promise
 }
 
 export function getNotificationCache(): Map<string, SocketNotificationPayload[]> {

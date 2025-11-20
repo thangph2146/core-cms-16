@@ -106,3 +106,132 @@ export function serializeResourceList<T extends Record<string, unknown>>(
   }
 }
 
+/**
+ * Apply status filter to Prisma where clause (active/deleted/all)
+ * Uses deletedAt field for soft delete pattern
+ */
+export function applyStatusFilter<T extends Record<string, unknown>>(
+  where: T,
+  status?: "active" | "deleted" | "all"
+): void {
+  const filterStatus = status ?? "active"
+  if (filterStatus === "active") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(where as any).deletedAt = null
+  } else if (filterStatus === "deleted") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(where as any).deletedAt = { not: null }
+  }
+  // "all" means no filter applied
+}
+
+/**
+ * Apply search filter with OR conditions
+ * @param where - Prisma where clause object
+ * @param search - Search query string
+ * @param fields - Array of field names to search in
+ */
+export function applySearchFilter<T extends Record<string, unknown>>(
+  where: T,
+  search: string | undefined,
+  fields: Array<keyof T | string>
+): void {
+  if (!search) return
+  
+  const searchValue = search.trim()
+  if (searchValue.length === 0) return
+
+  const orConditions = fields.map((field) => ({
+    [String(field)]: { contains: searchValue, mode: "insensitive" as const },
+  }))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(where as any).OR = orConditions
+}
+
+/**
+ * Apply date filter to Prisma where clause
+ * Filters by date range (start of day to end of day)
+ */
+export function applyDateFilter<T extends Record<string, unknown>>(
+  where: T,
+  dateField: keyof T,
+  dateValue: string | undefined
+): void {
+  if (!dateValue) return
+
+  try {
+    const filterDate = new Date(dateValue)
+    if (isNaN(filterDate.getTime())) return
+
+    const startOfDay = new Date(filterDate)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(filterDate)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    where[dateField] = {
+      gte: startOfDay,
+      lte: endOfDay,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma where clause requires dynamic typing
+    } as any
+  } catch {
+    // Invalid date format, skip filter
+  }
+}
+
+/**
+ * Apply boolean filter to Prisma where clause
+ */
+export function applyBooleanFilter<T extends Record<string, unknown>>(
+  where: T,
+  field: keyof T,
+  value: string | undefined
+): void {
+  if (!value) return
+
+  const normalizedValue = value.trim().toLowerCase()
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where[field] = true as any
+  } else if (normalizedValue === "false" || normalizedValue === "0") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where[field] = false as any
+  }
+}
+
+/**
+ * Apply string filter with contains (case-insensitive)
+ */
+export function applyStringFilter<T extends Record<string, unknown>>(
+  where: T,
+  field: keyof T,
+  value: string | undefined
+): void {
+  if (!value) return
+
+  const trimmedValue = value.trim()
+  if (trimmedValue.length === 0) return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  where[field] = { contains: trimmedValue, mode: "insensitive" } as any
+}
+
+/**
+ * Apply status filter from filters object (for backward compatibility)
+ */
+export function applyStatusFilterFromFilters<T extends Record<string, unknown>>(
+  where: T,
+  statusValue: string | undefined
+): void {
+  if (!statusValue) return
+
+  const value = statusValue.trim()
+  if (value === "deleted") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(where as any).deletedAt = { not: null }
+  } else if (value === "active") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(where as any).deletedAt = null
+  }
+}
+

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -8,12 +8,22 @@ import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query-keys"
+import { sanitizeSearchQuery } from "@/lib/api/validation"
 import { useRolesSocketBridge } from "@/features/admin/roles/hooks/use-roles-socket-bridge"
 import { useRoleActions } from "@/features/admin/roles/hooks/use-role-actions"
 import { useRoleFeedback } from "@/features/admin/roles/hooks/use-role-feedback"
@@ -39,9 +49,12 @@ export function RolesTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useRoleFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useRoleDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminRoles.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     handleToggleStatus,
@@ -62,11 +75,9 @@ export function RolesTableClient({
 
   const handleToggleStatusWithRefresh = useCallback(
     (row: RoleRow, checked: boolean) => {
-      if (tableRefreshRef.current) {
-        handleToggleStatus(row, checked, tableRefreshRef.current)
-      }
+      handleToggleStatus(row, checked, refreshTable)
     },
-    [handleToggleStatus],
+    [handleToggleStatus, refreshTable],
   )
 
   const { baseColumns, deletedColumns } = useRoleColumns({
@@ -87,11 +98,11 @@ export function RolesTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm, showFeedback],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm, showFeedback],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -106,11 +117,11 @@ export function RolesTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm, showFeedback],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm, showFeedback],
   )
 
   const handleRestoreSingle = useCallback(
@@ -121,11 +132,11 @@ export function RolesTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useRoleRowActions({
@@ -139,15 +150,6 @@ export function RolesTableClient({
     restoringRoles,
     hardDeletingRoles,
   })
-
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
 
   const fetchRoles = useCallback(
     async ({
@@ -163,72 +165,110 @@ export function RolesTableClient({
       search?: string
       filters?: Record<string, string>
     }): Promise<DataTableResult<RoleRow>> => {
-      const baseUrl = apiRoutes.roles.list({
-        page,
-        limit,
-        status,
-        search,
-      })
+      const safePage = Number.isFinite(page) && page > 0 ? page : 1
+      const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 10
+      const trimmedSearch = typeof search === "string" ? search.trim() : ""
+      const searchValidation =
+        trimmedSearch.length > 0 ? sanitizeSearchQuery(trimmedSearch, 200) : { valid: true, value: "" }
+      if (!searchValidation.valid) {
+        throw new Error(searchValidation.error || "Từ khóa tìm kiếm không hợp lệ. Vui lòng thử lại.")
+      }
 
-      const filterParams = new URLSearchParams()
+      const requestParams: Record<string, string> = {
+        page: safePage.toString(),
+        limit: safeLimit.toString(),
+        status: status ?? "active",
+      }
+      if (searchValidation.value) {
+        requestParams.search = searchValidation.value
+      }
+
       Object.entries(filters ?? {}).forEach(([key, value]) => {
-        if (value) {
-          filterParams.set(`filter[${key}]`, value)
+        if (value !== undefined && value !== null) {
+          const normalized = `${value}`.trim()
+          if (normalized) {
+            const filterValidation = sanitizeSearchQuery(normalized, 100)
+            if (filterValidation.valid && filterValidation.value) {
+              requestParams[`filter[${key}]`] = filterValidation.value
+            } else if (!filterValidation.valid) {
+              throw new Error(filterValidation.error || "Giá trị bộ lọc không hợp lệ. Vui lòng thử lại.")
+            }
+          }
         }
       })
 
-      const filterString = filterParams.toString()
-      const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
+      try {
+        const response = await apiClient.get<RolesResponse>(apiRoutes.roles.list(), {
+          params: requestParams,
+        })
+        const payload = response.data
 
-      const response = await apiClient.get<RolesResponse>(url)
-      const payload = response.data
+        if (!payload || !payload.data) {
+          throw new Error("Không thể tải danh sách vai trò")
+        }
 
-      if (!payload || !payload.data) {
-        throw new Error("Không thể tải danh sách vai trò")
-      }
-
-      return {
-        rows: payload.data || [],
-        page: payload.pagination?.page ?? page,
-        limit: payload.pagination?.limit ?? limit,
-        total: payload.pagination?.total ?? 0,
-        totalPages: payload.pagination?.totalPages ?? 0,
+        return {
+          rows: payload.data || [],
+          page: payload.pagination?.page ?? page,
+          limit: payload.pagination?.limit ?? limit,
+          total: payload.pagination?.total ?? 0,
+          totalPages: payload.pagination?.totalPages ?? 0,
+        }
+      } catch (error: unknown) {
+        // Log chi tiết lỗi để debug
+        if (error && typeof error === "object" && "response" in error) {
+          const axiosError = error as { response?: { data?: unknown; status?: number } }
+          const errorMessage = axiosError.response?.data
+            ? typeof axiosError.response.data === "object" && "error" in axiosError.response.data
+              ? String(axiosError.response.data.error)
+              : JSON.stringify(axiosError.response.data)
+            : `Request failed with status ${axiosError.response?.status ?? "unknown"}`
+          throw new Error(errorMessage)
+        }
+        throw error
       }
     },
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<RoleRow>) => {
-      const status = (view.status ?? "active") as AdminRolesListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<RoleRow> }): AdminRolesListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      const normalizedSearch = normalizeSearch(query.search)
+      const sanitizedSearch =
+        normalizedSearch && normalizedSearch.length > 0
+          ? sanitizeSearchQuery(normalizedSearch).value || undefined
+          : undefined
 
-      const params: AdminRolesListParams = {
-        status,
+      return {
+        status: (view.status ?? "active") as AdminRolesListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: sanitizedSearch,
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminRoles.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchRoles({
-            page: query.page,
-            limit: query.limit,
-            status: status ?? "active",
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchRoles, queryClient],
+    [],
   )
+
+  const fetchRolesWithDefaults = useCallback(
+    (params: AdminRolesListParams) =>
+      fetchRoles({
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
+        filters: params.filters,
+      }),
+    [fetchRoles],
+  )
+
+  const loader = useResourceTableLoader<RoleRow, AdminRolesListParams>({
+    queryClient,
+    fetcher: fetchRolesWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: queryKeys.adminRoles.list,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -251,37 +291,39 @@ export function RolesTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-
-    const params: AdminRolesListParams = {
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<RoleRow>): AdminRolesListParams => ({
       status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
+      page: data.page,
+      limit: data.limit,
       search: undefined,
       filters: undefined,
-    }
-    const queryKey = queryKeys.adminRoles.list(params)
-    queryClient.setQueryData(queryKey, initialData)
+    }),
+    [],
+  )
 
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<RoleRow, AdminRolesListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: queryKeys.adminRoles.list,
+    logDebug: logInitialDataCache,
+  })
 
   const createActiveSelectionActions = useCallback(
     ({
@@ -548,19 +590,7 @@ export function RolesTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         headerActions={headerActions}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

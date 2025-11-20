@@ -110,3 +110,35 @@ export function validateDescription(value: unknown): { valid: boolean; error?: s
   return { valid: true }
 }
 
+/**
+ * Chuẩn hoá giá trị search: trim khoảng trắng, trả về undefined nếu rỗng
+ */
+export function normalizeSearch(value: string | undefined | null): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+/**
+ * Loại bỏ các filter rỗng/null khỏi record trước khi gửi lên API
+ */
+export function sanitizeFilters(
+  filters?: Record<string, string | null | undefined>,
+): Record<string, string> {
+  if (!filters) return {}
+
+  return Object.entries(filters).reduce<Record<string, string>>((acc, [key, rawValue]) => {
+    if (rawValue === undefined || rawValue === null) {
+      return acc
+    }
+
+    const value = String(rawValue).trim()
+    if (value.length > 0) {
+      acc[key] = value
+    }
+
+    return acc
+  }, {})
+}
+
+

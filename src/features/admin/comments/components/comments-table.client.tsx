@@ -1,14 +1,23 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { RotateCcw, Trash2, AlertTriangle, Check, X } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -37,9 +46,12 @@ export function CommentsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useCommentFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useCommentDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminComments.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     handleToggleApprove,
@@ -69,13 +81,11 @@ export function CommentsTableClient({
         type: checked ? "approve" : "unapprove",
         row,
         onConfirm: async () => {
-          if (tableRefreshRef.current) {
-            await handleToggleApprove(row, checked, tableRefreshRef.current)
-          }
+          await handleToggleApprove(row, checked, refreshTable)
         },
       })
     },
-    [canApprove, handleToggleApprove, setDeleteConfirm],
+    [canApprove, handleToggleApprove, refreshTable, setDeleteConfirm],
   )
 
   const { baseColumns, deletedColumns } = useCommentColumns({
@@ -92,11 +102,11 @@ export function CommentsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -107,11 +117,11 @@ export function CommentsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -122,11 +132,11 @@ export function CommentsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useCommentRowActions({
@@ -145,38 +155,17 @@ export function CommentsTableClient({
     hardDeletingComments,
   })
 
-  const buildFiltersRecord = useCallback((filters: Record<string, string>): Record<string, string> => {
-    return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
-      if (value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-  }, [])
-
   const fetchComments = useCallback(
-    async ({
-      page,
-      limit,
-      status,
-      search,
-      filters,
-    }: {
-      page: number
-      limit: number
-      status: "active" | "deleted" | "all"
-      search?: string
-      filters?: Record<string, string>
-    }): Promise<DataTableResult<CommentRow>> => {
+    async (params: AdminCommentsListParams): Promise<DataTableResult<CommentRow>> => {
       const baseUrl = apiRoutes.comments.list({
-        page,
-        limit,
-        status,
-        search,
+        page: params.page,
+        limit: params.limit,
+        status: params.status ?? "active",
+        search: params.search,
       })
 
       const filterParams = new URLSearchParams()
-      Object.entries(filters ?? {}).forEach(([key, value]) => {
+      Object.entries(params.filters ?? {}).forEach(([key, value]) => {
         if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
@@ -199,8 +188,8 @@ export function CommentsTableClient({
 
       return {
         rows: payload.data,
-        page: payload.pagination?.page ?? page,
-        limit: payload.pagination?.limit ?? limit,
+        page: payload.pagination?.page ?? params.page,
+        limit: payload.pagination?.limit ?? params.limit,
         total: payload.pagination?.total ?? 0,
         totalPages: payload.pagination?.totalPages ?? 0,
       }
@@ -208,37 +197,42 @@ export function CommentsTableClient({
     [],
   )
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<CommentRow>) => {
-      const status = (view.status ?? "active") as AdminCommentsListParams["status"]
-      const search = query.search.trim() || undefined
-      const filters = buildFiltersRecord(query.filters)
-
-      const params: AdminCommentsListParams = {
-        status,
+  const buildParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<CommentRow> }): AdminCommentsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+      return {
+        status: (view.status ?? "active") as AdminCommentsListParams["status"],
         page: query.page,
         limit: query.limit,
-        search,
-        filters,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-
-      const queryKey = queryKeys.adminComments.list(params)
-
-      return await queryClient.fetchQuery({
-        queryKey,
-        staleTime: Infinity,
-        queryFn: () =>
-          fetchComments({
-            page: query.page,
-            limit: query.limit,
-            status,
-            search,
-            filters,
-          }),
-      })
     },
-    [buildFiltersRecord, fetchComments, queryClient],
+    [],
   )
+
+  const buildQueryKey = useCallback((params: AdminCommentsListParams) => queryKeys.adminComments.list(params), [])
+
+  const loader = useResourceTableLoader({
+    queryClient,
+    fetcher: fetchComments,
+    buildParams,
+    buildQueryKey,
+  })
+
+  useResourceInitialDataCache({
+    initialData,
+    queryClient,
+    buildParams: (data) => ({
+      status: "active" as const,
+      page: data.page,
+      limit: data.limit,
+      search: undefined,
+      filters: undefined,
+    }),
+    buildQueryKey,
+    logDebug: logger.debug,
+  })
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -515,38 +509,6 @@ export function CommentsTableClient({
     )
   }
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-    
-    const params: AdminCommentsListParams = {
-      status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
-      search: undefined,
-      filters: undefined,
-    }
-    
-    const queryKey = queryKeys.adminComments.list(params)
-    queryClient.setQueryData(queryKey, initialData)
-    
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
 
   return (
     <>
@@ -558,19 +520,7 @@ export function CommentsTableClient({
         defaultViewId="active"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}

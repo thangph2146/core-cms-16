@@ -7,7 +7,14 @@
 
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
-import { serializeDate } from "@/features/admin/resources/server"
+import {
+  serializeDate,
+  applyStatusFilter,
+  applySearchFilter,
+  applyDateFilter,
+  applyStringFilter,
+  applyStatusFilterFromFilters,
+} from "@/features/admin/resources/server"
 import type { ListCategoriesInput, ListedCategory, CategoryDetail, ListCategoriesResult } from "../types"
 import type { CategoryRow } from "../types"
 
@@ -32,25 +39,14 @@ export function mapCategoryRecord(category: CategoryWithRelations): ListedCatego
  */
 export function buildWhereClause(params: ListCategoriesInput): Prisma.CategoryWhereInput {
   const where: Prisma.CategoryWhereInput = {}
-  const status = params.status ?? "active"
 
-  if (status === "active") {
-    where.deletedAt = null
-  } else if (status === "deleted") {
-    where.deletedAt = { not: null }
-  }
+  // Apply status filter
+  applyStatusFilter(where, params.status)
 
-  if (params.search) {
-    const searchValue = params.search.trim()
-    if (searchValue.length > 0) {
-      where.OR = [
-        { name: { contains: searchValue, mode: "insensitive" } },
-        { slug: { contains: searchValue, mode: "insensitive" } },
-        { description: { contains: searchValue, mode: "insensitive" } },
-      ]
-    }
-  }
+  // Apply search filter
+  applySearchFilter(where, params.search, ["name", "slug", "description"])
 
+  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -59,32 +55,15 @@ export function buildWhereClause(params: ListCategoriesInput): Prisma.CategoryWh
 
       switch (key) {
         case "name":
-          where.name = { contains: value, mode: "insensitive" }
-          break
         case "slug":
-          where.slug = { contains: value, mode: "insensitive" }
+          applyStringFilter(where, key, value)
           break
         case "status":
-          if (value === "deleted") where.deletedAt = { not: null }
-          else if (value === "active") where.deletedAt = null
+          applyStatusFilterFromFilters(where, value)
           break
         case "createdAt":
         case "deletedAt":
-          try {
-            const filterDate = new Date(value)
-            if (!isNaN(filterDate.getTime())) {
-              const startOfDay = new Date(filterDate)
-              startOfDay.setHours(0, 0, 0, 0)
-              const endOfDay = new Date(filterDate)
-              endOfDay.setHours(23, 59, 59, 999)
-              where[key === "createdAt" ? "createdAt" : "deletedAt"] = {
-                gte: startOfDay,
-                lte: endOfDay,
-              }
-            }
-          } catch {
-            // Invalid date format, skip filter
-          }
+          applyDateFilter(where, key, value)
           break
       }
     }

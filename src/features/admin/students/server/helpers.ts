@@ -6,6 +6,14 @@
 
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
+import {
+  applyStatusFilter,
+  applySearchFilter,
+  applyDateFilter,
+  applyStringFilter,
+  applyBooleanFilter,
+  applyStatusFilterFromFilters,
+} from "@/features/admin/resources/server"
 import type { ListStudentsInput, ListedStudent, StudentDetail, ListStudentsResult } from "../types"
 import type { StudentRow } from "../types"
 
@@ -43,30 +51,19 @@ export function mapStudentRecord(student: StudentWithRelations): ListedStudent {
  */
 export function buildWhereClause(params: ListStudentsInput): Prisma.StudentWhereInput {
   const where: Prisma.StudentWhereInput = {}
-  const status = params.status ?? "active"
 
-  if (status === "active") {
-    where.deletedAt = null
-  } else if (status === "deleted") {
-    where.deletedAt = { not: null }
-  }
+  // Apply status filter
+  applyStatusFilter(where, params.status)
 
   // Filter by userId if not super admin
   if (!params.isSuperAdmin && params.actorId) {
     where.userId = params.actorId
   }
 
-  if (params.search) {
-    const searchValue = params.search.trim()
-    if (searchValue.length > 0) {
-      where.OR = [
-        { name: { contains: searchValue, mode: "insensitive" } },
-        { email: { contains: searchValue, mode: "insensitive" } },
-        { studentCode: { contains: searchValue, mode: "insensitive" } },
-      ]
-    }
-  }
+  // Apply search filter
+  applySearchFilter(where, params.search, ["name", "email", "studentCode"])
 
+  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -75,39 +72,19 @@ export function buildWhereClause(params: ListStudentsInput): Prisma.StudentWhere
 
       switch (key) {
         case "name":
-          where.name = { contains: value, mode: "insensitive" }
-          break
         case "email":
-          where.email = { contains: value, mode: "insensitive" }
-          break
         case "studentCode":
-          where.studentCode = { contains: value, mode: "insensitive" }
+          applyStringFilter(where, key, value)
           break
         case "isActive":
-          if (value === "true") where.isActive = true
-          else if (value === "false") where.isActive = false
+          applyBooleanFilter(where, key, value)
           break
         case "status":
-          if (value === "deleted") where.deletedAt = { not: null }
-          else if (value === "active") where.deletedAt = null
+          applyStatusFilterFromFilters(where, value)
           break
         case "createdAt":
         case "deletedAt":
-          try {
-            const filterDate = new Date(value)
-            if (!isNaN(filterDate.getTime())) {
-              const startOfDay = new Date(filterDate)
-              startOfDay.setHours(0, 0, 0, 0)
-              const endOfDay = new Date(filterDate)
-              endOfDay.setHours(23, 59, 59, 999)
-              where[key === "createdAt" ? "createdAt" : "deletedAt"] = {
-                gte: startOfDay,
-                lte: endOfDay,
-              }
-            }
-          } catch {
-            // Invalid date format, skip filter
-          }
+          applyDateFilter(where, key, value)
           break
       }
     }

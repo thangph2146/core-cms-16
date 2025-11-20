@@ -4,7 +4,7 @@
  * Chứa các database queries không có cache wrapper
  * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
  */
-import { validatePagination, buildPagination, type ResourcePagination } from "@/features/admin/resources/server"
+import { validatePagination, buildPagination, type ResourcePagination, applyBooleanFilter } from "@/features/admin/resources/server"
 import { Prisma, NotificationKind } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { logger } from "@/lib/config/logger"
@@ -201,7 +201,7 @@ function buildWhereClause(params: ListNotificationsInput): Prisma.NotificationWh
           }
           break
         case "isRead":
-          where.isRead = value === "true"
+          applyBooleanFilter(where, "isRead", value)
           break
       }
     }

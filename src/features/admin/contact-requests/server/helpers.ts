@@ -7,7 +7,13 @@
 
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
-import { serializeDate } from "@/features/admin/resources/server"
+import {
+  serializeDate,
+  applySearchFilter,
+  applyDateFilter,
+  applyStringFilter,
+  applyBooleanFilter,
+} from "@/features/admin/resources/server"
 import type { ListContactRequestsInput, ListedContactRequest, ContactRequestDetail, ListContactRequestsResult } from "../types"
 import type { ContactRequestRow } from "../types"
 
@@ -59,6 +65,7 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
   const where: Prisma.ContactRequestWhereInput = {}
   const status = params.status ?? "active"
 
+  // Handle status filter - có thể là active/deleted/all hoặc enum status
   if (status === "active") {
     where.deletedAt = null
   } else if (status === "deleted") {
@@ -68,19 +75,10 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
     where.deletedAt = null
   }
 
-  if (params.search) {
-    const searchValue = params.search.trim()
-    if (searchValue.length > 0) {
-      where.OR = [
-        { name: { contains: searchValue, mode: "insensitive" } },
-        { email: { contains: searchValue, mode: "insensitive" } },
-        { phone: { contains: searchValue, mode: "insensitive" } },
-        { subject: { contains: searchValue, mode: "insensitive" } },
-        { content: { contains: searchValue, mode: "insensitive" } },
-      ]
-    }
-  }
+  // Apply search filter
+  applySearchFilter(where, params.search, ["name", "email", "phone", "subject", "content"])
 
+  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -89,30 +87,23 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
 
       switch (key) {
         case "name":
-          where.name = { contains: value, mode: "insensitive" }
-          break
         case "email":
-          where.email = { contains: value, mode: "insensitive" }
-          break
         case "phone":
-          where.phone = { contains: value, mode: "insensitive" }
-          break
         case "subject":
-          where.subject = { contains: value, mode: "insensitive" }
+          applyStringFilter(where, key, value)
           break
         case "status":
           if (value === "NEW" || value === "IN_PROGRESS" || value === "RESOLVED" || value === "CLOSED") {
-            where.status = value
+            where.status = value as Prisma.ContactRequestWhereInput["status"]
           }
           break
         case "priority":
           if (value === "LOW" || value === "MEDIUM" || value === "HIGH" || value === "URGENT") {
-            where.priority = value
+            where.priority = value as Prisma.ContactRequestWhereInput["priority"]
           }
           break
         case "isRead":
-          if (value === "true" || value === "1") where.isRead = true
-          else if (value === "false" || value === "0") where.isRead = false
+          applyBooleanFilter(where, key, value)
           break
         case "assignedToId":
           where.assignedToId = value
@@ -120,21 +111,7 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
         case "createdAt":
         case "updatedAt":
         case "deletedAt":
-          try {
-            const filterDate = new Date(value)
-            if (!isNaN(filterDate.getTime())) {
-              const startOfDay = new Date(filterDate)
-              startOfDay.setHours(0, 0, 0, 0)
-              const endOfDay = new Date(filterDate)
-              endOfDay.setHours(23, 59, 59, 999)
-              where[key === "createdAt" ? "createdAt" : key === "updatedAt" ? "updatedAt" : "deletedAt"] = {
-                gte: startOfDay,
-                lte: endOfDay,
-              }
-            }
-          } catch {
-            // Invalid date format, skip filter
-          }
+          applyDateFilter(where, key, value)
           break
       }
     }

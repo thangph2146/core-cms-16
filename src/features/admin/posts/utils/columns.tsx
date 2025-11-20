@@ -13,14 +13,14 @@ interface UsePostColumnsOptions {
   togglingPosts: Set<string>
   canToggleStatus: boolean
   onTogglePublished: (row: PostRow, newStatus: boolean, refresh: () => void) => void
-  tableRefreshRef: React.MutableRefObject<(() => void) | null>
+  refreshTable: () => void
 }
 
 export function usePostColumns({
   togglingPosts,
   canToggleStatus,
   onTogglePublished,
-  tableRefreshRef,
+  refreshTable,
 }: UsePostColumnsOptions) {
   const titleFilter = useDynamicFilterOptions({
     optionsEndpoint: apiRoutes.posts.options({ column: "title" }),
@@ -162,9 +162,7 @@ export function usePostColumns({
                 checked={row.published}
                 disabled={togglingPosts.has(row.id) || !canToggleStatus}
                 onCheckedChange={(checked) => {
-                  const refresh = tableRefreshRef.current
-                  if (!refresh) return
-                  onTogglePublished(row, checked, refresh)
+                  onTogglePublished(row, checked, refreshTable)
                 }}
                 aria-label={row.published ? "Chuyển thành bản nháp" : "Xuất bản bài viết"}
               />
@@ -224,7 +222,7 @@ export function usePostColumns({
       togglingPosts,
       canToggleStatus,
       onTogglePublished,
-      tableRefreshRef,
+      refreshTable,
     ],
   )
 

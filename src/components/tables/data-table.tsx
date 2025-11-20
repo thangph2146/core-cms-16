@@ -98,7 +98,7 @@ export interface DataTableProps<T extends object> {
     maxWidth?: string | number
 }
 
-const DEFAULT_LIMIT_OPTIONS = [10, 20, 50]
+const DEFAULT_LIMIT_OPTIONS = [10, 20, 50, 100]
 const DEFAULT_EMPTY_MESSAGE = "Không có dữ liệu"
 
 function areQueriesEqual(a: DataTableQueryState, b: DataTableQueryState) {

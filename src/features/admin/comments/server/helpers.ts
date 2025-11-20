@@ -60,7 +60,7 @@ export function buildWhereClause(params: ListCommentsInput): Prisma.CommentWhere
     where.deletedAt = null
   }
 
-  // Search filter
+  // Search filter with relations
   if (params.search) {
     const searchValue = params.search.trim()
     if (searchValue.length > 0) {

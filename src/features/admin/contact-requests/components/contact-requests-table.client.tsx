@@ -1,14 +1,23 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
 import { FeedbackDialog } from "@/components/dialogs"
 import { Button } from "@/components/ui/button"
-import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/resources/components"
+import {
+  ResourceTableClient,
+  SelectionActionsWrapper,
+} from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
+import {
+  useResourceInitialDataCache,
+  useResourceTableLoader,
+  useResourceTableRefresh,
+} from "@/features/admin/resources/hooks"
+import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useQueryClient } from "@tanstack/react-query"
@@ -39,9 +48,12 @@ export function ContactRequestsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useContactRequestFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useContactRequestDeleteConfirm()
 
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const tableSoftRefreshRef = useRef<(() => void) | null>(null)
-  const pendingRealtimeRefreshRef = useRef(false)
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminContactRequests.all(), [])
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion,
+  })
 
   const {
     handleToggleRead,
@@ -71,13 +83,11 @@ export function ContactRequestsTableClient({
         type: checked ? "mark-read" : "mark-unread",
         row,
         onConfirm: async () => {
-          if (tableRefreshRef.current) {
-            await handleToggleRead(row, checked, tableRefreshRef.current)
-          }
+          await handleToggleRead(row, checked, refreshTable)
         },
       })
     },
-    [canUpdate, handleToggleRead, setDeleteConfirm],
+    [canUpdate, handleToggleRead, refreshTable, setDeleteConfirm],
   )
 
   const { baseColumns, deletedColumns } = useContactRequestColumns({
@@ -95,11 +105,11 @@ export function ContactRequestsTableClient({
         type: "soft",
         row,
         onConfirm: async () => {
-          await executeSingleAction("delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("delete", row, refreshTable)
         },
       })
     },
-    [canDelete, executeSingleAction, setDeleteConfirm],
+    [canDelete, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleHardDeleteSingle = useCallback(
@@ -110,11 +120,11 @@ export function ContactRequestsTableClient({
         type: "hard",
         row,
         onConfirm: async () => {
-          await executeSingleAction("hard-delete", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("hard-delete", row, refreshTable)
         },
       })
     },
-    [canManage, executeSingleAction, setDeleteConfirm],
+    [canManage, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const handleRestoreSingle = useCallback(
@@ -125,11 +135,11 @@ export function ContactRequestsTableClient({
         type: "restore",
         row,
         onConfirm: async () => {
-          await executeSingleAction("restore", row, tableRefreshRef.current || (() => {}))
+          await executeSingleAction("restore", row, refreshTable)
         },
       })
     },
-    [canRestore, executeSingleAction, setDeleteConfirm],
+    [canRestore, executeSingleAction, refreshTable, setDeleteConfirm],
   )
 
   const { renderActiveRowActions, renderDeletedRowActions } = useContactRequestRowActions({
@@ -149,17 +159,29 @@ export function ContactRequestsTableClient({
   })
 
 
-  const loader = useCallback(
-    async (query: DataTableQueryState, view: ResourceViewMode<ContactRequestRow>) => {
+  const fetchContactRequests = useCallback(
+    async ({
+      page,
+      limit,
+      status,
+      search,
+      filters,
+    }: {
+      page: number
+      limit: number
+      status: "active" | "deleted" | "all"
+      search?: string
+      filters?: Record<string, string>
+    }): Promise<DataTableResult<ContactRequestRow>> => {
       const baseUrl = apiRoutes.contactRequests.list({
-        page: query.page,
-        limit: query.limit,
-        status: view.status ?? "active",
-        search: query.search.trim() || undefined,
+        page,
+        limit,
+        status,
+        search,
       })
 
       const filterParams = new URLSearchParams()
-      Object.entries(query.filters).forEach(([key, value]) => {
+      Object.entries(filters ?? {}).forEach(([key, value]) => {
         if (value) {
           filterParams.set(`filter[${key}]`, value)
         }
@@ -171,29 +193,54 @@ export function ContactRequestsTableClient({
       const response = await apiClient.get<ContactRequestsResponse>(url)
       const payload = response.data
 
-      // Set vào cache với params tương ứng
-      const viewStatus = (view.status ?? "active") as "active" | "deleted" | "all"
-      const params: AdminContactRequestsListParams = {
-        status: viewStatus,
+      if (!payload || !payload.data) {
+        throw new Error("Không thể tải danh sách liên hệ")
+      }
+
+      return {
+        rows: payload.data,
+        page: payload.pagination?.page ?? page,
+        limit: payload.pagination?.limit ?? limit,
+        total: payload.pagination?.total ?? 0,
+        totalPages: payload.pagination?.totalPages ?? 0,
+      }
+    },
+    [],
+  )
+
+  const buildListParams = useCallback(
+    ({ query, view }: { query: DataTableQueryState; view: ResourceViewMode<ContactRequestRow> }): AdminContactRequestsListParams => {
+      const filtersRecord = sanitizeFilters(query.filters)
+
+      return {
+        status: (view.status ?? "active") as AdminContactRequestsListParams["status"],
         page: query.page,
         limit: query.limit,
-        search: query.search.trim() || undefined,
-        filters: Object.keys(query.filters).length > 0 ? query.filters : undefined,
+        search: normalizeSearch(query.search),
+        filters: Object.keys(filtersRecord).length ? filtersRecord : undefined,
       }
-      const queryKey = queryKeys.adminContactRequests.list(params)
-      const result: DataTableResult<ContactRequestRow> = {
-        rows: payload.data,
-        page: payload.pagination.page,
-        limit: payload.pagination.limit,
-        total: payload.pagination.total,
-        totalPages: payload.pagination.totalPages,
-      }
-      queryClient.setQueryData(queryKey, result)
-
-      return result
     },
-    [queryClient],
+    [],
   )
+
+  const fetchContactRequestsWithDefaults = useCallback(
+    (params: AdminContactRequestsListParams) =>
+      fetchContactRequests({
+        page: params.page,
+        limit: params.limit,
+        status: (params.status ?? "active") as "active" | "deleted" | "all",
+        search: params.search,
+        filters: params.filters,
+      }),
+    [fetchContactRequests],
+  )
+
+  const loader = useResourceTableLoader<ContactRequestRow, AdminContactRequestsListParams>({
+    queryClient,
+    fetcher: fetchContactRequestsWithDefaults,
+    buildParams: buildListParams,
+    buildQueryKey: queryKeys.adminContactRequests.list,
+  })
 
 
   // Helper function for active view selection actions
@@ -467,38 +514,39 @@ export function ContactRequestsTableClient({
     )
   }
 
-  // Handle realtime updates từ socket bridge
-  useEffect(() => {
-    if (cacheVersion === 0) return
-    if (tableSoftRefreshRef.current) {
-      tableSoftRefreshRef.current()
-      pendingRealtimeRefreshRef.current = false
-    } else {
-      pendingRealtimeRefreshRef.current = true
-    }
-  }, [cacheVersion])
-
-  // Set initialData vào React Query cache để socket bridge có thể cập nhật
-  useEffect(() => {
-    if (!initialData) return
-    
-    const params: AdminContactRequestsListParams = {
+  const buildInitialParams = useCallback(
+    (data: DataTableResult<ContactRequestRow>): AdminContactRequestsListParams => ({
       status: "active",
-      page: initialData.page,
-      limit: initialData.limit,
+      page: data.page,
+      limit: data.limit,
       search: undefined,
       filters: undefined,
-    }
-    
-    const queryKey = queryKeys.adminContactRequests.list(params)
-    queryClient.setQueryData(queryKey, initialData)
-    
-    logger.debug("Set initial data to cache", {
-      queryKey: queryKey.slice(0, 2),
-      rowsCount: initialData.rows.length,
-      total: initialData.total,
-    })
-  }, [initialData, queryClient])
+    }),
+    [],
+  )
+
+  const logInitialDataCache = useCallback(
+    (message: string, meta?: Record<string, unknown>) => {
+      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
+      const formattedMeta = meta
+        ? {
+            ...meta,
+            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
+          }
+        : undefined
+
+      logger.debug(message, formattedMeta)
+    },
+    [],
+  )
+
+  useResourceInitialDataCache<ContactRequestRow, AdminContactRequestsListParams>({
+    initialData,
+    queryClient,
+    buildParams: buildInitialParams,
+    buildQueryKey: queryKeys.adminContactRequests.list,
+    logDebug: logInitialDataCache,
+  })
 
   return (
     <>
@@ -510,19 +558,7 @@ export function ContactRequestsTableClient({
         defaultViewId="new"
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
-        onRefreshReady={(refresh) => {
-          const wrapped = () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "none" })
-            refresh()
-          }
-          tableSoftRefreshRef.current = refresh
-          tableRefreshRef.current = wrapped
-
-          if (pendingRealtimeRefreshRef.current) {
-            pendingRealtimeRefreshRef.current = false
-            refresh()
-          }
-        }}
+        onRefreshReady={onRefreshReady}
       />
 
       {/* Delete Confirmation Dialog */}
