@@ -2,12 +2,17 @@
 
 import * as React from "react"
 import { Hash, User, Calendar, Clock, Edit, Eye, EyeOff, CheckCircle2, Tag, Tags } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { 
+  ResourceDetailPage, 
+  FieldItem,
+  type ResourceDetailField, 
+  type ResourceDetailSection 
+} from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import Image from "next/image"
-import { useResourcePath, useResourceRouter } from "@/hooks/use-resource-segment"
+import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { Editor } from "@/components/editor/editor-x/editor"
 import type { SerializedEditorState } from "lexical"
@@ -47,29 +52,8 @@ export interface PostDetailClientProps {
   backUrl?: string
 }
 
-// Reusable field item component
-interface FieldItemProps {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  children: React.ReactNode
-  iconColor?: string
-}
-
-const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
-  <div className="flex items-start gap-3">
-    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
-      {children}
-    </div>
-  </div>
-)
-
 export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: PostDetailClientProps) {
   const router = useResourceRouter()
-  const resolvedBackUrl = useResourcePath(backUrl)
 
   const detailFields: ResourceDetailField<PostDetailData>[] = []
 
@@ -192,31 +176,27 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
                   </div>
                 </div>
               )}
-              {/* Published Status */}
-              <div className="grid gap-4">
-                <FieldItem icon={postData.published ? Eye : EyeOff} label="Trạng thái">
-                  <div className="flex items-center gap-2">
-                    {postData.published ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                        <span className="text-sm font-medium text-foreground">Đã xuất bản</span>
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                        <span className="text-sm font-medium text-foreground">Bản nháp</span>
-                      </>
-                    )}
-                  </div>
-                </FieldItem>
-
-              </div>
             </div>
 
-            <div className="space-y-6">
+            <Separator />
 
-              {/* Timestamps */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Published Status & Timestamps */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FieldItem icon={postData.published ? Eye : EyeOff} label="Trạng thái">
+                <div className="flex items-center gap-2">
+                  {postData.published ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                      <span className="text-sm font-medium text-foreground">Đã xuất bản</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      <span className="text-sm font-medium text-foreground">Bản nháp</span>
+                    </>
+                  )}
+                </div>
+              </FieldItem>
 
                 {postData.publishedAt && (
                   <FieldItem icon={Calendar} label="Ngày xuất bản">
@@ -231,24 +211,23 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
                   </div>
                 </FieldItem>
 
-                <FieldItem icon={Clock} label="Cập nhật lần cuối">
-                  <div className="text-sm font-medium text-foreground">
-                    {formatDateVi(postData.updatedAt)}
+              <FieldItem icon={Clock} label="Cập nhật lần cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {formatDateVi(postData.updatedAt)}
+                </div>
+              </FieldItem>
+            </div>
+
+            {postData.deletedAt && (
+              <>
+                <Separator />
+                <FieldItem icon={Clock} label="Ngày xóa">
+                  <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                    {formatDateVi(postData.deletedAt)}
                   </div>
                 </FieldItem>
-              </div>
-
-              {postData.deletedAt && (
-                <>
-                  <Separator />
-                  <FieldItem icon={Clock} label="Ngày xóa">
-                    <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
-                      {formatDateVi(postData.deletedAt)}
-                    </div>
-                  </FieldItem>
-                </>
-              )}
-            </div>
+              </>
+            )}
           </div>
         )
       },
@@ -292,28 +271,22 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
 
   return (
     <ResourceDetailPage<PostDetailData>
-      title="Chi tiết bài viết"
+      title={post.title}
+      description={`Chi tiết bài viết ${post.slug}`}
       data={post}
       fields={detailFields}
       detailSections={detailSections}
+      backUrl={backUrl}
+      backLabel="Quay lại danh sách"
       actions={
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(resolvedBackUrl)}
-          >
-            Quay lại
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => router.push(`/admin/posts/${postId}/edit`)}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Chỉnh sửa
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/admin/posts/${postId}/edit`)}
+          className="gap-2"
+        >
+          <Edit className="h-4 w-4" />
+          Chỉnh sửa
+        </Button>
       }
     />
   )

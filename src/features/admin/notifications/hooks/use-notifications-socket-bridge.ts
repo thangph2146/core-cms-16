@@ -30,6 +30,35 @@ interface NotificationRemovePayload {
   id: string
 }
 
+type NotificationsDeletedSocketPayload =
+  | NotificationRemovePayload[]
+  | { ids?: string[] | null | undefined }
+  | string[]
+  | null
+  | undefined
+
+function normalizeNotificationsDeletedPayload(payload: NotificationsDeletedSocketPayload): string[] {
+  if (!payload) return []
+
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) return []
+
+    if (typeof payload[0] === "string") {
+      return (payload as string[]).filter((id): id is string => typeof id === "string" && id.length > 0)
+    }
+
+    return (payload as NotificationRemovePayload[])
+      .map((item) => item?.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+  }
+
+  if (Array.isArray(payload.ids)) {
+    return payload.ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+  }
+
+  return []
+}
+
 function updateNotificationQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   updater: (args: { key: unknown[]; data: DataTableResult<NotificationRow> }) => DataTableResult<NotificationRow> | null,
@@ -260,15 +289,21 @@ export function useNotificationsSocketBridge() {
       }
     })
 
-    const detachBulkRemove = on<[NotificationRemovePayload[]]>("notifications:deleted", (payloads) => {
-      logger.debug("Received notifications:deleted", { count: payloads.length })
+    const detachBulkRemove = on<[NotificationsDeletedSocketPayload]>("notifications:deleted", (payload) => {
+      const ids = normalizeNotificationsDeletedPayload(payload)
+      if (ids.length === 0) {
+        logger.warn("Received notifications:deleted without valid payload")
+        return
+      }
+
+      logger.debug("Received notifications:deleted", { count: ids.length })
       
       const updated = updateNotificationQueries(queryClient, ({ data }) => {
         let rows = data.rows
         let removedCount = 0
 
-        for (const payload of payloads) {
-          const result = removeRowFromPage(rows, payload.id)
+        for (const id of ids) {
+          const result = removeRowFromPage(rows, id)
           if (result.removed) {
             rows = result.rows
             removedCount++

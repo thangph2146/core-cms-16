@@ -309,18 +309,27 @@ export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): P
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const student of students) {
-    await emitStudentUpsert(student.id, "active")
-  }
-
-  // Emit notifications realtime cho từng student
-  for (const student of students) {
-    await notifySuperAdminsOfStudentAction(
-      "delete",
-      ctx.actorId,
-      student
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = students.map((student) => 
+      emitStudentUpsert(student.id, "active").catch((error) => {
+        console.error(`Failed to emit student:upsert for ${student.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng student
+    for (const student of students) {
+      await notifySuperAdminsOfStudentAction(
+        "delete",
+        ctx.actorId,
+        student
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa ${result.count} học sinh`, affectedCount: result.count }
@@ -384,18 +393,27 @@ export async function bulkRestoreStudents(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const student of students) {
-    await emitStudentUpsert(student.id, "deleted")
-  }
-
-  // Emit notifications realtime cho từng student
-  for (const student of students) {
-    await notifySuperAdminsOfStudentAction(
-      "restore",
-      ctx.actorId,
-      student
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = students.map((student) => 
+      emitStudentUpsert(student.id, "deleted").catch((error) => {
+        console.error(`Failed to emit student:upsert for ${student.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng student
+    for (const student of students) {
+      await notifySuperAdminsOfStudentAction(
+        "restore",
+        ctx.actorId,
+        student
+      )
+    }
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} học sinh`, affectedCount: result.count }
@@ -463,18 +481,27 @@ export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): P
   })
 
   // Emit socket events for real-time updates
-  for (const student of students) {
-    const previousStatus: "active" | "deleted" = student.deletedAt ? "deleted" : "active"
-    emitStudentRemove(student.id, previousStatus)
-  }
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả students đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitStudentRemove trả về void, không phải Promise)
+    students.forEach((student) => {
+      const previousStatus: "active" | "deleted" = student.deletedAt ? "deleted" : "active"
+      try {
+        emitStudentRemove(student.id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit student:remove for ${student.id}:`, error)
+      }
+    })
 
-  // Emit notifications realtime cho từng student
-  for (const student of students) {
-    await notifySuperAdminsOfStudentAction(
-      "hard-delete",
-      ctx.actorId,
-      student
-    )
+    // Emit notifications realtime cho từng student
+    for (const student of students) {
+      await notifySuperAdminsOfStudentAction(
+        "hard-delete",
+        ctx.actorId,
+        student
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} học sinh`, affectedCount: result.count }

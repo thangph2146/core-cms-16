@@ -17,6 +17,7 @@ export { ResourceForm } from "./resource-form"
 export { ResourceDetailPage } from "./resource-detail-page"
 export { NotFoundMessage } from "./not-found-message"
 export { SelectionActionsWrapper } from "./selection-actions-wrapper"
+export { FieldItem } from "./field-item"
 
 // Suspense Wrappers
 export {
@@ -38,3 +39,4 @@ export type { ResourceDetailProps } from "./resource-detail"
 export type { ResourceTableClientProps } from "./resource-table.client"
 export type { ResourceFormProps, ResourceFormField, ResourceFormSection } from "./resource-form"
 export type { ResourceDetailPageProps, ResourceDetailField, ResourceDetailSection } from "./resource-detail-page"
+export type { FieldItemProps } from "./field-item"

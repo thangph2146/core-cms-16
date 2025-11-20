@@ -1,11 +1,18 @@
 "use client"
 
 import { User, Globe, MapPin, Calendar, CheckCircle2, XCircle, Edit, Key, RefreshCw, Clock } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { 
+  ResourceDetailPage, 
+  FieldItem,
+  type ResourceDetailField, 
+  type ResourceDetailSection 
+} from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
+import { cn } from "@/lib/utils"
 
 export interface SessionDetailData {
   id: string
@@ -34,169 +41,126 @@ export interface SessionDetailClientProps {
 export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sessions" }: SessionDetailClientProps) {
   const router = useResourceRouter()
 
-  const detailFields: ResourceDetailField<SessionDetailData>[] = [
-    {
-      name: "userId",
-      label: "Người dùng",
-      type: "custom",
-      section: "basic",
-      render: (value, data) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <User className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <div className="font-medium">{data.userName || data.userEmail || "—"}</div>
-            {data.userEmail && data.userName && (
-              <div className="text-sm text-muted-foreground">{data.userEmail}</div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "accessToken",
-      label: "Access Token",
-      type: "custom",
-      section: "security",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-            <Key className="h-5 w-5 text-chart-1" />
-          </div>
-          <div className="font-mono text-xs break-all">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "refreshToken",
-      label: "Refresh Token",
-      type: "custom",
-      section: "security",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-            <RefreshCw className="h-5 w-5 text-chart-2" />
-          </div>
-          <div className="font-mono text-xs break-all">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "userAgent",
-      label: "User Agent",
-      type: "custom",
-      section: "security",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-3/10">
-            <Globe className="h-5 w-5 text-chart-3" />
-          </div>
-          <div className="text-sm break-all">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "ipAddress",
-      label: "IP Address",
-      type: "custom",
-      section: "security",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-            <MapPin className="h-5 w-5 text-chart-4" />
-          </div>
-          <div className="font-medium">{String(value || "—")}</div>
-        </div>
-      ),
-    },
-    {
-      name: "isActive",
-      label: "Trạng thái",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            {value ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
-            )}
-          </div>
-          <div>
-            <Badge variant={value ? "default" : "secondary"}>
-              {value ? "Hoạt động" : "Tạm khóa"}
-            </Badge>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "expiresAt",
-      label: "Thời gian hết hạn",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Calendar className="h-5 w-5 text-chart-5" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "lastActivity",
-      label: "Hoạt động cuối",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Clock className="h-5 w-5 text-chart-5" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      name: "createdAt",
-      label: "Ngày tạo",
-      type: "custom",
-      section: "status",
-      render: (value) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-5/10">
-            <Calendar className="h-5 w-5 text-chart-5" />
-          </div>
-          <div>
-            <div className="font-medium">{value ? formatDateVi(String(value)) : "—"}</div>
-          </div>
-        </div>
-      ),
-    },
-  ]
+  const detailFields: ResourceDetailField<SessionDetailData>[] = []
 
   const detailSections: ResourceDetailSection<SessionDetailData>[] = [
     {
       id: "basic",
       title: "Thông tin cơ bản",
       description: "Thông tin chính về session",
+      fieldsContent: (_fields, data) => {
+        const sessionData = data as SessionDetailData
+        
+        return (
+          <div className="space-y-6">
+            <FieldItem icon={User} label="Người dùng" iconColor="bg-primary/10">
+              <div>
+                <div className="text-sm font-medium text-foreground">
+                  {sessionData.userName || sessionData.userEmail || "—"}
+                </div>
+                {sessionData.userEmail && sessionData.userName && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {sessionData.userEmail}
+                  </div>
+                )}
+              </div>
+            </FieldItem>
+          </div>
+        )
+      },
     },
     {
       id: "security",
       title: "Bảo mật",
       description: "Thông tin bảo mật và mạng",
+      fieldsContent: (_fields, data) => {
+        const sessionData = data as SessionDetailData
+        
+        return (
+          <div className="space-y-6">
+            <FieldItem icon={Key} label="Access Token" iconColor="bg-chart-1/10">
+              <div className="font-mono text-xs break-all text-foreground">
+                {sessionData.accessToken || "—"}
+              </div>
+            </FieldItem>
+
+            <Separator />
+
+            <FieldItem icon={RefreshCw} label="Refresh Token" iconColor="bg-chart-2/10">
+              <div className="font-mono text-xs break-all text-foreground">
+                {sessionData.refreshToken || "—"}
+              </div>
+            </FieldItem>
+
+            <Separator />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Globe} label="User Agent" iconColor="bg-chart-3/10">
+                <div className="text-sm break-all text-foreground">
+                  {sessionData.userAgent || "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={MapPin} label="IP Address" iconColor="bg-chart-4/10">
+                <div className="text-sm font-medium text-foreground">
+                  {sessionData.ipAddress || "—"}
+                </div>
+              </FieldItem>
+            </div>
+          </div>
+        )
+      },
     },
     {
       id: "status",
       title: "Trạng thái và thời gian",
       description: "Trạng thái hoạt động và thông tin thời gian",
+      fieldsContent: (_fields, data) => {
+        const sessionData = data as SessionDetailData
+        
+        return (
+          <div className="space-y-6">
+            <FieldItem 
+              icon={sessionData.isActive ? CheckCircle2 : XCircle} 
+              label="Trạng thái"
+              iconColor={sessionData.isActive ? "bg-green-500/10" : "bg-red-500/10"}
+            >
+              <Badge 
+                variant={sessionData.isActive ? "default" : "secondary"}
+                className={cn(
+                  sessionData.isActive
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20"
+                )}
+              >
+                {sessionData.isActive ? "Hoạt động" : "Tạm khóa"}
+              </Badge>
+            </FieldItem>
+
+            <Separator />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FieldItem icon={Calendar} label="Thời gian hết hạn">
+                <div className="text-sm font-medium text-foreground">
+                  {sessionData.expiresAt ? formatDateVi(sessionData.expiresAt) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Clock} label="Hoạt động cuối">
+                <div className="text-sm font-medium text-foreground">
+                  {sessionData.lastActivity ? formatDateVi(sessionData.lastActivity) : "—"}
+                </div>
+              </FieldItem>
+
+              <FieldItem icon={Calendar} label="Ngày tạo">
+                <div className="text-sm font-medium text-foreground">
+                  {sessionData.createdAt ? formatDateVi(sessionData.createdAt) : "—"}
+                </div>
+              </FieldItem>
+            </div>
+          </div>
+        )
+      },
     },
   ]
 
@@ -206,7 +170,7 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
       fields={detailFields}
       detailSections={detailSections}
       title={`Session ${session.userName || session.userEmail || session.id}`}
-      description={`Chi tiết session`}
+      description={`Chi tiết phiên đăng nhập của ${session.userName || session.userEmail || "người dùng"}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
       actions={

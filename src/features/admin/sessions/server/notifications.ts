@@ -225,3 +225,108 @@ export async function notifySuperAdminsOfSessionAction(
   }
 }
 
+/**
+ * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
+ * Để tránh timeout khi xử lý nhiều sessions
+ */
+export async function notifySuperAdminsOfBulkSessionAction(
+  action: "delete" | "restore" | "hard-delete",
+  actorId: string,
+  count: number
+) {
+  try {
+    const actor = await getActorInfo(actorId)
+    const actorName = actor?.name || actor?.email || "Hệ thống"
+
+    let title = ""
+    let description = ""
+
+    switch (action) {
+      case "delete":
+        title = "🗑️ Nhiều sessions bị xóa"
+        description = `${actorName} đã xóa ${count} session`
+        break
+      case "restore":
+        title = "♻️ Nhiều sessions được khôi phục"
+        description = `${actorName} đã khôi phục ${count} session`
+        break
+      case "hard-delete":
+        title = "⚠️ Nhiều sessions bị xóa vĩnh viễn"
+        description = `${actorName} đã xóa vĩnh viễn ${count} session`
+        break
+    }
+
+    const actionUrl = `/admin/sessions`
+
+    const result = await createNotificationForSuperAdmins(
+      title,
+      description,
+      actionUrl,
+      NotificationKind.SYSTEM,
+      {
+        type: `session_bulk_${action}`,
+        actorId,
+        actorName: actor?.name || actor?.email,
+        actorEmail: actor?.email,
+        count,
+        timestamp: new Date().toISOString(),
+      }
+    )
+
+    const io = getSocketServer()
+    if (io && result.count > 0) {
+      const superAdmins = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          userRoles: {
+            some: {
+              role: {
+                name: "super_admin",
+                isActive: true,
+                deletedAt: null,
+              },
+            },
+          },
+        },
+        select: { id: true },
+      })
+
+      const createdNotifications = await prisma.notification.findMany({
+        where: {
+          title,
+          description,
+          actionUrl,
+          kind: NotificationKind.SYSTEM,
+          userId: {
+            in: superAdmins.map((a) => a.id),
+          },
+          createdAt: {
+            gte: new Date(Date.now() - 5000),
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: superAdmins.length,
+      })
+
+      for (const admin of superAdmins) {
+        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
+        if (dbNotification) {
+          const socketNotification = mapNotificationToPayload(dbNotification)
+          storeNotificationInCache(admin.id, socketNotification)
+          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+        }
+      }
+
+      if (createdNotifications.length > 0) {
+        const roleNotification = mapNotificationToPayload(createdNotifications[0])
+        io.to("role:super_admin").emit("notification:new", roleNotification)
+      }
+    }
+  } catch (error) {
+    console.error("[notifications] Failed to notify super admins of bulk session action:", error)
+  }
+}
+

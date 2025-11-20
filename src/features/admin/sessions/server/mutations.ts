@@ -9,7 +9,8 @@ import {
   UpdateSessionSchema,
   BulkSessionActionSchema,
 } from "./schemas"
-import { notifySuperAdminsOfSessionAction } from "./notifications"
+import { notifySuperAdminsOfSessionAction, notifySuperAdminsOfBulkSessionAction } from "./notifications"
+import { emitSessionUpsert, emitSessionRemove } from "./events"
 import {
   ApplicationError,
   ForbiddenError,
@@ -256,6 +257,9 @@ export async function softDeleteSession(ctx: AuthContext, id: string): Promise<v
     },
   })
 
+  // Emit socket event để update UI
+  await emitSessionUpsert(id, "active")
+
   // Emit notification realtime
   await notifySuperAdminsOfSessionAction(
     "delete",
@@ -275,15 +279,6 @@ export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): P
     throw new ApplicationError("Danh sách session trống", 400)
   }
 
-  // Lấy thông tin sessions trước khi delete để tạo notifications
-  const sessions = await prisma.session.findMany({
-    where: {
-      id: { in: ids },
-      isActive: true,
-    },
-    select: { id: true, userId: true, accessToken: true },
-  })
-
   const result = await prisma.session.updateMany({
     where: {
       id: { in: ids },
@@ -294,12 +289,24 @@ export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): P
     },
   })
 
-  // Emit notifications realtime cho từng session
-  for (const session of sessions) {
-    await notifySuperAdminsOfSessionAction(
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = ids.map((id) => 
+      emitSessionUpsert(id, "active").catch((error) => {
+        console.error(`Failed to emit session:upsert for ${id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
+    )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit một notification tổng hợp cho bulk action
+    await notifySuperAdminsOfBulkSessionAction(
       "delete",
       ctx.actorId,
-      session
+      result.count
     )
   }
 
@@ -325,6 +332,9 @@ export async function restoreSession(ctx: AuthContext, id: string): Promise<void
     },
   })
 
+  // Emit socket event để update UI
+  await emitSessionUpsert(id, "deleted")
+
   // Emit notification realtime
   await notifySuperAdminsOfSessionAction(
     "restore",
@@ -344,15 +354,6 @@ export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Prom
     throw new ApplicationError("Danh sách session trống", 400)
   }
 
-  // Lấy thông tin sessions trước khi restore để tạo notifications
-  const sessions = await prisma.session.findMany({
-    where: {
-      id: { in: ids },
-      isActive: false,
-    },
-    select: { id: true, userId: true, accessToken: true },
-  })
-
   const result = await prisma.session.updateMany({
     where: {
       id: { in: ids },
@@ -363,12 +364,24 @@ export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit notifications realtime cho từng session
-  for (const session of sessions) {
-    await notifySuperAdminsOfSessionAction(
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = ids.map((id) => 
+      emitSessionUpsert(id, "deleted").catch((error) => {
+        console.error(`Failed to emit session:upsert for ${id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
+    )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit một notification tổng hợp cho bulk action
+    await notifySuperAdminsOfBulkSessionAction(
       "restore",
       ctx.actorId,
-      session
+      result.count
     )
   }
 
@@ -398,9 +411,14 @@ export async function hardDeleteSession(ctx: AuthContext, id: string): Promise<v
     throw new ApplicationError("Chỉ có thể xóa vĩnh viễn session đã bị xóa (isActive=false)", 400)
   }
 
+  const previousStatus: "active" | "deleted" = session.isActive ? "active" : "deleted"
+
   await prisma.session.delete({
     where: { id },
   })
+
+  // Emit socket event để update UI
+  emitSessionRemove(id, previousStatus)
 
   // Emit notification realtime
   await notifySuperAdminsOfSessionAction(
@@ -426,33 +444,49 @@ export async function bulkHardDeleteSessions(ctx: AuthContext, ids: string[]): P
     throw new ApplicationError("Danh sách session trống", 400)
   }
 
-  // Lấy thông tin sessions trước khi delete để tạo notifications
-  // Chỉ lấy các session có isActive=false
-  const sessions = await prisma.session.findMany({
+  // Lấy thông tin sessions để kiểm tra trạng thái
+  const allSessions = await prisma.session.findMany({
     where: {
       id: { in: ids },
-      isActive: false,
     },
-    select: { id: true, userId: true, accessToken: true },
+    select: { id: true, userId: true, accessToken: true, isActive: true },
   })
 
-  if (sessions.length === 0) {
-    throw new ApplicationError("Không có session nào đã bị xóa (isActive=false) để xóa vĩnh viễn", 400)
+  if (allSessions.length === 0) {
+    throw new ApplicationError("Không tìm thấy session nào trong danh sách", 404)
   }
 
+  // Với quyền SESSIONS_MANAGE, cho phép hard delete cả active và deleted sessions
+  // Đây là quyền cao nhất, cho phép xóa vĩnh viễn bất kỳ session nào
+  // Hard delete tất cả sessions trong danh sách (cả active và deleted)
+  // Vì đã check quyền SESSIONS_MANAGE ở trên
   const result = await prisma.session.deleteMany({
     where: {
       id: { in: ids },
-      isActive: false, // Chỉ hard delete khi isActive=false
     },
   })
 
-  // Emit notifications realtime cho từng session
-  for (const session of sessions) {
-    await notifySuperAdminsOfSessionAction(
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả sessions đã bị hard delete
+  if (result.count > 0) {
+    // Xác định previousStatus cho mỗi session
+    const previousStatuses = allSessions.map(s => (s.isActive ? "active" : "deleted") as "active" | "deleted")
+    
+    // Emit events (emitSessionRemove trả về void, không phải Promise)
+    ids.forEach((id, index) => {
+      const previousStatus = previousStatuses[index] || "active"
+      try {
+        emitSessionRemove(id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit session:remove for ${id}:`, error)
+      }
+    })
+
+    // Emit một notification tổng hợp cho bulk action
+    await notifySuperAdminsOfBulkSessionAction(
       "hard-delete",
       ctx.actorId,
-      session
+      result.count
     )
   }
 

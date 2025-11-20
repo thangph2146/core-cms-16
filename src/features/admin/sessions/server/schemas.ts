@@ -26,7 +26,9 @@ export const UpdateSessionSchema = z.object({
 
 export const BulkSessionActionSchema = z.object({
   action: z.enum(["delete", "restore", "hard-delete"]),
-  ids: z.array(z.string().cuid("ID không hợp lệ")).min(1, "Danh sách ID không được trống"),
+  ids: z.array(
+    z.string().min(1, "ID không được để trống").max(100, "ID quá dài")
+  ).min(1, "Danh sách ID không được trống").max(100, "Danh sách ID không được vượt quá 100 phần tử"),
 })
 
 export type CreateSessionInput = z.infer<typeof CreateSessionSchema>

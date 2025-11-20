@@ -2,7 +2,12 @@
 
 import * as React from "react"
 import { MessageSquare, User, Mail, FileText, Calendar, Clock, ExternalLink } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { 
+  ResourceDetailPage, 
+  FieldItem,
+  type ResourceDetailField, 
+  type ResourceDetailSection 
+} from "@/features/admin/resources/components"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
@@ -30,26 +35,6 @@ export interface CommentDetailClientProps {
   backUrl?: string
   canApprove?: boolean
 }
-
-// Reusable field item component
-interface FieldItemProps {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  children: React.ReactNode
-  iconColor?: string
-}
-
-const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
-  <div className="flex items-start gap-3">
-    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
-      {children}
-    </div>
-  </div>
-)
 
 // Status field with Switch
 interface StatusFieldProps {

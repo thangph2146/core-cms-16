@@ -185,7 +185,13 @@ export function ResourceForm<T extends Record<string, unknown>>({
       if (result.success) {
         onSuccess?.()
         if (variant === "page") {
-          router.refresh()
+          // For page variant, call onOpenChange if provided (e.g., to close edit mode)
+          // Otherwise just refresh
+          if (onOpenChange) {
+            onOpenChange(false)
+          } else {
+            router.refresh()
+          }
         } else {
           onOpenChange?.(false)
         }

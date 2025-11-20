@@ -496,7 +496,16 @@ export function DataTable<T extends object>({
                 </div>
             ) : null}
 
-            <div className="rounded-md border overflow-x-auto">
+            <div className="rounded-md border overflow-x-auto relative">
+                {/* Loading overlay khi đang fetch data */}
+                {isPending && (
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-md">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                            <span className="text-sm font-medium text-foreground">Đang tải dữ liệu...</span>
+                        </div>
+                    </div>
+                )}
                 <div className="min-w-full inline-block">
                     <Table className="min-w-full">
                     <TableHeader>

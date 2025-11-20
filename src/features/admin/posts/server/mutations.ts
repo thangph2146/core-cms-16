@@ -271,9 +271,18 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Emit socket events cho từng post
-    for (const post of posts) {
-      await emitPostUpsert(post.id, "active")
+    // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+    // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+    if (count > 0) {
+      // Emit events song song và await tất cả để đảm bảo hoàn thành
+      const emitPromises = posts.map((post) => 
+        emitPostUpsert(post.id, "active").catch((error) => {
+          console.error(`Failed to emit post:upsert for ${post.id}:`, error)
+          return null // Return null để Promise.allSettled không throw
+        })
+      )
+      // Await tất cả events nhưng không fail nếu một số lỗi
+      await Promise.allSettled(emitPromises)
     }
   } else if (action === "restore") {
     // Lấy thông tin posts trước khi restore để emit socket events
@@ -292,9 +301,18 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Emit socket events cho từng post
-    for (const post of posts) {
-      await emitPostUpsert(post.id, "deleted")
+    // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+    // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+    if (count > 0) {
+      // Emit events song song và await tất cả để đảm bảo hoàn thành
+      const emitPromises = posts.map((post) => 
+        emitPostUpsert(post.id, "deleted").catch((error) => {
+          console.error(`Failed to emit post:upsert for ${post.id}:`, error)
+          return null // Return null để Promise.allSettled không throw
+        })
+      )
+      // Await tất cả events nhưng không fail nếu một số lỗi
+      await Promise.allSettled(emitPromises)
     }
   } else if (action === "hard-delete") {
     // Lấy thông tin posts trước khi delete để emit socket events
@@ -311,10 +329,17 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Emit socket events cho từng post
-    for (const post of posts) {
-      const previousStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
-      emitPostRemove(post.id, previousStatus)
+    // Emit socket events để update UI - fire and forget để tránh timeout
+    // Emit song song cho tất cả posts đã bị hard delete
+    if (count > 0) {
+      posts.forEach((post) => {
+        const previousStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
+        try {
+          emitPostRemove(post.id, previousStatus)
+        } catch (error) {
+          console.error(`Failed to emit post:remove for ${post.id}:`, error)
+        }
+      })
     }
   }
 

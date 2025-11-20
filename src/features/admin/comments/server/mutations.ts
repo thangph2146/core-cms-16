@@ -326,20 +326,33 @@ export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): P
     },
   })
 
-  // Emit notifications realtime cho từng comment
-  for (const comment of comments) {
-    await notifySuperAdminsOfCommentAction(
-      "delete",
-      ctx.actorId,
-      {
-        id: comment.id,
-        content: comment.content,
-        authorName: comment.author.name,
-        authorEmail: comment.author.email,
-        postTitle: comment.post.title,
-      }
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = comments.map((comment) => 
+      emitCommentUpsert(comment.id, "active").catch((error) => {
+        console.error(`Failed to emit comment:upsert for ${comment.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    await emitCommentUpsert(comment.id, "active")
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng comment
+    for (const comment of comments) {
+      await notifySuperAdminsOfCommentAction(
+        "delete",
+        ctx.actorId,
+        {
+          id: comment.id,
+          content: comment.content,
+          authorName: comment.author.name,
+          authorEmail: comment.author.email,
+          postTitle: comment.post.title,
+        }
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa ${result.count} bình luận`, affected: result.count }
@@ -434,20 +447,33 @@ export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit notifications realtime cho từng comment
-  for (const comment of comments) {
-    await notifySuperAdminsOfCommentAction(
-      "restore",
-      ctx.actorId,
-      {
-        id: comment.id,
-        content: comment.content,
-        authorName: comment.author.name,
-        authorEmail: comment.author.email,
-        postTitle: comment.post.title,
-      }
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = comments.map((comment) => 
+      emitCommentUpsert(comment.id, "deleted").catch((error) => {
+        console.error(`Failed to emit comment:upsert for ${comment.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    await emitCommentUpsert(comment.id, "deleted")
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng comment
+    for (const comment of comments) {
+      await notifySuperAdminsOfCommentAction(
+        "restore",
+        ctx.actorId,
+        {
+          id: comment.id,
+          content: comment.content,
+          authorName: comment.author.name,
+          authorEmail: comment.author.email,
+          postTitle: comment.post.title,
+        }
+      )
+    }
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} bình luận`, affected: result.count }
@@ -546,20 +572,32 @@ export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): P
     },
   })
 
-  // Emit notifications realtime cho từng comment
-  for (const comment of comments) {
-    await notifySuperAdminsOfCommentAction(
-      "hard-delete",
-      ctx.actorId,
-      {
-        id: comment.id,
-        content: comment.content,
-        authorName: comment.author.name,
-        authorEmail: comment.author.email,
-        postTitle: comment.post.title,
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả comments đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitCommentRemove trả về void, không phải Promise)
+    comments.forEach((comment) => {
+      try {
+        emitCommentRemove(comment.id, "deleted")
+      } catch (error) {
+        console.error(`Failed to emit comment:remove for ${comment.id}:`, error)
       }
-    )
-    emitCommentRemove(comment.id, "deleted")
+    })
+
+    // Emit notifications realtime cho từng comment
+    for (const comment of comments) {
+      await notifySuperAdminsOfCommentAction(
+        "hard-delete",
+        ctx.actorId,
+        {
+          id: comment.id,
+          content: comment.content,
+          authorName: comment.author.name,
+          authorEmail: comment.author.email,
+          postTitle: comment.post.title,
+        }
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} bình luận`, affected: result.count }

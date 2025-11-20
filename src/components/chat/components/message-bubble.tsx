@@ -24,8 +24,8 @@ export function MessageBubble({
   parentMessage,
   currentUserId,
   onReply,
-  onMarkAsRead,
-  onMarkAsUnread,
+  onMarkAsRead: _onMarkAsRead,
+  onMarkAsUnread: _onMarkAsUnread,
   searchQuery = "",
   onScrollToMessage,
 }: MessageBubbleProps) {

@@ -387,18 +387,27 @@ export async function bulkSoftDeleteContactRequests(ctx: AuthContext, ids: strin
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const contactRequest of contactRequests) {
-    await emitContactRequestUpsert(contactRequest.id, "active")
-  }
-
-  // Emit notifications realtime cho từng contact request
-  for (const contactRequest of contactRequests) {
-    await notifySuperAdminsOfContactRequestAction(
-      "delete",
-      ctx.actorId,
-      contactRequest
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = contactRequests.map((contactRequest) => 
+      emitContactRequestUpsert(contactRequest.id, "active").catch((error) => {
+        console.error(`Failed to emit contact-request:upsert for ${contactRequest.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng contact request
+    for (const contactRequest of contactRequests) {
+      await notifySuperAdminsOfContactRequestAction(
+        "delete",
+        ctx.actorId,
+        contactRequest
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa ${result.count} yêu cầu liên hệ`, affected: result.count }
@@ -463,18 +472,27 @@ export async function bulkRestoreContactRequests(ctx: AuthContext, ids: string[]
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const contactRequest of contactRequests) {
-    await emitContactRequestUpsert(contactRequest.id, "deleted")
-  }
-
-  // Emit notifications realtime cho từng contact request
-  for (const contactRequest of contactRequests) {
-    await notifySuperAdminsOfContactRequestAction(
-      "restore",
-      ctx.actorId,
-      contactRequest
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = contactRequests.map((contactRequest) => 
+      emitContactRequestUpsert(contactRequest.id, "deleted").catch((error) => {
+        console.error(`Failed to emit contact-request:upsert for ${contactRequest.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng contact request
+    for (const contactRequest of contactRequests) {
+      await notifySuperAdminsOfContactRequestAction(
+        "restore",
+        ctx.actorId,
+        contactRequest
+      )
+    }
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} yêu cầu liên hệ`, affected: result.count }
@@ -534,19 +552,27 @@ export async function bulkHardDeleteContactRequests(ctx: AuthContext, ids: strin
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const contactRequest of contactRequests) {
-    const previousStatus: "active" | "deleted" = contactRequest.deletedAt ? "deleted" : "active"
-    emitContactRequestRemove(contactRequest.id, previousStatus)
-  }
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả contact requests đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitContactRequestRemove trả về void, không phải Promise)
+    contactRequests.forEach((contactRequest) => {
+      const previousStatus: "active" | "deleted" = contactRequest.deletedAt ? "deleted" : "active"
+      try {
+        emitContactRequestRemove(contactRequest.id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit contact-request:remove for ${contactRequest.id}:`, error)
+      }
+    })
 
-  // Emit notifications realtime cho từng contact request
-  for (const contactRequest of contactRequests) {
-    await notifySuperAdminsOfContactRequestAction(
-      "hard-delete",
-      ctx.actorId,
-      contactRequest
-    )
+    // Emit notifications realtime cho từng contact request
+    for (const contactRequest of contactRequests) {
+      await notifySuperAdminsOfContactRequestAction(
+        "hard-delete",
+        ctx.actorId,
+        contactRequest
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} yêu cầu liên hệ`, affected: result.count }

@@ -17,7 +17,8 @@ async function bulkSessionsHandler(req: NextRequest, context: ApiRouteContext) {
   let body: unknown
   try {
     body = await req.json()
-  } catch {
+  } catch (error) {
+    console.error("Error parsing request body:", error)
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
@@ -25,7 +26,15 @@ async function bulkSessionsHandler(req: NextRequest, context: ApiRouteContext) {
   const validationResult = BulkSessionActionSchema.safeParse(body)
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0]
-    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+    const allErrors = validationResult.error.issues.map(issue => ({
+      path: issue.path.join("."),
+      message: issue.message,
+    }))
+    console.error("Validation error:", { body, errors: allErrors })
+    return NextResponse.json({ 
+      error: firstError?.message || "Dữ liệu không hợp lệ",
+      details: allErrors.length > 1 ? allErrors : undefined
+    }, { status: 400 })
   }
 
   const validatedBody = validationResult.data

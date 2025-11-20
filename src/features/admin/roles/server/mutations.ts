@@ -243,18 +243,27 @@ export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const role of roles) {
-    await emitRoleUpsert(role.id, "active")
-  }
-
-  // Emit notifications realtime cho từng role
-  for (const role of roles) {
-    await notifySuperAdminsOfRoleAction(
-      "delete",
-      ctx.actorId,
-      role
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = roles.map((role) => 
+      emitRoleUpsert(role.id, "active").catch((error) => {
+        console.error(`Failed to emit role:upsert for ${role.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng role
+    for (const role of roles) {
+      await notifySuperAdminsOfRoleAction(
+        "delete",
+        ctx.actorId,
+        role
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa ${result.count} vai trò`, affected: result.count }
@@ -320,18 +329,27 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const role of roles) {
-    await emitRoleUpsert(role.id, "deleted")
-  }
-
-  // Emit notifications realtime cho từng role
-  for (const role of roles) {
-    await notifySuperAdminsOfRoleAction(
-      "restore",
-      ctx.actorId,
-      role
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = roles.map((role) => 
+      emitRoleUpsert(role.id, "deleted").catch((error) => {
+        console.error(`Failed to emit role:upsert for ${role.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Emit notifications realtime cho từng role
+    for (const role of roles) {
+      await notifySuperAdminsOfRoleAction(
+        "restore",
+        ctx.actorId,
+        role
+      )
+    }
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} vai trò`, affected: result.count }
@@ -401,19 +419,27 @@ export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit socket events for real-time updates
-  for (const role of roles) {
-    const previousStatus: "active" | "deleted" = role.deletedAt ? "deleted" : "active"
-    emitRoleRemove(role.id, previousStatus)
-  }
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả roles đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitRoleRemove trả về void, không phải Promise)
+    roles.forEach((role) => {
+      const previousStatus: "active" | "deleted" = role.deletedAt ? "deleted" : "active"
+      try {
+        emitRoleRemove(role.id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit role:remove for ${role.id}:`, error)
+      }
+    })
 
-  // Emit notifications realtime cho từng role
-  for (const role of roles) {
-    await notifySuperAdminsOfRoleAction(
-      "hard-delete",
-      ctx.actorId,
-      role
-    )
+    // Emit notifications realtime cho từng role
+    for (const role of roles) {
+      await notifySuperAdminsOfRoleAction(
+        "hard-delete",
+        ctx.actorId,
+        role
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} vai trò`, affected: result.count }

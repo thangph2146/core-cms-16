@@ -250,19 +250,26 @@ export async function bulkSoftDeleteCategories(ctx: AuthContext, ids: string[]):
     },
   })
 
-  // Emit socket events và notifications realtime cho từng category
-  // Thêm delay nhỏ giữa các events để UI có thời gian cập nhật từng item
-  for (let i = 0; i < categories.length; i++) {
-    const category = categories[i]
-    await emitCategoryUpsert(category.id, "active")
-    await notifySuperAdminsOfCategoryAction(
-      "delete",
-      ctx.actorId,
-      category
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = categories.map((category) => 
+      emitCategoryUpsert(category.id, "active").catch((error) => {
+        console.error(`Failed to emit category:upsert for ${category.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    // Delay 100ms giữa các events để UI có thời gian cập nhật từng item
-    if (i < categories.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng category
+    for (const category of categories) {
+      await notifySuperAdminsOfCategoryAction(
+        "delete",
+        ctx.actorId,
+        category
+      )
     }
   }
 
@@ -325,19 +332,26 @@ export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Pr
     },
   })
 
-  // Emit socket events và notifications realtime cho từng category
-  // Thêm delay nhỏ giữa các events để UI có thời gian cập nhật từng item
-  for (let i = 0; i < categories.length; i++) {
-    const category = categories[i]
-    await emitCategoryUpsert(category.id, "deleted")
-    await notifySuperAdminsOfCategoryAction(
-      "restore",
-      ctx.actorId,
-      category
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = categories.map((category) => 
+      emitCategoryUpsert(category.id, "deleted").catch((error) => {
+        console.error(`Failed to emit category:upsert for ${category.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    // Delay 100ms giữa các events để UI có thời gian cập nhật từng item
-    if (i < categories.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng category
+    for (const category of categories) {
+      await notifySuperAdminsOfCategoryAction(
+        "restore",
+        ctx.actorId,
+        category
+      )
     }
   }
 
@@ -398,21 +412,26 @@ export async function bulkHardDeleteCategories(ctx: AuthContext, ids: string[]):
     },
   })
 
-  // Emit socket events và notifications realtime cho từng category
-  // Thêm delay nhỏ giữa các events để UI có thời gian cập nhật từng item
-  for (let i = 0; i < categories.length; i++) {
-    const category = categories[i]
-    // Lấy previousStatus từ category (nếu có deletedAt thì là "deleted", ngược lại là "active")
-    const previousStatus: "active" | "deleted" = category.deletedAt ? "deleted" : "active"
-    emitCategoryRemove(category.id, previousStatus)
-    await notifySuperAdminsOfCategoryAction(
-      "hard-delete",
-      ctx.actorId,
-      category
-    )
-    // Delay 100ms giữa các events để UI có thời gian cập nhật từng item
-    if (i < categories.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả categories đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitCategoryRemove trả về void, không phải Promise)
+    categories.forEach((category) => {
+      const previousStatus: "active" | "deleted" = category.deletedAt ? "deleted" : "active"
+      try {
+        emitCategoryRemove(category.id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit category:remove for ${category.id}:`, error)
+      }
+    })
+
+    // Tạo system notifications cho từng category
+    for (const category of categories) {
+      await notifySuperAdminsOfCategoryAction(
+        "hard-delete",
+        ctx.actorId,
+        category
+      )
     }
   }
 

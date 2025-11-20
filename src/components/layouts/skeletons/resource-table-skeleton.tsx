@@ -60,29 +60,31 @@ export function ResourceTableSkeleton({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {Array.from({ length: columnCount }).map((_, index) => (
-                    <TableHead key={index}>
-                      <Skeleton className="h-4 w-24" />
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Array.from({ length: rowCount }).map((_, rowIndex) => (
-                  <TableRow key={`skeleton-row-${rowIndex}`}>
-                    {Array.from({ length: columnCount }).map((__, cellIndex) => (
-                      <TableCell key={`skeleton-cell-${rowIndex}-${cellIndex}`}>
-                        <Skeleton className="h-5 w-full" />
-                      </TableCell>
+          <div className="rounded-md border overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {Array.from({ length: columnCount }).map((_, index) => (
+                      <TableHead key={index}>
+                        <Skeleton className="h-4 w-24" />
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: rowCount }).map((_, rowIndex) => (
+                    <TableRow key={`skeleton-row-${rowIndex}`}>
+                      {Array.from({ length: columnCount }).map((__, cellIndex) => (
+                        <TableCell key={`skeleton-cell-${rowIndex}-${cellIndex}`}>
+                          <Skeleton className="h-5 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
           {/* Pagination Skeleton */}
           <div className="flex items-center justify-between gap-3 border-t border-border px-2 py-4 mt-4">

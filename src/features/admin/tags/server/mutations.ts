@@ -242,14 +242,27 @@ export async function bulkSoftDeleteTags(ctx: AuthContext, ids: string[]): Promi
     },
   })
 
-  // Emit socket events và notifications realtime cho từng tag
-  for (const tag of tags) {
-    await emitTagUpsert(tag.id, "active")
-    await notifySuperAdminsOfTagAction(
-      "delete",
-      ctx.actorId,
-      tag
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = tags.map((tag) => 
+      emitTagUpsert(tag.id, "active").catch((error) => {
+        console.error(`Failed to emit tag:upsert for ${tag.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng tag
+    for (const tag of tags) {
+      await notifySuperAdminsOfTagAction(
+        "delete",
+        ctx.actorId,
+        tag
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa ${result.count} thẻ tag`, affected: result.count }
@@ -311,14 +324,27 @@ export async function bulkRestoreTags(ctx: AuthContext, ids: string[]): Promise<
     },
   })
 
-  // Emit socket events và notifications realtime cho từng tag
-  for (const tag of tags) {
-    await emitTagUpsert(tag.id, "deleted")
-    await notifySuperAdminsOfTagAction(
-      "restore",
-      ctx.actorId,
-      tag
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = tags.map((tag) => 
+      emitTagUpsert(tag.id, "deleted").catch((error) => {
+        console.error(`Failed to emit tag:upsert for ${tag.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng tag
+    for (const tag of tags) {
+      await notifySuperAdminsOfTagAction(
+        "restore",
+        ctx.actorId,
+        tag
+      )
+    }
   }
 
   return { success: true, message: `Đã khôi phục ${result.count} thẻ tag`, affected: result.count }
@@ -380,14 +406,27 @@ export async function bulkHardDeleteTags(ctx: AuthContext, ids: string[]): Promi
   })
 
   // Emit socket events và notifications realtime cho từng tag
-  for (const tag of tags) {
-    const previousStatus: "active" | "deleted" = tag.deletedAt ? "deleted" : "active"
-    emitTagRemove(tag.id, previousStatus)
-    await notifySuperAdminsOfTagAction(
-      "hard-delete",
-      ctx.actorId,
-      { id: tag.id, name: tag.name, slug: tag.slug }
-    )
+  // Emit socket events để update UI - fire and forget để tránh timeout
+  // Emit song song cho tất cả tags đã bị hard delete
+  if (result.count > 0) {
+    // Emit events (emitTagRemove trả về void, không phải Promise)
+    tags.forEach((tag) => {
+      const previousStatus: "active" | "deleted" = tag.deletedAt ? "deleted" : "active"
+      try {
+        emitTagRemove(tag.id, previousStatus)
+      } catch (error) {
+        console.error(`Failed to emit tag:remove for ${tag.id}:`, error)
+      }
+    })
+
+    // Tạo system notifications cho từng tag
+    for (const tag of tags) {
+      await notifySuperAdminsOfTagAction(
+        "hard-delete",
+        ctx.actorId,
+        { id: tag.id, name: tag.name, slug: tag.slug }
+      )
+    }
   }
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} thẻ tag`, affected: result.count }

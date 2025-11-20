@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, type MutableRefObject } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { io, type Socket } from "socket.io-client"
 import { logger } from "@/lib/config"
 import { withApiBase } from "@/lib/config/api-paths"
@@ -19,7 +19,8 @@ export interface SocketMessagePayload {
   groupId?: string // For group messages
   timestamp?: number
   isRead?: boolean // Include isRead status for message:updated events
-  readers?: { // List of users who have read this message (for group messages)
+  readers?: {
+    // List of users who have read this message (for group messages)
     id: string
     name: string | null
     email: string
@@ -58,64 +59,226 @@ export interface SocketContactRequestPayload {
   assignedToId?: string | null
 }
 
-// Singleton socket instance to avoid duplicate connections in dev StrictMode
-let clientSocket: Socket | null = null
-let isConnecting = false
-let bootstrapPromise: Promise<boolean> | null = null
-let hasLoggedUnavailable = false
-let lastConnectionErrorKey: string | null = null
-let lastConnectionErrorAt = 0
-
 type EventHandler = (...args: unknown[]) => void
-const pendingHandlers = new Map<string, Set<EventHandler>>()
 
-function queuePendingHandler<Args extends unknown[]>(
-  event: string,
-  handler: (...args: Args) => void,
-) {
-  if (!pendingHandlers.has(event)) {
-    pendingHandlers.set(event, new Set())
-  }
-  pendingHandlers.get(event)!.add(handler as EventHandler)
+interface SocketAuthOptions {
+  userId: string
+  role?: string | null
 }
 
-function removePendingHandler<Args extends unknown[]>(
-  event: string,
-  handler: (...args: Args) => void,
-) {
-  const handlers = pendingHandlers.get(event)
-  if (!handlers) return
-  handlers.delete(handler as EventHandler)
-  if (handlers.size === 0) {
-    pendingHandlers.delete(event)
-  }
-}
+class SocketManager {
+  private socket: Socket | null = null
+  private connectPromise: Promise<Socket | null> | null = null
+  private readonly pendingHandlers = new Map<string, Set<EventHandler>>()
+  private bootstrapPromise: Promise<boolean> | null = null
+  private hasLoggedUnavailable = false
+  private lastConnectionErrorKey: string | null = null
+  private lastConnectionErrorAt = 0
+  private lastAuth: SocketAuthOptions | null = null
 
-function flushPendingHandlers(socket: Socket) {
-  if (pendingHandlers.size === 0) return
-  for (const [event, handlers] of pendingHandlers.entries()) {
+  getSocket(): Socket | null {
+    return this.socket
+  }
+
+  withSocket(callback: (socket: Socket) => void): boolean {
+    const active = this.socket
+    if (!active) return false
+    callback(active)
+    return true
+  }
+
+  on<Args extends unknown[]>(event: string, handler: (...args: Args) => void): () => void {
+    let handlers = this.pendingHandlers.get(event)
+    if (!handlers) {
+      handlers = new Set()
+      this.pendingHandlers.set(event, handlers)
+    }
+    handlers.add(handler as EventHandler)
+
+    const active = this.socket
+    if (active) {
+      active.on(event, handler as Parameters<Socket["on"]>[1])
+    }
+
+    return () => {
+      const liveSocket = this.socket
+      if (liveSocket) {
+        liveSocket.off(event, handler as Parameters<Socket["off"]>[1])
+      }
+
+      const stored = this.pendingHandlers.get(event)
+      if (!stored) return
+      stored.delete(handler as EventHandler)
+      if (stored.size === 0) {
+        this.pendingHandlers.delete(event)
+      }
+    }
+  }
+
+  async connect(auth: SocketAuthOptions): Promise<Socket | null> {
+    if (!auth.userId) return null
+
+    if (this.socket && this.socket.connected && this.isSameAuth(auth)) {
+      return this.socket
+    }
+
+    this.lastAuth = { userId: auth.userId, role: auth.role ?? null }
+
+    if (this.connectPromise) {
+      return this.connectPromise
+    }
+
+    this.connectPromise = this.createSocket(auth).catch((error) => {
+      const err = error instanceof Error ? error : new Error(String(error))
+      logger.error("Không thể khởi tạo Socket.IO", err)
+      return null
+    })
+
+    const socket = await this.connectPromise
+    this.connectPromise = null
+    return socket
+  }
+
+  private isSameAuth(auth: SocketAuthOptions): boolean {
+    return (
+      this.lastAuth?.userId === auth.userId &&
+      (this.lastAuth?.role ?? null) === (auth.role ?? null)
+    )
+  }
+
+  private async createSocket(auth: SocketAuthOptions): Promise<Socket | null> {
+    const endpointAvailable = await this.ensureServerBootstrap()
+
+    if (!endpointAvailable) {
+      if (!this.hasLoggedUnavailable) {
+        logger.warn("Socket endpoint không khả dụng – bỏ qua kết nối client")
+        this.hasLoggedUnavailable = true
+      }
+      return null
+    }
+
+    const { apiRoutes } = await import("@/lib/api/routes")
+    const socketPath = withApiBase(apiRoutes.socket)
+
+    const host = typeof window !== "undefined" ? window.location.host : ""
+    const isVercel = /\.vercel\.app$/i.test(host)
+
+    const selectedTransports = isVercel
+      ? (["polling"] as const)
+      : (["websocket", "polling"] as const)
+
+    logger.info("Đang tạo socket connection", {
+      userId: auth.userId,
+      role: auth.role,
+      path: socketPath,
+      transports: selectedTransports,
+    })
+
+    const socket = io({
+      path: socketPath,
+      transports: selectedTransports as unknown as ("websocket" | "polling")[],
+      upgrade: true,
+      withCredentials: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+      forceNew: false,
+      auth: {
+        userId: auth.userId,
+        role: auth.role ?? undefined,
+      },
+    })
+
+    socket.on("connect", () => {
+      const engine = socket.io.engine
+      logger.success("Đã kết nối thành công", {
+        socketId: socket.id,
+        transport: engine.transport.name,
+        userId: auth.userId,
+        role: auth.role,
+      })
+      this.hasLoggedUnavailable = false
+
+      engine.once("upgrade", () => {
+        logger.debug("Transport upgraded", { transport: engine.transport.name })
+      })
+    })
+
+    socket.on("connect_error", (err) => {
+      const error = err instanceof Error ? err : new Error(String(err))
+      this.logConnectionIssue(error)
+    })
+
+    socket.on("disconnect", (reason) => {
+      logger.info("Đã ngắt kết nối", { reason })
+    })
+
+    this.replaceActiveSocket(socket)
+    this.attachPendingHandlers(socket)
+
+    return socket
+  }
+
+  private replaceActiveSocket(nextSocket: Socket) {
+    const previous = this.socket
+    if (previous && previous !== nextSocket) {
+      try {
+        previous.removeAllListeners()
+        previous.disconnect()
+      } catch (error) {
+        logger.warn(
+          "Không thể thu hồi socket cũ",
+          error instanceof Error ? error : new Error(String(error)),
+        )
+      }
+    }
+    this.socket = nextSocket
+  }
+
+  private attachPendingHandlers(socket: Socket) {
+    for (const [event, handlers] of this.pendingHandlers.entries()) {
     for (const handler of handlers) {
       socket.on(event, handler as Parameters<Socket["on"]>[1])
     }
   }
-  pendingHandlers.clear()
-}
+  }
 
-function getActiveSocket(current: MutableRefObject<Socket | null>) {
-  return current.current ?? clientSocket
-}
+  private async ensureServerBootstrap(): Promise<boolean> {
+    if (!this.bootstrapPromise) {
+      logger.info("Bắt đầu bootstrap Socket.IO server")
+      this.bootstrapPromise = (async () => {
+        try {
+          const { apiRoutes } = await import("@/lib/api/routes")
+          const socketEndpoint = withApiBase(apiRoutes.socket)
+          logger.debug(`Đang gọi ${socketEndpoint} để khởi tạo server`)
+          const { apiClient } = await import("@/lib/api/axios")
+          await apiClient.get(apiRoutes.socket)
+          logger.success("Server đã được khởi tạo thành công")
+          return true
+        } catch (error) {
+          logger.error("Bootstrap error", error instanceof Error ? error : new Error(String(error)))
+          this.bootstrapPromise = null
+          return false
+        }
+      })()
+    }
 
-function logConnectionIssue(error: Error) {
+    return this.bootstrapPromise
+  }
+
+  private logConnectionIssue(error: Error) {
   const normalizedMessage = error.message?.toLowerCase?.() ?? ""
   const key = `${error.name}:${normalizedMessage}`
   const now = Date.now()
 
-  if (lastConnectionErrorKey === key && now - lastConnectionErrorAt < 5000) {
+    if (this.lastConnectionErrorKey === key && now - this.lastConnectionErrorAt < 5000) {
     return
   }
 
-  lastConnectionErrorKey = key
-  lastConnectionErrorAt = now
+    this.lastConnectionErrorKey = key
+    this.lastConnectionErrorAt = now
 
   const context = {
     name: error.name,
@@ -129,226 +292,99 @@ function logConnectionIssue(error: Error) {
     logger.error("Socket connection thất bại", error)
   }
 }
-
-async function ensureServerBootstrap(): Promise<boolean> {
-  if (!bootstrapPromise) {
-    logger.info("Bắt đầu bootstrap Socket.IO server")
-    bootstrapPromise = (async () => {
-      try {
-        const { apiRoutes } = await import("@/lib/api/routes")
-        const socketEndpoint = withApiBase(apiRoutes.socket)
-        logger.debug(`Đang gọi ${socketEndpoint} để khởi tạo server`)
-        const { apiClient } = await import("@/lib/api/axios")
-        await apiClient.get(apiRoutes.socket)
-        // Axios tự động throw error cho status >= 400
-        // Nếu đến đây thì đã thành công
-
-        logger.success("Server đã được khởi tạo thành công")
-        return true
-      } catch (error) {
-        logger.error("Bootstrap error", error instanceof Error ? error : new Error(String(error)))
-        bootstrapPromise = null
-        return false
-      }
-    })()
-  }
-
-  return bootstrapPromise
 }
 
+const socketManager = new SocketManager()
+
 export function useSocket({ userId, role }: UseSocketOptions) {
-  const socketRef = useRef<Socket | null>(null)
   const lastConversationRef = useRef<SocketConversationPair | null>(null)
-  const connectAttemptRef = useRef<number>(0)
+  const [currentSocket, setCurrentSocket] = useState<Socket | null>(() => socketManager.getSocket())
 
   useEffect(() => {
     logger.info("useSocket hook được gọi", { userId, role })
     
     if (!userId) {
       logger.debug("Không có userId, bỏ qua kết nối")
-      return
+      // Use setTimeout to avoid calling setState synchronously in effect body
+      const timeoutId = setTimeout(() => {
+        setCurrentSocket(null)
+      }, 0)
+      return () => clearTimeout(timeoutId)
     }
 
-    // Check existing socket trước
-    const existingSocket = getActiveSocket(socketRef)
-    if (existingSocket && existingSocket.connected) {
-      logger.info("Sử dụng socket connection hiện có", { socketId: existingSocket.id })
-      socketRef.current = existingSocket
-      return
-    }
+    let cancelled = false
 
-    // Nếu đang kết nối, không tạo connection mới
-    if (isConnecting) {
-      logger.debug("Đang kết nối, chờ...", { attempt: connectAttemptRef.current })
-      return
-    }
-    
-    // Prevent duplicate connections
-    if (socketRef.current && !socketRef.current.disconnected) {
-      logger.debug("Socket đã tồn tại và đang connected/disconnecting, bỏ qua")
-      return
-    }
-    
-    isConnecting = true
-    connectAttemptRef.current += 1
-
-    logger.info("Bắt đầu quá trình kết nối")
-    
-    ;(async () => {
-      const endpointAvailable = await ensureServerBootstrap()
-
-      if (!endpointAvailable) {
-        if (!hasLoggedUnavailable) {
-          logger.warn("Socket endpoint không khả dụng – bỏ qua kết nối client")
-          hasLoggedUnavailable = true
-        }
-        isConnecting = false
-        return
-      }
-
-      // Import apiRoutes để sử dụng socket path
-      const { apiRoutes } = await import("@/lib/api/routes")
-      const socketPath = withApiBase(apiRoutes.socket)
-
-      logger.info("Đang tạo socket connection", {
-        userId,
-        role,
-        path: socketPath,
+    socketManager
+      .connect({ userId, role })
+      .then((socket) => {
+        if (cancelled) return
+        setCurrentSocket(socket ?? null)
+      })
+      .catch((error) => {
+        logger.error(
+          "Kết nối Socket.IO thất bại",
+          error instanceof Error ? error : new Error(String(error)),
+        )
+        setCurrentSocket(null)
       })
 
-      const host = typeof window !== "undefined" ? window.location.host : ""
-      const isVercel = /\.vercel\.app$/i.test(host)
-      
-      // Sử dụng polling trước, sau đó upgrade lên websocket nếu có thể
-      // Polling có độ tin cậy cao hơn, websocket nhanh hơn nhưng có thể bị block
-      const selectedTransports = isVercel 
-        ? (["polling"] as const) 
-        : (["websocket", "polling"] as const) // Ưu tiên websocket, fallback sang polling
-      const disableUpgrade = false // Cho phép upgrade từ polling sang websocket
+    return () => {
+      cancelled = true
+    }
+  }, [userId, role])
 
-      const socket = io({
-        path: socketPath,
-        transports: selectedTransports as unknown as ("websocket" | "polling")[],
-        upgrade: !disableUpgrade,
-        withCredentials: false,
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 500,
-        reconnectionDelayMax: 5000,
-        // Giảm timeout xuống 10s và cho phép fallback sang polling
-        timeout: 10000,
-        // Force polling nếu websocket fail
-        forceNew: false,
-        auth: {
-          userId,
-          role: role ?? undefined,
-        },
-      })
-
-      socket.on("connect", () => {
-        const engine = socket.io.engine
-        logger.success("Đã kết nối thành công", { 
-          socketId: socket.id, 
-          transport: engine.transport.name,
-          userId,
-          role,
-        })
-        engine.once("upgrade", () => {
-          logger.debug("Transport upgraded", { transport: engine.transport.name })
-        })
+  useEffect(() => {
+    const socket = currentSocket
+    if (!socket) {
+      return
+    }
+    
+    const handleReconnect = () => {
         const conv = lastConversationRef.current
         if (conv) {
           socket.emit("join-conversation", conv)
         }
-      })
+    }
 
-      socket.on("connect_error", (err) => {
-        const error = err instanceof Error ? err : new Error(String(err))
-        logConnectionIssue(error)
-        
-        // Nếu websocket fail, Socket.IO sẽ tự động fallback sang polling
-        // vì đã có ["polling", "websocket"] trong transports
-        if (socket.io.engine?.transport?.name === "websocket") {
-          logger.debug("WebSocket failed, Socket.IO will auto-fallback to polling")
-        }
-      })
-
-      socket.on("disconnect", (reason) => {
-        logger.info("Đã ngắt kết nối", { reason })
-      })
-
-      clientSocket = socket
-      socketRef.current = socket
-      flushPendingHandlers(socket)
-
-      isConnecting = false
-    })()
+    socket.on("connect", handleReconnect)
 
     return () => {
-      // keep singleton alive; do not disconnect on unmount
+      socket.off("connect", handleReconnect)
     }
-  }, [userId, role])
+  }, [currentSocket])
 
   const joinConversation = useCallback((a: string, b: string) => {
-    const socket = getActiveSocket(socketRef)
-    if (!socket) return
     const pair: SocketConversationPair = { a, b }
     lastConversationRef.current = pair
+    socketManager.withSocket((socket) => {
     socket.emit("join-conversation", pair)
+    })
   }, [])
 
   const leaveConversation = useCallback((a: string, b: string) => {
-    const socket = getActiveSocket(socketRef)
-    if (!socket) return
     const pair: SocketConversationPair = { a, b }
+    socketManager.withSocket((socket) => {
     socket.emit("leave-conversation", pair)
+    })
   }, [])
 
   const sendMessage = useCallback(
     ({ parentMessageId, content, fromUserId, toUserId }: SocketMessagePayload) => {
-      const socket = getActiveSocket(socketRef)
-      if (!socket) return
+      socketManager.withSocket((socket) => {
       socket.emit("message:send", {
         parentMessageId,
         content,
         fromUserId,
         toUserId,
       } satisfies SocketMessagePayload)
+      })
     },
     [],
   )
 
   const createSocketListener = useCallback(
-    <Args extends unknown[]>(event: string, handler: (...args: Args) => void) => {
-      const socket = getActiveSocket(socketRef)
-      const attach = (target: Socket) =>
-        target.on(event, handler as Parameters<Socket["on"]>[1])
-      const detach = (target: Socket) =>
-        target.off(event, handler as Parameters<Socket["off"]>[1])
-
-      if (!socket) {
-        queuePendingHandler(event, handler)
-        return () => {
-          const liveSocket = getActiveSocket(socketRef)
-          if (!liveSocket) {
-            removePendingHandler(event, handler)
-            return
-          }
-          detach(liveSocket)
-        }
-      }
-
-      attach(socket)
-
-      return () => {
-        const liveSocket = getActiveSocket(socketRef)
-        if (liveSocket) {
-          detach(liveSocket)
-        } else {
-          removePendingHandler(event, handler)
-        }
-      }
-    },
+    <Args extends unknown[]>(event: string, handler: (...args: Args) => void) =>
+      socketManager.on(event, handler),
     [],
   )
 
@@ -389,15 +425,15 @@ export function useSocket({ userId, role }: UseSocketOptions) {
   )
 
   const markNotificationAsRead = useCallback((notificationId: string) => {
-    const socket = getActiveSocket(socketRef)
-    if (!socket) return
+    socketManager.withSocket((socket) => {
     socket.emit("notification:read", { notificationId })
+    })
   }, [])
 
   const markAllNotificationsAsRead = useCallback(() => {
-    const socket = getActiveSocket(socketRef)
-    if (!socket) return
+    socketManager.withSocket((socket) => {
     socket.emit("notifications:mark-all-read")
+    })
   }, [])
 
   const onContactRequestCreated = useCallback(
@@ -419,7 +455,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
   )
 
   return {
-    socket: clientSocket,
+    socket: currentSocket ?? socketManager.getSocket(),
     joinConversation,
     leaveConversation,
     sendMessage,

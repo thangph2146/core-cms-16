@@ -18,6 +18,7 @@ export interface AccountEditClientProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   onSuccess?: () => void
+  onCancel?: () => void
   variant?: "dialog" | "sheet" | "page"
   backUrl?: string
   backLabel?: string
@@ -28,6 +29,7 @@ export function AccountEditClient({
   open = true,
   onOpenChange,
   onSuccess,
+  onCancel,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
@@ -91,6 +93,7 @@ export function AccountEditClient({
       variant={variant}
       open={open}
       onOpenChange={onOpenChange}
+      onCancel={onCancel}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : undefined}
     />

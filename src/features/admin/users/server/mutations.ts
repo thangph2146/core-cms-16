@@ -420,19 +420,32 @@ export async function bulkSoftDeleteUsers(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Tạo system notifications cho từng user và emit socket events
-  for (const user of users.filter((u) => u.email !== PROTECTED_SUPER_ADMIN_EMAIL)) {
-    await notifySuperAdminsOfUserAction(
-      "delete",
-      ctx.actorId,
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      }
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  const deletableUsers = users.filter((u) => u.email !== PROTECTED_SUPER_ADMIN_EMAIL)
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = deletableUsers.map((user) => 
+      emitUserUpsert(user.id, "active").catch((error) => {
+        console.error(`Failed to emit user:upsert for ${user.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    // Emit socket event cho từng user
-    await emitUserUpsert(user.id, "active")
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng user
+    for (const user of deletableUsers) {
+      await notifySuperAdminsOfUserAction(
+        "delete",
+        ctx.actorId,
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        }
+      )
+    }
   }
 
   return { count: result.count }
@@ -496,19 +509,31 @@ export async function bulkRestoreUsers(ctx: AuthContext, ids: string[]): Promise
     },
   })
 
-  // Tạo system notifications cho từng user và emit socket events
-  for (const user of users) {
-    await notifySuperAdminsOfUserAction(
-      "restore",
-      ctx.actorId,
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      }
+  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
+  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  if (result.count > 0) {
+    // Emit events song song và await tất cả để đảm bảo hoàn thành
+    const emitPromises = users.map((user) => 
+      emitUserUpsert(user.id, "deleted").catch((error) => {
+        console.error(`Failed to emit user:upsert for ${user.id}:`, error)
+        return null // Return null để Promise.allSettled không throw
+      })
     )
-    // Emit socket event cho từng user
-    await emitUserUpsert(user.id, "deleted")
+    // Await tất cả events nhưng không fail nếu một số lỗi
+    await Promise.allSettled(emitPromises)
+
+    // Tạo system notifications cho từng user
+    for (const user of users) {
+      await notifySuperAdminsOfUserAction(
+        "restore",
+        ctx.actorId,
+        {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        }
+      )
+    }
   }
 
   return { count: result.count }

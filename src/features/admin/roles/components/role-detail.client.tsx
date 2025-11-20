@@ -2,7 +2,12 @@
 
 import * as React from "react"
 import { Shield, FileText, Calendar, Clock, CheckCircle2, XCircle, Edit, ChevronsUpDown, Check } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { 
+  ResourceDetailPage, 
+  FieldItem,
+  type ResourceDetailField, 
+  type ResourceDetailSection 
+} from "@/features/admin/resources/components"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -43,26 +48,6 @@ export interface RoleDetailClientProps {
   role: RoleDetailData
   backUrl?: string
 }
-
-// Reusable field item component
-interface FieldItemProps {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  children: React.ReactNode
-  iconColor?: string
-}
-
-const FieldItem = ({ icon: Icon, label, children, iconColor = "bg-muted" }: FieldItemProps) => (
-  <div className="flex items-start gap-3">
-    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
-      {children}
-    </div>
-  </div>
-)
 
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
   const router = useResourceRouter()
