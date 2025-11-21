@@ -7,7 +7,7 @@
 
 "use client"
 
-import { useCallback, useState, useEffect, useMemo } from "react"
+import { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import {
   DataTable,
   type DataTableColumn,
@@ -82,10 +82,15 @@ export function ResourceTableClient<T extends object>({
     })
   }, [])
 
-  // Expose refresh function to parent component
+  // Expose refresh function to parent component (chỉ gọi một lần)
+  const onRefreshReadyRef = useRef(onRefreshReady)
   useEffect(() => {
-    onRefreshReady?.(handleRefresh)
-  }, [handleRefresh, onRefreshReady])
+    onRefreshReadyRef.current = onRefreshReady
+  }, [onRefreshReady])
+
+  useEffect(() => {
+    onRefreshReadyRef.current?.(handleRefresh)
+  }, [handleRefresh])
 
   const handleViewChange = useCallback(
     (viewId: string) => {

@@ -311,11 +311,11 @@ export async function bulkSoftDeleteCategories(ctx: AuthContext, ids: string[]):
 
     // Emit một notification tổng hợp thay vì từng cái một
     await notifySuperAdminsOfBulkCategoryAction(
-      "delete",
-      ctx.actorId,
+        "delete",
+        ctx.actorId,
       result.count,
       categories
-    )
+      )
   }
 
   return { success: true, message: `Đã xóa ${result.count} danh mục`, affected: result.count }
@@ -435,11 +435,11 @@ export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Pr
 
     // Emit một notification tổng hợp thay vì từng cái một
     await notifySuperAdminsOfBulkCategoryAction(
-      "restore",
-      ctx.actorId,
+        "restore",
+        ctx.actorId,
       result.count,
       categoriesToRestore
-    )
+      )
   }
 
   // Tạo message chi tiết nếu có categories không thể restore
@@ -536,11 +536,11 @@ export async function bulkHardDeleteCategories(ctx: AuthContext, ids: string[]):
 
     // Emit một notification tổng hợp thay vì từng cái một
     await notifySuperAdminsOfBulkCategoryAction(
-      "hard-delete",
-      ctx.actorId,
+        "hard-delete",
+        ctx.actorId,
       result.count,
       categories
-    )
+      )
   }
 
   // Invalidate cache cho bulk operation

@@ -52,7 +52,7 @@ export async function notifySuperAdminsOfCategoryAction(
     switch (action) {
       case "create":
         title = "📁 Danh mục mới"
-        description = `${actorName} đã tạo danh mục "${category.name}"`
+        description = `${actorName} đã tạo "${category.name}"`
         break
       case "update":
         const changeDescriptions: string[] = []
@@ -66,21 +66,21 @@ export async function notifySuperAdminsOfCategoryAction(
           changeDescriptions.push("Mô tả đã thay đổi")
         }
         title = "✏️ Danh mục đã cập nhật"
-        description = `${actorName} đã cập nhật danh mục "${category.name}"${
+        description = `${actorName} đã cập nhật "${category.name}"${
           changeDescriptions.length > 0 ? `: ${changeDescriptions.join(", ")}` : ""
         }`
         break
       case "delete":
         title = "🗑️ Danh mục đã xóa"
-        description = `${actorName} đã xóa danh mục "${category.name}"`
+        description = `${actorName} đã xóa "${category.name}"`
         break
       case "restore":
         title = "♻️ Danh mục đã khôi phục"
-        description = `${actorName} đã khôi phục danh mục "${category.name}"`
+        description = `${actorName} đã khôi phục "${category.name}"`
         break
       case "hard-delete":
         title = "⚠️ Danh mục đã xóa vĩnh viễn"
-        description = `${actorName} đã xóa vĩnh viễn danh mục "${category.name}"`
+        description = `${actorName} đã xóa vĩnh viễn "${category.name}"`
         break
     }
 
@@ -237,8 +237,8 @@ export async function notifySuperAdminsOfBulkCategoryAction(
     let description = ""
 
     // Tạo danh sách tên categories (tối ưu để hiển thị đẹp trong line-clamp-2)
-    // Hiển thị tối đa 8-10 tên tùy độ dài, ưu tiên hiển thị nhiều tên ngắn
-    const maxNames = categories && categories.length <= 10 ? categories.length : 10
+    // Hiển thị tối đa 10 tên, nếu nhiều hơn sẽ hiển thị "... và X danh mục khác"
+    const maxNames = 10
     const categoryNames = categories?.slice(0, maxNames).map(c => c.name) || []
     const remainingCount = categories && categories.length > maxNames ? categories.length - maxNames : 0
     const namesText = categoryNames.length > 0 

@@ -10,9 +10,10 @@
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
+import { resourceLogger } from "@/lib/config"
 import { getBaseCategoryFields, type CategoryFormData } from "../form-fields"
 import { useQueryClient } from "@tanstack/react-query"
-import { queryKeys } from "@/lib/query-keys"
 
 export interface CategoryCreateClientProps {
   backUrl?: string
@@ -41,9 +42,20 @@ export function CategoryCreateClient({ backUrl = "/admin/categories" }: Category
         response.data?.data?.id ? `/admin/categories/${response.data.data.id}` : backUrl,
       fallback: backUrl,
     },
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      resourceLogger.actionFlow({
+        resource: "categories",
+        action: "create",
+        step: "success",
+        metadata: {
+          categoryId: response?.data?.data?.id,
+          responseStatus: response?.status,
+        },
+      })
+
       // Invalidate React Query cache để cập nhật danh sách categories
-      await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all() })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" })
+      await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "all" })
     },
   })
 

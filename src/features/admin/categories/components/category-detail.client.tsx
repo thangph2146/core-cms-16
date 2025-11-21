@@ -42,7 +42,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
     invalidateQueryKey: queryKeys.adminCategories.all(),
   })
 
-  // Log detail load một lần
+  // Log detail load một lần (chỉ log khi categoryId thay đổi)
   useEffect(() => {
     if (hasLoggedRef.current) return
     hasLoggedRef.current = true
@@ -66,7 +66,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
         deletedAt: category.deletedAt,
       },
     })
-  }, [categoryId, category])
+  }, [categoryId]) // Chỉ depend vào categoryId để tránh log duplicate khi category object thay đổi
 
   const detailFields: ResourceDetailField<CategoryDetailData>[] = []
 
