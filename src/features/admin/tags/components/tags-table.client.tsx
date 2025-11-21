@@ -33,8 +33,6 @@ import { useTagRowActions } from "@/features/admin/tags/utils/row-actions"
 import type { AdminTagsListParams } from "@/lib/query-keys"
 import type { TagRow, TagsResponse, TagsTableClientProps } from "../types"
 import { TAG_CONFIRM_MESSAGES, TAG_LABELS } from "../constants/messages"
-import { logger } from "@/lib/config"
-
 export function TagsTableClient({
   canDelete = false,
   canRestore = false,
@@ -247,27 +245,12 @@ export function TagsTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<TagRow, AdminTagsListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminTags.list,
-    logDebug: logInitialDataCache,
+    resourceName: "tags",
   })
 
   // Helper function for active view selection actions

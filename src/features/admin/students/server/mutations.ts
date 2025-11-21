@@ -14,7 +14,7 @@ import {
   type CreateStudentInput,
   type UpdateStudentInput,
 } from "./schemas"
-import { notifySuperAdminsOfStudentAction } from "./notifications"
+import { notifySuperAdminsOfStudentAction, notifySuperAdminsOfBulkStudentAction } from "./notifications"
 import {
   ApplicationError,
   ForbiddenError,
@@ -24,7 +24,7 @@ import {
   invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
-import { emitStudentUpsert, emitStudentRemove } from "./events"
+import { emitStudentUpsert, emitStudentRemove, emitStudentBatchUpsert } from "./events"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
@@ -313,27 +313,22 @@ export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): P
     },
   })
 
-  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
-  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  // Emit batch socket event để update UI - tối ưu performance
   if (result.count > 0) {
-    // Emit events song song và await tất cả để đảm bảo hoàn thành
-    const emitPromises = students.map((student) => 
-      emitStudentUpsert(student.id, "active").catch((error) => {
-        logger.error(`Failed to emit student:upsert for ${student.id}`, error as Error)
-        return null // Return null để Promise.allSettled không throw
-      })
-    )
-    // Await tất cả events nhưng không fail nếu một số lỗi
-    await Promise.allSettled(emitPromises)
+    // Emit batch event thay vì từng event riêng lẻ
+    await emitStudentBatchUpsert(
+      students.map((s) => s.id),
+      "active"
+    ).catch((error) => {
+      logger.error("Failed to emit batch student:upsert", error as Error)
+    })
 
-    // Emit notifications realtime cho từng student
-    for (const student of students) {
-      await notifySuperAdminsOfStudentAction(
-        "delete",
-        ctx.actorId,
-        student
-      )
-    }
+    // Emit một notification tổng hợp thay vì từng cái một
+    await notifySuperAdminsOfBulkStudentAction(
+      "delete",
+      ctx.actorId,
+      result.count
+    )
   }
 
   // Invalidate cache cho bulk operation
@@ -403,27 +398,22 @@ export async function bulkRestoreStudents(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
-  // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
+  // Emit batch socket event để update UI - tối ưu performance
   if (result.count > 0) {
-    // Emit events song song và await tất cả để đảm bảo hoàn thành
-    const emitPromises = students.map((student) => 
-      emitStudentUpsert(student.id, "deleted").catch((error) => {
-        logger.error(`Failed to emit student:upsert for ${student.id}`, error as Error)
-        return null // Return null để Promise.allSettled không throw
-      })
-    )
-    // Await tất cả events nhưng không fail nếu một số lỗi
-    await Promise.allSettled(emitPromises)
+    // Emit batch event thay vì từng event riêng lẻ
+    await emitStudentBatchUpsert(
+      students.map((s) => s.id),
+      "deleted"
+    ).catch((error) => {
+      logger.error("Failed to emit batch student:upsert", error as Error)
+    })
 
-    // Emit notifications realtime cho từng student
-    for (const student of students) {
-      await notifySuperAdminsOfStudentAction(
-        "restore",
-        ctx.actorId,
-        student
-      )
-    }
+    // Emit một notification tổng hợp thay vì từng cái một
+    await notifySuperAdminsOfBulkStudentAction(
+      "restore",
+      ctx.actorId,
+      result.count
+    )
   }
 
   // Invalidate cache cho bulk operation
@@ -498,7 +488,6 @@ export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): P
 
   // Emit socket events for real-time updates
   // Emit socket events để update UI - fire and forget để tránh timeout
-  // Emit song song cho tất cả students đã bị hard delete
   if (result.count > 0) {
     // Emit events (emitStudentRemove trả về void, không phải Promise)
     students.forEach((student) => {
@@ -510,14 +499,12 @@ export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): P
       }
     })
 
-    // Emit notifications realtime cho từng student
-    for (const student of students) {
-      await notifySuperAdminsOfStudentAction(
-        "hard-delete",
-        ctx.actorId,
-        student
-      )
-    }
+    // Emit một notification tổng hợp thay vì từng cái một
+    await notifySuperAdminsOfBulkStudentAction(
+      "hard-delete",
+      ctx.actorId,
+      result.count
+    )
   }
 
   // Invalidate cache cho bulk operation

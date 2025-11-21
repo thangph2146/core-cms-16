@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useEffect, useRef } from "react"
 import { User, Mail, Hash, Calendar, Clock, CheckCircle2, XCircle, Edit } from "lucide-react"
 import { 
   ResourceDetailPage, 
@@ -14,6 +15,7 @@ import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
+import { logger } from "@/lib/config"
 
 export interface StudentDetailData {
   id: string
@@ -38,6 +40,30 @@ export interface StudentDetailClientProps {
 
 export function StudentDetailClient({ studentId, student, backUrl = "/admin/students" }: StudentDetailClientProps) {
   const router = useResourceRouter()
+  const hasLoggedRef = useRef(false)
+
+  useEffect(() => {
+    // Chỉ log một lần để tránh duplicate logs trong React strict mode
+    if (hasLoggedRef.current) return
+    
+    hasLoggedRef.current = true
+    logger.debug("[StudentDetailClient] Student detail loaded", {
+      action: "load-detail",
+      studentId,
+      studentData: {
+        studentCode: student.studentCode,
+        name: student.name,
+        email: student.email,
+        isActive: student.isActive,
+        userId: student.userId,
+        userName: student.userName,
+        userEmail: student.userEmail,
+        createdAt: student.createdAt,
+        updatedAt: student.updatedAt,
+        deletedAt: student.deletedAt,
+      },
+    })
+  }, [studentId, student])
 
   const detailFields: ResourceDetailField<StudentDetailData>[] = []
 
@@ -190,4 +216,3 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     />
   )
 }
-

@@ -33,9 +33,6 @@ import { useUserRowActions } from "@/features/admin/users/utils/row-actions"
 import type { AdminUsersListParams } from "@/lib/query-keys"
 import type { UserRow, UsersResponse, UsersTableClientProps } from "../types"
 import { USER_CONFIRM_MESSAGES, USER_LABELS } from "../constants/messages"
-import { logger } from "@/lib/config"
-
-
 export function UsersTableClient({
   canDelete = false,
   canRestore = false,
@@ -260,27 +257,12 @@ export function UsersTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<UserRow, AdminUsersListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminUsers.list,
-    logDebug: logInitialDataCache,
+    resourceName: "users",
   })
 
   const viewModes = useMemo<ResourceViewMode<UserRow>[]>(() => {

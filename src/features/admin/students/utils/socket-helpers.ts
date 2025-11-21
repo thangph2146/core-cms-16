@@ -1,25 +1,43 @@
 /**
  * Helper functions cho socket bridge
  * Tách ra để dễ test và tái sử dụng
+ * 
+ * @module socket-helpers
  */
 
+import { logger } from "@/lib/config"
 import type { StudentRow } from "../types"
 import type { AdminStudentsListParams } from "@/lib/query-keys"
+
+/**
+ * Searchable fields cho student
+ */
+const SEARCHABLE_FIELDS: Array<keyof StudentRow> = ["studentCode", "name", "email"]
 
 /**
  * Kiểm tra xem student có match với search term không
  */
 export function matchesSearch(search: string | undefined, row: StudentRow): boolean {
-  if (!search) return true
+  if (!search?.trim()) return true
+  
   const term = search.trim().toLowerCase()
-  if (!term) return true
-  return [
-    row.studentCode,
-    row.name ?? "",
-    row.email ?? "",
-  ]
-    .some((value) => value.toLowerCase().includes(term))
+  return SEARCHABLE_FIELDS.some((field) => {
+    const value = row[field]
+    return typeof value === "string" ? value.toLowerCase().includes(term) : false
+  })
 }
+
+/**
+ * Filter matchers map - dễ scale khi thêm filter mới
+ */
+const FILTER_MATCHERS = {
+  isActive: (row: StudentRow, value: string) => row.isActive === (value === "true"),
+  studentCode: (row: StudentRow, value: string) => row.studentCode === value,
+  name: (row: StudentRow, value: string) => (row.name ?? "") === value,
+  email: (row: StudentRow, value: string) => (row.email ?? "") === value,
+} as const
+
+type FilterKey = keyof typeof FILTER_MATCHERS
 
 /**
  * Kiểm tra xem student có match với filters không
@@ -29,28 +47,18 @@ export function matchesFilters(
   row: StudentRow
 ): boolean {
   if (!filters) return true
-  for (const [key, value] of Object.entries(filters)) {
-    if (value === undefined) continue
-    switch (key) {
-      case "isActive": {
-        const expected = value === "true"
-        if (row.isActive !== expected) return false
-        break
-      }
-      case "studentCode":
-        if (row.studentCode !== value) return false
-        break
-      case "name":
-        if ((row.name ?? "") !== value) return false
-        break
-      case "email":
-        if ((row.email ?? "") !== value) return false
-        break
-      default:
-        break
+
+  return Object.entries(filters).every(([key, value]) => {
+    if (value === undefined) return true
+    
+    const matcher = FILTER_MATCHERS[key as FilterKey]
+    if (!matcher) {
+      logger.warn("[socket-helpers] Unknown filter key", { key, availableKeys: Object.keys(FILTER_MATCHERS) })
+      return true
     }
-  }
-  return true
+    
+    return matcher(row, value)
+  })
 }
 
 /**
@@ -61,12 +69,16 @@ export function shouldIncludeInStatus(
   rowStatus: "active" | "deleted"
 ): boolean {
   if (paramsStatus === "all") return true
-  if (!paramsStatus) return rowStatus === "active"
-  return paramsStatus === rowStatus
+  return (paramsStatus ?? "active") === rowStatus
 }
 
 /**
  * Insert hoặc update row vào page
+ * 
+ * @param rows - Mảng rows hiện tại
+ * @param row - Row cần insert/update
+ * @param limit - Giới hạn số lượng rows
+ * @returns Mảng rows mới
  */
 export function insertRowIntoPage(
   rows: StudentRow[],
@@ -74,29 +86,68 @@ export function insertRowIntoPage(
   limit: number
 ): StudentRow[] {
   const existingIndex = rows.findIndex((item) => item.id === row.id)
+  
   if (existingIndex >= 0) {
+    // Update existing row
     const next = [...rows]
     next[existingIndex] = row
+    logger.debug("[socket-helpers] Updated row in page", {
+      action: "update",
+      studentId: row.id,
+      studentCode: row.studentCode,
+      index: existingIndex,
+      beforeLength: rows.length,
+      afterLength: next.length,
+    })
     return next
   }
+  
+  // Insert new row at the beginning
   const next = [row, ...rows]
-  if (next.length > limit) {
-    next.pop()
-  }
-  return next
+  const result = next.length > limit ? next.slice(0, limit) : next
+  logger.debug("[socket-helpers] Inserted row into page", {
+    action: "insert",
+    studentId: row.id,
+    studentCode: row.studentCode,
+    beforeLength: rows.length,
+    afterLength: result.length,
+    wasTruncated: next.length > limit,
+  })
+  return result
 }
 
 /**
  * Remove row khỏi page
+ * 
+ * @param rows - Mảng rows hiện tại
+ * @param id - ID của row cần remove
+ * @returns Object chứa rows mới và flag removed
  */
 export function removeRowFromPage(
   rows: StudentRow[],
   id: string
 ): { rows: StudentRow[]; removed: boolean } {
   const index = rows.findIndex((item) => item.id === id)
-  if (index === -1) return { rows, removed: false }
+  
+  if (index === -1) {
+    logger.debug("[socket-helpers] Row not found for removal", {
+      action: "remove",
+      studentId: id,
+      currentRowsCount: rows.length,
+    })
+    return { rows, removed: false }
+  }
+  
   const next = [...rows]
+  const removedRow = next[index]
   next.splice(index, 1)
+  logger.debug("[socket-helpers] Removed row from page", {
+    action: "remove",
+    studentId: id,
+    studentCode: removedRow?.studentCode,
+    index,
+    beforeLength: rows.length,
+    afterLength: next.length,
+  })
   return { rows: next, removed: true }
 }
-

@@ -34,8 +34,6 @@ import { useRoleRowActions } from "@/features/admin/roles/utils/row-actions"
 import type { AdminRolesListParams } from "@/lib/query-keys"
 import type { RoleRow, RolesResponse, RolesTableClientProps } from "../types"
 import { ROLE_CONFIRM_MESSAGES, ROLE_LABELS } from "../constants/messages"
-import { logger } from "@/lib/config"
-
 export function RolesTableClient({
   canDelete = false,
   canRestore = false,
@@ -307,27 +305,12 @@ export function RolesTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<RoleRow, AdminRolesListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminRoles.list,
-    logDebug: logInitialDataCache,
+    resourceName: "roles",
   })
 
   const createActiveSelectionActions = useCallback(

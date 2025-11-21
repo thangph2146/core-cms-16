@@ -29,7 +29,6 @@ import { useSessionRowActions } from "../utils/row-actions"
 
 import type { SessionRow, SessionsResponse, SessionsTableClientProps } from "../types"
 import { SESSION_CONFIRM_MESSAGES, SESSION_LABELS } from "../constants"
-import { logger } from "@/lib/config"
 
 export function SessionsTableClient({
   canDelete = false,
@@ -215,7 +214,7 @@ export function SessionsTableClient({
       filters: undefined,
     }),
     buildQueryKey,
-    logDebug: logger.debug,
+    resourceName: "sessions",
   })
 
   const executeBulk = useCallback(

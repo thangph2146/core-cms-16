@@ -32,8 +32,6 @@ import { useContactRequestRowActions } from "../utils/row-actions"
 import type { AdminContactRequestsListParams } from "@/lib/query-keys"
 import type { ContactRequestRow, ContactRequestsResponse, ContactRequestsTableClientProps } from "../types"
 import { CONTACT_REQUEST_CONFIRM_MESSAGES, CONTACT_REQUEST_LABELS } from "../constants"
-import { logger } from "@/lib/config"
-
 export function ContactRequestsTableClient({
   canDelete = false,
   canRestore = false,
@@ -525,27 +523,12 @@ export function ContactRequestsTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<ContactRequestRow, AdminContactRequestsListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminContactRequests.list,
-    logDebug: logInitialDataCache,
+    resourceName: "contact-requests",
   })
 
   return (

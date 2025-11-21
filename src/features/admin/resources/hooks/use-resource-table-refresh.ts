@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { QueryClient, QueryKey } from "@tanstack/react-query"
-import { logger } from "@/lib/config"
+import { logger } from "@/lib/config/logger"
 
 interface UseResourceTableRefreshOptions {
   queryClient: QueryClient
@@ -34,6 +34,15 @@ interface UseResourceTableRefreshResult {
  * - Tự động invalidate query trước khi refresh
  * - Hỗ trợ soft refresh khi có realtime updates
  * - Giữ refresh function để dùng cho các mutation callbacks
+ * 
+ * @example
+ * ```tsx
+ * const { onRefreshReady, refresh, softRefresh } = useResourceTableRefresh({
+ *   queryClient,
+ *   getInvalidateQueryKey: () => queryKeys.adminTags.all(),
+ *   cacheVersion: socketBridge.cacheVersion,
+ * })
+ * ```
  */
 export function useResourceTableRefresh({
   queryClient,
@@ -45,11 +54,22 @@ export function useResourceTableRefresh({
   const pendingRealtimeRefreshRef = useRef(false)
 
   const refresh = useCallback(async () => {
-    await refreshRef.current?.()
+    if (!refreshRef.current) {
+      logger.warn("Refresh function not ready yet")
+      return
+    }
+    logger.debug("Triggering full refresh")
+    await refreshRef.current()
   }, [])
 
   const softRefresh = useCallback(() => {
-    softRefreshRef.current?.()
+    if (!softRefreshRef.current) {
+      logger.debug("Soft refresh function not ready, marking as pending")
+      pendingRealtimeRefreshRef.current = true
+      return
+    }
+    logger.debug("Triggering soft refresh")
+    softRefreshRef.current()
   }, [])
 
   const onRefreshReady = useCallback(
@@ -57,27 +77,17 @@ export function useResourceTableRefresh({
       softRefreshRef.current = refreshFn
       refreshRef.current = async () => {
         const invalidateKey = getInvalidateQueryKey?.()
-        logger.debug("[useResourceTableRefresh] refreshRef.current START", { 
-          hasInvalidateKey: !!invalidateKey,
-          invalidateKey: invalidateKey ? JSON.stringify(invalidateKey) : undefined,
-        })
-        
         if (invalidateKey) {
+          logger.debug("Invalidating queries before refresh", { queryKey: invalidateKey })
           // Invalidate queries nhưng KHÔNG tự động refetch (refetchType: "none")
-          // Điều này chỉ clear cache, không trigger refetch
           // refreshFn() sẽ trigger refetch query hiện tại khi table reload
-          logger.debug("[useResourceTableRefresh] Invalidating queries", { invalidateKey: JSON.stringify(invalidateKey) })
           await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "none" })
-          logger.debug("[useResourceTableRefresh] Queries invalidated")
         }
-        
-        // Gọi refreshFn để trigger reload trong table (sẽ refetch query hiện tại)
-        logger.debug("[useResourceTableRefresh] Calling refreshFn()")
         refreshFn()
-        logger.debug("[useResourceTableRefresh] refreshFn() completed")
       }
 
       if (pendingRealtimeRefreshRef.current) {
+        logger.debug("Executing pending soft refresh")
         pendingRealtimeRefreshRef.current = false
         refreshFn()
       }
@@ -88,19 +98,15 @@ export function useResourceTableRefresh({
   useEffect(() => {
     if (!cacheVersion) return
 
-    logger.debug("[useResourceTableRefresh] cacheVersion changed", { cacheVersion })
+    logger.debug("Cache version changed, triggering soft refresh", { cacheVersion })
 
     if (softRefreshRef.current) {
-      logger.debug("[useResourceTableRefresh] Triggering soft refresh from cacheVersion")
       softRefreshRef.current()
       pendingRealtimeRefreshRef.current = false
     } else {
-      logger.debug("[useResourceTableRefresh] softRefreshRef not ready, marking pending")
       pendingRealtimeRefreshRef.current = true
     }
   }, [cacheVersion])
 
   return { onRefreshReady, refresh, softRefresh }
 }
-
-

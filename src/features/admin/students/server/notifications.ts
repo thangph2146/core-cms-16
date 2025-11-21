@@ -215,3 +215,108 @@ export async function notifySuperAdminsOfStudentAction(
   }
 }
 
+/**
+ * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
+ * Để tránh timeout khi xử lý nhiều students
+ */
+export async function notifySuperAdminsOfBulkStudentAction(
+  action: "delete" | "restore" | "hard-delete",
+  actorId: string,
+  count: number
+) {
+  try {
+    const actor = await getActorInfo(actorId)
+    const actorName = actor?.name || actor?.email || "Hệ thống"
+
+    let title = ""
+    let description = ""
+
+    switch (action) {
+      case "delete":
+        title = "🗑️ Nhiều học sinh bị xóa"
+        description = `${actorName} đã xóa ${count} học sinh`
+        break
+      case "restore":
+        title = "♻️ Nhiều học sinh được khôi phục"
+        description = `${actorName} đã khôi phục ${count} học sinh`
+        break
+      case "hard-delete":
+        title = "⚠️ Nhiều học sinh bị xóa vĩnh viễn"
+        description = `${actorName} đã xóa vĩnh viễn ${count} học sinh`
+        break
+    }
+
+    const actionUrl = `/admin/students`
+
+    const result = await createNotificationForSuperAdmins(
+      title,
+      description,
+      actionUrl,
+      NotificationKind.SYSTEM,
+      {
+        type: `student_bulk_${action}`,
+        actorId,
+        actorName: actor?.name || actor?.email,
+        actorEmail: actor?.email,
+        count,
+        timestamp: new Date().toISOString(),
+      }
+    )
+
+    const io = getSocketServer()
+    if (io && result.count > 0) {
+      const superAdmins = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          userRoles: {
+            some: {
+              role: {
+                name: "super_admin",
+                isActive: true,
+                deletedAt: null,
+              },
+            },
+          },
+        },
+        select: { id: true },
+      })
+
+      const createdNotifications = await prisma.notification.findMany({
+        where: {
+          title,
+          description,
+          actionUrl,
+          kind: NotificationKind.SYSTEM,
+          userId: {
+            in: superAdmins.map((a) => a.id),
+          },
+          createdAt: {
+            gte: new Date(Date.now() - 5000),
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: superAdmins.length,
+      })
+
+      for (const admin of superAdmins) {
+        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
+        if (dbNotification) {
+          const socketNotification = mapNotificationToPayload(dbNotification)
+          storeNotificationInCache(admin.id, socketNotification)
+          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+        }
+      }
+
+      if (createdNotifications.length > 0) {
+        const roleNotification = mapNotificationToPayload(createdNotifications[0])
+        io.to("role:super_admin").emit("notification:new", roleNotification)
+      }
+    }
+  } catch (error) {
+    logger.error("[notifications] Failed to notify super admins of bulk student action", error as Error)
+  }
+}
+

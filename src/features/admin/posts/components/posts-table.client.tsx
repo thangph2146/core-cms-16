@@ -311,27 +311,12 @@ export function PostsTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<PostRow, AdminPostsListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminPosts.list,
-    logDebug: logInitialDataCache,
+    resourceName: "posts",
   })
 
   const createActiveSelectionActions = useCallback(

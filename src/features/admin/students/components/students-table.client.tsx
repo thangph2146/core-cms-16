@@ -163,7 +163,17 @@ export function StudentsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      logger.debug("[StudentsTableClient] fetchStudents START", { url, params })
+      logger.debug("[StudentsTableClient] Fetching students", {
+        action: "fetch",
+        params: {
+          status: params.status,
+          page: params.page,
+          limit: params.limit,
+          search: params.search,
+          filtersCount: Object.keys(params.filters ?? {}).length,
+        },
+        url,
+      })
 
       const response = await apiClient.get<{
         success: boolean
@@ -172,30 +182,12 @@ export function StudentsTableClient({
         message?: string
       }>(url)
 
-      logger.debug("[StudentsTableClient] fetchStudents API response", { 
-        success: response.data.success,
-        hasData: !!response.data.data,
-        dataRowsCount: response.data.data?.data?.length ?? 0,
-        pagination: response.data.data?.pagination,
-        // Log sample rows để verify data
-        sampleRows: response.data.data?.data?.slice(0, 3).map((r: StudentRow) => ({
-          id: r.id,
-          name: r.name,
-          email: r.email,
-          studentCode: r.studentCode,
-          isActive: r.isActive,
-          deletedAt: r.deletedAt,
-        })),
-        fullResponse: response.data,
-      })
-
       const payload = response.data.data
       if (!payload) {
         logger.error("[StudentsTableClient] fetchStudents - No payload", { response: response.data })
         throw new Error(response.data.error || response.data.message || "Không thể tải danh sách học sinh")
       }
 
-      // Đảm bảo rows luôn là array
       const rows = Array.isArray(payload.data) ? payload.data : []
 
       const result = {
@@ -206,20 +198,20 @@ export function StudentsTableClient({
         totalPages: payload.pagination?.totalPages ?? 0,
       }
 
-      logger.debug("[StudentsTableClient] fetchStudents END", { 
-        rowsCount: result.rows.length,
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-        // Log sample rows để verify UI sẽ hiển thị
-        sampleRows: result.rows.slice(0, 3).map(r => ({
+      logger.debug("[StudentsTableClient] Students fetched successfully", {
+        action: "fetch",
+        dataTable: {
+          rowsCount: result.rows.length,
+          total: result.total,
+          totalPages: result.totalPages,
+          page: result.page,
+          limit: result.limit,
+        },
+        students: rows.slice(0, 5).map((r) => ({
           id: r.id,
+          studentCode: r.studentCode,
           name: r.name,
           email: r.email,
-          studentCode: r.studentCode,
-          isActive: r.isActive,
-          deletedAt: r.deletedAt,
         })),
       })
 
@@ -262,7 +254,7 @@ export function StudentsTableClient({
       filters: undefined,
     }),
     buildQueryKey,
-    logDebug: logger.debug,
+    resourceName: "students",
   })
 
   const executeBulk = useCallback(

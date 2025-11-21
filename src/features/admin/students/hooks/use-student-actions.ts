@@ -15,6 +15,7 @@ import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { STUDENT_MESSAGES } from "../constants/messages"
 import { logger } from "@/lib/config"
+
 interface UseStudentActionsOptions {
   canDelete: boolean
   canRestore: boolean
@@ -41,9 +42,25 @@ export function useStudentActions({
   const handleToggleStatus = useCallback(
     async (row: StudentRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canManage) {
+        logger.warn("[useStudentActions] Toggle status denied - no permission", {
+          action: "toggle-status",
+          studentId: row.id,
+          studentCode: row.studentCode,
+        })
         showFeedback("error", STUDENT_MESSAGES.NO_PERMISSION, STUDENT_MESSAGES.NO_MANAGE_PERMISSION)
         return
       }
+
+      logger.debug("[useStudentActions] Toggle status START", {
+        action: "toggle-status",
+        studentId: row.id,
+        studentCode: row.studentCode,
+        name: row.name,
+        email: row.email,
+        currentStatus: row.isActive,
+        newStatus,
+        socketConnected: isSocketConnected,
+      })
 
       setTogglingStudents((prev) => new Set(prev).add(row.id))
 
@@ -65,14 +82,32 @@ export function useStudentActions({
         await apiClient.put(apiRoutes.students.update(row.id), {
           isActive: newStatus,
         })
+        
+        logger.debug("[useStudentActions] Toggle status SUCCESS", {
+          action: "toggle-status",
+          studentId: row.id,
+          studentCode: row.studentCode,
+          newStatus,
+        })
+
         showFeedback(
           "success",
           STUDENT_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh ${row.studentCode}`
         )
-        await runResourceRefresh({ refresh, resource: "students" })
+        // Socket events đã update cache, chỉ refresh nếu socket không connected
+        if (!isSocketConnected) {
+          await runResourceRefresh({ refresh, resource: "students" })
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
+        logger.error("[useStudentActions] Toggle status ERROR", {
+          action: "toggle-status",
+          studentId: row.id,
+          studentCode: row.studentCode,
+          newStatus,
+          error: error instanceof Error ? error.message : String(error),
+        })
         showFeedback(
           "error",
           STUDENT_MESSAGES.TOGGLE_ACTIVE_ERROR,
@@ -131,7 +166,25 @@ export function useStudentActions({
         },
       }[action]
 
-      if (!actionConfig.permission) return
+      if (!actionConfig.permission) {
+        logger.warn("[useStudentActions] Action denied - no permission", {
+          action,
+          studentId: row.id,
+          studentCode: row.studentCode,
+        })
+        return
+      }
+
+      logger.debug("[useStudentActions] Single action START", {
+        action,
+        studentId: row.id,
+        studentCode: row.studentCode,
+        name: row.name,
+        email: row.email,
+        isActive: row.isActive,
+        deletedAt: row.deletedAt,
+        socketConnected: isSocketConnected,
+      })
 
       // Track loading state
       const setLoadingState = action === "delete"
@@ -148,14 +201,29 @@ export function useStudentActions({
         } else {
           await apiClient.post(actionConfig.endpoint)
         }
+        
+        logger.debug("[useStudentActions] Single action SUCCESS", {
+          action,
+          studentId: row.id,
+          studentCode: row.studentCode,
+        })
+
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // runResourceRefresh đã handle invalidate và refetch queries
-        await runResourceRefresh({ refresh, resource: "students" })
+        // Chỉ refresh nếu socket không connected (socket đã update cache rồi)
+        if (!isSocketConnected) {
+          await runResourceRefresh({ refresh, resource: "students" })
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
+        logger.error("[useStudentActions] Single action ERROR", {
+          action,
+          studentId: row.id,
+          studentCode: row.studentCode,
+          error: error instanceof Error ? error.message : String(error),
+        })
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          logger.error(`Failed to ${action} student`, error as Error)
+          // Don't throw for restore to allow UI to continue
         } else {
           throw error
         }
@@ -167,7 +235,7 @@ export function useStudentActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, showFeedback],
+    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
   )
 
   const executeBulkAction = useCallback(
@@ -178,15 +246,23 @@ export function useStudentActions({
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
-
       if (!startBulkProcessing()) return
 
-      logger.debug("[useStudentActions] executeBulkAction START", { action, idsCount: ids.length, ids })
+      logger.debug("[useStudentActions] Bulk action START", {
+        action,
+        count: ids.length,
+        studentIds: ids,
+        socketConnected: isSocketConnected,
+      })
 
       try {
-        logger.debug("[useStudentActions] Calling bulk API", { endpoint: apiRoutes.students.bulk, action, ids })
-        const apiResponse = await apiClient.post(apiRoutes.students.bulk, { action, ids })
-        logger.debug("[useStudentActions] Bulk API response", { response: apiResponse.data })
+        await apiClient.post(apiRoutes.students.bulk, { action, ids })
+
+        logger.debug("[useStudentActions] Bulk action SUCCESS", {
+          action,
+          count: ids.length,
+          studentIds: ids,
+        })
 
         const messages = {
           restore: { title: STUDENT_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} học sinh` },
@@ -194,22 +270,21 @@ export function useStudentActions({
           "hard-delete": { title: STUDENT_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} học sinh` },
         }
 
-        const message = messages[action]
-        showFeedback("success", message.title, message.description)
+        showFeedback("success", messages[action].title, messages[action].description)
         clearSelection()
 
-        // Invalidate queries trước để đảm bảo cache được clear
-        // Sử dụng refetchType: "none" để không tự động refetch (tránh duplicate)
-        logger.debug("[useStudentActions] Invalidating queries", { queryKey: queryKeys.adminStudents.all() })
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "none" })
-        logger.debug("[useStudentActions] Queries invalidated")
-        
-        // Gọi refresh để trigger table reload (sẽ refetch query hiện tại)
-        logger.debug("[useStudentActions] Calling runResourceRefresh")
-        await runResourceRefresh({ refresh, resource: "students" })
-        logger.debug("[useStudentActions] runResourceRefresh completed")
+        // Socket events đã update cache, chỉ refresh nếu socket không connected
+        if (!isSocketConnected) {
+          await runResourceRefresh({ refresh, resource: "students" })
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
+        logger.error("[useStudentActions] Bulk action ERROR", {
+          action,
+          count: ids.length,
+          studentIds: ids,
+          error: error instanceof Error ? error.message : String(error),
+        })
         const errorTitles = {
           restore: STUDENT_MESSAGES.BULK_RESTORE_ERROR,
           delete: STUDENT_MESSAGES.BULK_DELETE_ERROR,
@@ -220,11 +295,10 @@ export function useStudentActions({
           throw error
         }
       } finally {
-        logger.debug("[useStudentActions] executeBulkAction END", { action })
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, isSocketConnected],
   )
 
   return {
@@ -238,4 +312,3 @@ export function useStudentActions({
     bulkState,
   }
 }
-

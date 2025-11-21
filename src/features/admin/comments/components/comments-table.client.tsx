@@ -32,7 +32,6 @@ import { useCommentRowActions } from "@/features/admin/comments/utils/row-action
 import type { AdminCommentsListParams } from "@/lib/query-keys"
 import type { CommentRow, CommentsResponse, CommentsTableClientProps } from "../types"
 import { COMMENT_CONFIRM_MESSAGES, COMMENT_LABELS } from "../constants"
-import { logger } from "@/lib/config"
 
 export function CommentsTableClient({
   canDelete = false,
@@ -231,7 +230,7 @@ export function CommentsTableClient({
       filters: undefined,
     }),
     buildQueryKey,
-    logDebug: logger.debug,
+    resourceName: "comments",
   })
 
   const executeBulk = useCallback(

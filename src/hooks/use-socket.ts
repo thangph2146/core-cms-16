@@ -301,10 +301,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(() => socketManager.getSocket())
 
   useEffect(() => {
-    logger.info("useSocket hook được gọi", { userId, role })
-    
     if (!userId) {
-      logger.debug("Không có userId, bỏ qua kết nối")
       // Use setTimeout to avoid calling setState synchronously in effect body
       const timeoutId = setTimeout(() => {
         setCurrentSocket(null)
@@ -322,7 +319,7 @@ export function useSocket({ userId, role }: UseSocketOptions) {
       })
       .catch((error) => {
         logger.error(
-          "Kết nối Socket.IO thất bại",
+          "[useSocket] Kết nối Socket.IO thất bại",
           error instanceof Error ? error : new Error(String(error)),
         )
         setCurrentSocket(null)

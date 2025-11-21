@@ -1,6 +1,7 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import type { QueryClient, QueryKey } from "@tanstack/react-query"
 import type { DataTableResult } from "@/components/tables"
+import { logger } from "@/lib/config"
 
 interface UseResourceInitialDataCacheOptions<T extends object, P> {
   initialData?: DataTableResult<T>
@@ -14,35 +15,52 @@ interface UseResourceInitialDataCacheOptions<T extends object, P> {
    */
   buildQueryKey: (params: P) => QueryKey
   /**
-   * Optional logger (ví dụ logger.debug)
+   * Resource name để logging (ví dụ "students", "tags")
    */
-  logDebug?: (message: string, meta?: Record<string, unknown>) => void
+  resourceName?: string
 }
 
 /**
  * Đồng bộ initial data (SSR) vào React Query cache để realtime updates hoạt động ổn định
+ * 
+ * @example
+ * ```tsx
+ * useResourceInitialDataCache({
+ *   initialData,
+ *   queryClient,
+ *   buildParams: (data) => ({ page: data.page, limit: data.limit, status: "active" }),
+ *   buildQueryKey: (params) => queryKeys.adminTags.list(params),
+ *   resourceName: "tags",
+ * })
+ * ```
  */
 export function useResourceInitialDataCache<T extends object, P>({
   initialData,
   queryClient,
   buildParams,
   buildQueryKey,
-  logDebug,
+  resourceName = "resource",
 }: UseResourceInitialDataCacheOptions<T, P>) {
+  const hasCachedRef = useRef(false)
+
   useEffect(() => {
     if (!initialData) return
+
+    // Chỉ cache một lần để tránh duplicate logs
+    if (hasCachedRef.current) {
+      return
+    }
 
     const params = buildParams(initialData)
     const queryKey = buildQueryKey(params)
 
     queryClient.setQueryData(queryKey, initialData)
+    hasCachedRef.current = true
 
-    logDebug?.("Set initial data to cache", {
+    logger.debug(`[useResourceInitialDataCache:${resourceName}] Set initial data to cache`, {
       queryKey,
       rowsCount: initialData.rows.length,
       total: initialData.total,
     })
-  }, [initialData, queryClient, buildParams, buildQueryKey, logDebug])
+  }, [initialData, queryClient, buildParams, buildQueryKey, resourceName])
 }
-
-

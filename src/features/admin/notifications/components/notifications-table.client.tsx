@@ -279,27 +279,12 @@ export function NotificationsTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 3) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<NotificationRow, AdminNotificationsListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: buildNotificationsQueryKey,
-    logDebug: logInitialDataCache,
+    resourceName: "notifications",
   })
 
   // Helper function to create selection actions

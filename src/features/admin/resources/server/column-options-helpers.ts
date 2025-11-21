@@ -87,17 +87,16 @@ export function mapToColumnOptions<T extends Record<string, unknown>>(
   results: T[],
   column: string
 ): Array<{ label: string; value: string }> {
-  return results
-    .map((item) => {
-      const value = item[column as keyof T]
-      if (typeof value === "string" && value.trim()) {
-        return {
-          label: value,
-          value: value,
-        }
-      }
-      return null
-    })
-    .filter((item): item is { label: string; value: string } => item !== null)
+  const options: Array<{ label: string; value: string }> = []
+  for (const item of results) {
+    const value = item[column as keyof T]
+    if (typeof value === "string" && value.trim()) {
+      options.push({
+        label: value,
+        value: value,
+      })
+    }
+  }
+  return options
 }
 

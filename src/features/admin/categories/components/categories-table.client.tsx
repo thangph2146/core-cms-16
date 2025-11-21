@@ -32,8 +32,6 @@ import { useCategoryRowActions } from "../utils/row-actions"
 
 import type { CategoryRow, CategoriesResponse, CategoriesTableClientProps } from "../types"
 import { CATEGORY_CONFIRM_MESSAGES, CATEGORY_LABELS } from "../constants/messages"
-import { logger } from "@/lib/config"
-
 export function CategoriesTableClient({
   canDelete = false,
   canRestore = false,
@@ -247,27 +245,12 @@ export function CategoriesTableClient({
     [],
   )
 
-  const logInitialDataCache = useCallback(
-    (message: string, meta?: Record<string, unknown>) => {
-      const queryKeyMeta = (meta as { queryKey?: unknown } | undefined)?.queryKey
-      const formattedMeta = meta
-        ? {
-            ...meta,
-            queryKey: Array.isArray(queryKeyMeta) ? queryKeyMeta.slice(0, 2) : queryKeyMeta,
-          }
-        : undefined
-
-      logger.debug(message, formattedMeta)
-    },
-    [],
-  )
-
   useResourceInitialDataCache<CategoryRow, AdminCategoriesListParams>({
     initialData,
     queryClient,
     buildParams: buildInitialParams,
     buildQueryKey: queryKeys.adminCategories.list,
-    logDebug: logInitialDataCache,
+    resourceName: "categories",
   })
 
   // Helper function for active view selection actions
