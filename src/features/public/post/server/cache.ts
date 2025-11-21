@@ -1,55 +1,67 @@
 /**
  * Cache Functions for Public Posts
  * 
- * Sử dụng React cache() để:
- * - Tự động deduplicate requests trong cùng một render pass
- * - Cache kết quả để tái sử dụng
- * - Cải thiện performance với request deduplication
+ * Sử dụng unstable_cache (Data Cache) kết hợp với React cache (Request Memoization)
+ * - unstable_cache: Cache kết quả giữa các requests (Persisted Cache)
+ * - React cache: Deduplicate requests trong cùng một render pass
  * 
  * Pattern: Server Component → Cache Function → Database Query
  */
 
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 import { getPosts, getPostBySlug, getCategories, getRelatedPosts, type GetPostsParams, type PostsResult } from "./queries"
 import type { Post, PostDetail } from "../types"
 
 /**
  * Cache function: Get posts with pagination
- * 
- * @param params - GetPostsParams
- * @returns PostsResult
+ * Caching strategy: Cache by params string
  */
 export const getPostsCached = cache(async (params: GetPostsParams = {}): Promise<PostsResult> => {
-  return getPosts(params)
+  const cacheKey = JSON.stringify(params)
+  return unstable_cache(
+    async () => getPosts(params),
+    ['posts-list', cacheKey],
+    { 
+      tags: ['posts'], 
+      revalidate: 3600 // 1 hour default revalidation
+    }
+  )()
 })
 
 /**
  * Cache function: Get post detail by slug
- * 
- * @param slug - Post slug
- * @returns Post detail hoặc null nếu không tìm thấy
+ * Caching strategy: Cache by slug
  */
 export const getPostBySlugCached = cache(async (slug: string): Promise<PostDetail | null> => {
-  return getPostBySlug(slug)
+  return unstable_cache(
+    async () => getPostBySlug(slug),
+    [`post-slug-${slug}`],
+    { 
+      tags: ['posts', `post-${slug}`],
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get categories with published posts
- * 
- * @returns Array of categories
+ * Caching strategy: Global categories list
  */
 export const getCategoriesCached = cache(async () => {
-  return getCategories()
+  return unstable_cache(
+    async () => getCategories(),
+    ['posts-categories'],
+    { 
+      tags: ['categories', 'posts'],
+      revalidate: 86400 // 24 hours
+    }
+  )()
 })
 
 /**
  * Cache function: Get related posts
- * 
- * @param postId - Current post ID to exclude
- * @param categoryIds - Array of category IDs
- * @param tagIds - Array of tag IDs
- * @param limit - Maximum number of related posts (default: 4)
- * @returns Array of related posts
+ * Caching strategy: Cache by postId
  */
 export const getRelatedPostsCached = cache(
   async (
@@ -58,7 +70,14 @@ export const getRelatedPostsCached = cache(
     tagIds: string[],
     limit: number = 4
   ): Promise<Post[]> => {
-    return getRelatedPosts(postId, categoryIds, tagIds, limit)
+    const cacheKey = `${postId}-${categoryIds.join(',')}-${tagIds.join(',')}-${limit}`
+    return unstable_cache(
+      async () => getRelatedPosts(postId, categoryIds, tagIds, limit),
+      [`post-related-${cacheKey}`],
+      { 
+        tags: ['posts', `post-related-${postId}`],
+        revalidate: 3600 
+      }
+    )()
   }
 )
-

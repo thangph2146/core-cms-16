@@ -10,6 +10,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/roles/server/mutations"
+import { CreateRoleSchema } from "@/features/admin/roles/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
@@ -61,6 +62,13 @@ async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = CreateRoleSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -68,7 +76,7 @@ async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
   }
 
   try {
-    const role = await createRole(ctx, body)
+    const role = await createRole(ctx, validationResult.data)
     return NextResponse.json({ data: role }, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {

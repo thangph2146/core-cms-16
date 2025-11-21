@@ -1,3 +1,5 @@
+"use server"
+
 /**
  * Mutations for Accounts
  * 
@@ -7,7 +9,8 @@
 import bcrypt from "bcryptjs"
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
-import type { UpdateAccountInput, AccountProfile } from "../types"
+import type { AccountProfile } from "../types"
+import { UpdateAccountSchema, type UpdateAccountInput } from "./schemas"
 import { getCurrentUserProfile } from "./queries"
 import {
   ApplicationError,
@@ -40,47 +43,18 @@ export async function updateCurrentUserAccount(
     throw new NotFoundError("Tài khoản không tồn tại")
   }
 
-  // Validate name if provided
-  if (input.name !== undefined && input.name !== null) {
-    if (typeof input.name !== "string") {
-      throw new ApplicationError("Tên phải là chuỗi ký tự", 400)
-    }
-    if (input.name.trim().length > 0 && input.name.trim().length < 2) {
-      throw new ApplicationError("Tên phải có ít nhất 2 ký tự", 400)
-    }
-  }
-
-  // Validate password if provided
-  if (input.password !== undefined && input.password !== null && input.password !== "") {
-    if (typeof input.password !== "string") {
-      throw new ApplicationError("Mật khẩu phải là chuỗi ký tự", 400)
-    }
-    if (input.password.length < 6) {
-      throw new ApplicationError("Mật khẩu phải có ít nhất 6 ký tự", 400)
-    }
-  }
-
-  // Validate phone if provided
-  if (input.phone !== undefined && input.phone !== null && input.phone !== "") {
-    if (typeof input.phone !== "string") {
-      throw new ApplicationError("Số điện thoại phải là chuỗi ký tự", 400)
-    }
-    // Basic phone validation
-    const phoneRegex = /^[0-9+\-\s()]+$/
-    if (!phoneRegex.test(input.phone)) {
-      throw new ApplicationError("Số điện thoại không hợp lệ", 400)
-    }
-  }
+  // Validate input với Zod
+  const validatedInput = UpdateAccountSchema.parse(input)
 
   const updateData: Prisma.UserUpdateInput = {}
 
-  if (input.name !== undefined) updateData.name = input.name?.trim() || null
-  if (input.bio !== undefined) updateData.bio = input.bio?.trim() || null
-  if (input.phone !== undefined) updateData.phone = input.phone?.trim() || null
-  if (input.address !== undefined) updateData.address = input.address?.trim() || null
-  if (input.avatar !== undefined) updateData.avatar = input.avatar?.trim() || null
-  if (input.password && input.password.trim() !== "") {
-    updateData.password = await bcrypt.hash(input.password, 10)
+  if (validatedInput.name !== undefined) updateData.name = validatedInput.name?.trim() || null
+  if (validatedInput.bio !== undefined) updateData.bio = validatedInput.bio?.trim() || null
+  if (validatedInput.phone !== undefined) updateData.phone = validatedInput.phone?.trim() || null
+  if (validatedInput.address !== undefined) updateData.address = validatedInput.address?.trim() || null
+  if (validatedInput.avatar !== undefined) updateData.avatar = validatedInput.avatar?.trim() || null
+  if (validatedInput.password && validatedInput.password.trim() !== "") {
+    updateData.password = await bcrypt.hash(validatedInput.password, 10)
   }
 
   await prisma.user.update({

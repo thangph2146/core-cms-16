@@ -244,10 +244,20 @@ export async function getRelatedPosts(
  * Get all categories that have published posts
  */
 export async function getCategories() {
-  // First, get all categories
-  const allCategories = await prisma.category.findMany({
+  return await prisma.category.findMany({
     where: {
       deletedAt: null,
+      posts: {
+        some: {
+          post: {
+            published: true,
+            deletedAt: null,
+            publishedAt: {
+              lte: new Date(),
+            },
+          },
+        },
+      },
     },
     select: {
       id: true,
@@ -258,27 +268,4 @@ export async function getCategories() {
       name: "asc",
     },
   })
-
-  // Then filter to only those with published posts
-  const categoriesWithPosts = await Promise.all(
-    allCategories.map(async (category) => {
-      const postCount = await prisma.post.count({
-        where: {
-          published: true,
-          deletedAt: null,
-          publishedAt: {
-            lte: new Date(),
-          },
-          categories: {
-            some: {
-              categoryId: category.id,
-            },
-          },
-        },
-      })
-      return postCount > 0 ? category : null
-    })
-  )
-
-  return categoriesWithPosts.filter((cat): cat is typeof allCategories[0] => cat !== null)
 }

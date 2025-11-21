@@ -54,6 +54,7 @@ export function mapPostRecord(post: PostWithRelations): Post {
     image: post.image,
     publishedAt: post.publishedAt,
     createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
     author: {
       id: post.author.id,
       name: post.author.name,

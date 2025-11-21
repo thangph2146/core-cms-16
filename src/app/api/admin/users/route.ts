@@ -7,10 +7,10 @@ import { listUsersCached } from "@/features/admin/users/server/cache"
 import {
   createUser,
   type AuthContext,
-  type CreateUserInput,
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/users/server/mutations"
+import { createUserSchema } from "@/features/admin/users/server/validation"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
@@ -62,6 +62,13 @@ async function postUsersHandler(req: NextRequest, context: ApiRouteContext) {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = createUserSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -69,7 +76,7 @@ async function postUsersHandler(req: NextRequest, context: ApiRouteContext) {
   }
 
   try {
-    const user = await createUser(ctx, body as unknown as CreateUserInput)
+    const user = await createUser(ctx, validationResult.data)
     return NextResponse.json({ data: user }, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {

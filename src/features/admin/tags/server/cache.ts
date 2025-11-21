@@ -1,42 +1,52 @@
 /**
  * Cached Database Queries for Tags
  * 
- * Sử dụng React.cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components để tối ưu performance
+ * Sử dụng unstable_cache (Data Cache) kết hợp với React cache (Request Memoization)
+ * - unstable_cache: Cache kết quả giữa các requests (Persisted Cache)
+ * - React cache: Deduplicate requests trong cùng một render pass
+ * 
+ * Pattern: Server Component → Cache Function → Database Query
  */
 
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 import { listTags, getTagById, getTagColumnOptions } from "./queries"
 import type { ListTagsInput, ListTagsResult, TagDetail } from "../types"
 
 /**
  * Cache function: List tags
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param params - ListTagsInput
- * @returns ListTagsResult
+ * Caching strategy: Cache by params string
  */
 export const listTagsCached = cache(async (params: ListTagsInput = {}): Promise<ListTagsResult> => {
-  return listTags(params)
+  const cacheKey = JSON.stringify(params)
+  return unstable_cache(
+    async () => listTags(params),
+    ['tags-list', cacheKey],
+    { 
+      tags: ['tags'], 
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get tag by ID
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param id - Tag ID
- * @returns TagDetail | null
+ * Caching strategy: Cache by ID
  */
 export const getTagDetailById = cache(async (id: string): Promise<TagDetail | null> => {
-  return getTagById(id)
+  return unstable_cache(
+    async () => getTagById(id),
+    [`tag-${id}`],
+    { 
+      tags: ['tags', `tag-${id}`],
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get tag column options for filters
+ * Caching strategy: Cache by column and search
  */
 export const getTagColumnOptionsCached = cache(
   async (
@@ -44,40 +54,51 @@ export const getTagColumnOptionsCached = cache(
     search?: string,
     limit: number = 50
   ): Promise<Array<{ label: string; value: string }>> => {
-    return getTagColumnOptions(column, search, limit)
+    const cacheKey = `${column}-${search || ''}-${limit}`
+    return unstable_cache(
+      async () => getTagColumnOptions(column, search, limit),
+      [`tag-options-${cacheKey}`],
+      { 
+        tags: ['tags', 'tag-options'],
+        revalidate: 3600 
+      }
+    )()
   }
 )
 
 /**
  * Cache function: Get active tags for select options
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho form select fields (tagIds, etc.)
- * 
- * @param limit - Maximum number of tags to return (default: 100)
- * @returns Array of { label, value } options
+ * Caching strategy: Global active tags list
  */
 export const getActiveTagsForSelectCached = cache(
   async (limit: number = 100): Promise<Array<{ label: string; value: string }>> => {
-    const { prisma } = await import("@/lib/database/prisma")
-    const tags = await prisma.tag.findMany({
-      where: {
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-      take: limit,
-    })
+    return unstable_cache(
+      async () => {
+        const { prisma } = await import("@/lib/database/prisma")
+        const tags = await prisma.tag.findMany({
+          where: {
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+          orderBy: {
+            name: "asc",
+          },
+          take: limit,
+        })
 
-    return tags.map((tag) => ({
-      label: tag.name,
-      value: tag.id,
-    }))
+        return tags.map((tag) => ({
+          label: tag.name,
+          value: tag.id,
+        }))
+      },
+      [`active-tags-select-${limit}`],
+      { 
+        tags: ['tags', 'active-tags'],
+        revalidate: 3600 
+      }
+    )()
   }
 )
-

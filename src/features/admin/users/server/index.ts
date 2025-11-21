@@ -39,11 +39,15 @@ export {
   bulkRestoreUsers,
   bulkHardDeleteUsers,
   type AuthContext,
-  type CreateUserInput,
-  type UpdateUserInput,
   ApplicationError,
   NotFoundError,
 } from "./mutations"
+
+// Validation types
+export {
+  type CreateUserSchema,
+  type UpdateUserSchema,
+} from "./validation"
 
 // Helpers
 export {

@@ -1,3 +1,5 @@
+"use server"
+
 import bcrypt from "bcryptjs"
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
@@ -12,34 +14,13 @@ import {
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitUserUpsert, emitUserRemove } from "./events"
+import { createUserSchema, updateUserSchema, type CreateUserSchema, type UpdateUserSchema } from "./validation"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
 
 // Email của super admin không được phép xóa
 const PROTECTED_SUPER_ADMIN_EMAIL = "superadmin@hub.edu.vn"
-
-export interface CreateUserInput {
-  email: string
-  password: string
-  name?: string | null
-  roleIds?: string[]
-  isActive?: boolean
-  bio?: string | null
-  phone?: string | null
-  address?: string | null
-}
-
-export interface UpdateUserInput {
-  email?: string
-  password?: string
-  name?: string | null
-  roleIds?: string[]
-  isActive?: boolean
-  bio?: string | null
-  phone?: string | null
-  address?: string | null
-}
 
 export interface BulkActionResult {
   count: number
@@ -49,32 +30,31 @@ function sanitizeUser(user: UserWithRoles): ListedUser {
   return mapUserRecord(user)
 }
 
-export async function createUser(ctx: AuthContext, input: CreateUserInput): Promise<ListedUser> {
+export async function createUser(ctx: AuthContext, input: CreateUserSchema): Promise<ListedUser> {
   ensurePermission(ctx, PERMISSIONS.USERS_CREATE, PERMISSIONS.USERS_MANAGE)
 
-  if (!input.email || !input.password) {
-    throw new ApplicationError("Email và mật khẩu là bắt buộc", 400)
-  }
+  // Validate input với zod
+  const validatedInput = createUserSchema.parse(input)
 
-  const existing = await prisma.user.findUnique({ where: { email: input.email } })
+  const existing = await prisma.user.findUnique({ where: { email: validatedInput.email } })
   if (existing) {
     throw new ApplicationError("Email đã tồn tại", 400)
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 10)
+  const passwordHash = await bcrypt.hash(validatedInput.password, 10)
 
   const user = await prisma.user.create({
     data: {
-      email: input.email,
-      name: input.name ?? null,
+      email: validatedInput.email,
+      name: validatedInput.name ?? null,
       password: passwordHash,
-      isActive: input.isActive ?? true,
-      bio: input.bio,
-      phone: input.phone,
-      address: input.address,
-      userRoles: input.roleIds && input.roleIds.length > 0
+      isActive: validatedInput.isActive ?? true,
+      bio: validatedInput.bio,
+      phone: validatedInput.phone,
+      address: validatedInput.address,
+      userRoles: validatedInput.roleIds && validatedInput.roleIds.length > 0
         ? {
-            create: input.roleIds.map((roleId) => ({
+            create: validatedInput.roleIds.map((roleId) => ({
               roleId,
             })),
           }
@@ -112,13 +92,16 @@ export async function createUser(ctx: AuthContext, input: CreateUserInput): Prom
   return sanitizeUser(user)
 }
 
-export async function updateUser(ctx: AuthContext, id: string, input: UpdateUserInput): Promise<ListedUser> {
+export async function updateUser(ctx: AuthContext, id: string, input: UpdateUserSchema): Promise<ListedUser> {
   ensurePermission(ctx, PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_MANAGE)
 
   // Validate ID
   if (!id || typeof id !== "string" || id.trim() === "") {
     throw new ApplicationError("ID người dùng không hợp lệ", 400)
   }
+
+  // Validate input với zod
+  const validatedInput = updateUserSchema.parse(input)
 
   const existing = await prisma.user.findUnique({
     where: { id },
@@ -135,73 +118,22 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
     throw new NotFoundError("User không tồn tại")
   }
 
-  // Validate email if provided
-  if (input.email !== undefined) {
-    if (typeof input.email !== "string" || input.email.trim() === "") {
-      throw new ApplicationError("Email không được để trống", 400)
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(input.email)) {
-      throw new ApplicationError("Email không hợp lệ", 400)
-    }
-
-    // Check if email is already used by another user
-    if (input.email !== existing.email) {
-      const emailExists = await prisma.user.findUnique({ where: { email: input.email } })
-      if (emailExists) {
-        throw new ApplicationError("Email đã được sử dụng", 400)
-      }
+  // Check if email is already used by another user
+  if (validatedInput.email !== undefined && validatedInput.email !== existing.email) {
+    const emailExists = await prisma.user.findUnique({ where: { email: validatedInput.email } })
+    if (emailExists) {
+      throw new ApplicationError("Email đã được sử dụng", 400)
     }
   }
 
-  // Validate name if provided
-  if (input.name !== undefined && input.name !== null) {
-    if (typeof input.name !== "string") {
-      throw new ApplicationError("Tên phải là chuỗi ký tự", 400)
-    }
-    if (input.name.trim().length > 0 && input.name.trim().length < 2) {
-      throw new ApplicationError("Tên phải có ít nhất 2 ký tự", 400)
-    }
-  }
-
-  // Validate password if provided
-  if (input.password !== undefined && input.password !== null && input.password !== "") {
-    if (typeof input.password !== "string") {
-      throw new ApplicationError("Mật khẩu phải là chuỗi ký tự", 400)
-    }
-    if (input.password.length < 6) {
-      throw new ApplicationError("Mật khẩu phải có ít nhất 6 ký tự", 400)
-    }
-  }
-
-  // Validate roleIds if provided
-  if (input.roleIds !== undefined) {
-    if (!Array.isArray(input.roleIds)) {
-      throw new ApplicationError("roleIds phải là một mảng", 400)
-    }
-    // Validate each roleId
-    for (const roleId of input.roleIds) {
-      if (typeof roleId !== "string" || roleId.trim() === "") {
-        throw new ApplicationError("Một số roleIds không hợp lệ", 400)
-      }
-      // Check if role exists
-      const roleExists = await prisma.role.findUnique({ where: { id: roleId } })
-      if (!roleExists) {
-        throw new ApplicationError(`Vai trò với ID ${roleId} không tồn tại`, 400)
-      }
-    }
-  }
-
-  // Validate phone if provided
-  if (input.phone !== undefined && input.phone !== null && input.phone !== "") {
-    if (typeof input.phone !== "string") {
-      throw new ApplicationError("Số điện thoại phải là chuỗi ký tự", 400)
-    }
-    // Basic phone validation (can be enhanced)
-    const phoneRegex = /^[0-9+\-\s()]+$/
-    if (!phoneRegex.test(input.phone)) {
-      throw new ApplicationError("Số điện thoại không hợp lệ", 400)
+  // Validate roleIds if provided - check if roles exist
+  if (validatedInput.roleIds !== undefined && validatedInput.roleIds.length > 0) {
+    const roles = await prisma.role.findMany({
+      where: { id: { in: validatedInput.roleIds } },
+      select: { id: true },
+    })
+    if (roles.length !== validatedInput.roleIds.length) {
+      throw new ApplicationError("Một số vai trò không tồn tại", 400)
     }
   }
 
@@ -214,45 +146,40 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
     roles?: { old: string[]; new: string[] }
   } = {}
 
-  if (input.email !== undefined) {
-    const newEmail = input.email.trim()
+  if (validatedInput.email !== undefined) {
+    const newEmail = validatedInput.email.trim()
     if (newEmail !== existing.email) {
       changes.email = { old: existing.email, new: newEmail }
       updateData.email = newEmail
     }
   }
-  if (input.name !== undefined) updateData.name = input.name?.trim() || null
-  if (input.isActive !== undefined) {
+  if (validatedInput.name !== undefined) updateData.name = validatedInput.name?.trim() || null
+  if (validatedInput.isActive !== undefined) {
     // Không cho phép vô hiệu hóa super admin
-    if (existing.email === PROTECTED_SUPER_ADMIN_EMAIL && input.isActive === false) {
+    if (existing.email === PROTECTED_SUPER_ADMIN_EMAIL && validatedInput.isActive === false) {
       throw new ForbiddenError("Không thể vô hiệu hóa tài khoản super admin")
     }
     
-    // Track isActive changes - luôn track ngay cả khi giá trị không đổi để đảm bảo notification được tạo
-    if (input.isActive !== existing.isActive) {
-      changes.isActive = { old: existing.isActive, new: input.isActive }
-      console.log("[user-mutations] isActive change detected:", {
-        userId: id,
-        old: existing.isActive,
-        new: input.isActive,
-      })
+    // Track isActive changes
+    if (validatedInput.isActive !== existing.isActive) {
+      changes.isActive = { old: existing.isActive, new: validatedInput.isActive }
     }
-    updateData.isActive = input.isActive
+    updateData.isActive = validatedInput.isActive
   }
-  if (input.bio !== undefined) updateData.bio = input.bio?.trim() || null
-  if (input.phone !== undefined) updateData.phone = input.phone?.trim() || null
-  if (input.address !== undefined) updateData.address = input.address?.trim() || null
-  if (input.password && input.password.trim() !== "") {
-    updateData.password = await bcrypt.hash(input.password, 10)
+  if (validatedInput.bio !== undefined) updateData.bio = validatedInput.bio?.trim() || null
+  if (validatedInput.phone !== undefined) updateData.phone = validatedInput.phone?.trim() || null
+  if (validatedInput.address !== undefined) updateData.address = validatedInput.address?.trim() || null
+  if (validatedInput.password && validatedInput.password.trim() !== "") {
+    updateData.password = await bcrypt.hash(validatedInput.password, 10)
   }
 
-  const shouldUpdateRoles = Array.isArray(input.roleIds)
+  const shouldUpdateRoles = Array.isArray(validatedInput.roleIds)
   
   // Track role changes
   if (shouldUpdateRoles) {
     const oldRoleNames = existing.userRoles.map((ur) => ur.role.name).sort()
     // Get new role names
-    const newRoleIds = input.roleIds || []
+    const newRoleIds = validatedInput.roleIds || []
     const newRoles = await prisma.role.findMany({
       where: { id: { in: newRoleIds } },
       select: { name: true },
@@ -277,9 +204,9 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
         where: { userId: id },
       })
 
-      if (input.roleIds && input.roleIds.length > 0) {
+      if (validatedInput.roleIds && validatedInput.roleIds.length > 0) {
         await tx.userRole.createMany({
-          data: input.roleIds.map((roleId) => ({
+          data: validatedInput.roleIds.map((roleId) => ({
             userId: id,
             roleId,
           })),
@@ -313,11 +240,6 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
 
   // Tạo system notification cho super admin nếu có thay đổi quan trọng
   if (Object.keys(changes).length > 0) {
-    console.log("[user-mutations] Creating notification for user update:", {
-      userId: user.id,
-      changes: Object.keys(changes),
-      actorId: ctx.actorId,
-    })
     await notifySuperAdminsOfUserAction(
       "update",
       ctx.actorId,
@@ -328,11 +250,6 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
       },
       changes
     )
-  } else {
-    console.log("[user-mutations] No changes detected, skipping notification:", {
-      userId: id,
-      inputKeys: Object.keys(input),
-    })
   }
 
   // Emit socket event

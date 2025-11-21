@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -8,6 +10,8 @@ import {
   CreateSessionSchema,
   UpdateSessionSchema,
   BulkSessionActionSchema,
+  type CreateSessionInput,
+  type UpdateSessionInput,
 } from "./schemas"
 import { notifySuperAdminsOfSessionAction, notifySuperAdminsOfBulkSessionAction } from "./notifications"
 import { emitSessionUpsert, emitSessionRemove } from "./events"
@@ -26,17 +30,11 @@ function sanitizeSession(session: SessionWithRelations): ListedSession {
   return mapSessionRecord(session)
 }
 
-export async function createSession(ctx: AuthContext, input: unknown): Promise<ListedSession> {
+export async function createSession(ctx: AuthContext, input: CreateSessionInput): Promise<ListedSession> {
   ensurePermission(ctx, PERMISSIONS.SESSIONS_CREATE, PERMISSIONS.SESSIONS_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateSessionSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateSessionSchema.parse(input)
 
   // Check if accessToken or refreshToken already exists
   const existing = await prisma.session.findFirst({
@@ -90,7 +88,7 @@ export async function createSession(ctx: AuthContext, input: unknown): Promise<L
   return sanitized
 }
 
-export async function updateSession(ctx: AuthContext, id: string, input: unknown): Promise<ListedSession> {
+export async function updateSession(ctx: AuthContext, id: string, input: UpdateSessionInput): Promise<ListedSession> {
   ensurePermission(ctx, PERMISSIONS.SESSIONS_UPDATE, PERMISSIONS.SESSIONS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -98,13 +96,7 @@ export async function updateSession(ctx: AuthContext, id: string, input: unknown
   }
 
   // Validate input với zod
-  const validationResult = UpdateSessionSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateSessionSchema.parse(input)
 
   const existing = await prisma.session.findUnique({
     where: { id },

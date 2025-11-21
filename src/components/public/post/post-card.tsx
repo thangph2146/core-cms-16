@@ -17,6 +17,21 @@ export function PostCard({ post, className }: PostCardProps) {
   const primaryCategory = post.categories[0]
   const displayTags = post.tags.slice(0, 2)
 
+  // Helper function to convert publishedAt to ISO string
+  // Handles both Date objects and string values (from serialization)
+  const getPublishedAtISO = (): string => {
+    if (!post.publishedAt) return ""
+    if (typeof post.publishedAt === "string") {
+      return post.publishedAt
+    }
+    if (post.publishedAt instanceof Date) {
+      return post.publishedAt.toISOString()
+    }
+    // Fallback: convert to Date and then to ISO string
+    const dateValue = post.publishedAt as string | number | Date
+    return new Date(dateValue).toISOString()
+  }
+
   return (
     <article className={cn("group flex flex-col h-full bg-card rounded-lg border overflow-hidden transition-all hover:shadow-lg", className)}>
       <Link 
@@ -60,7 +75,7 @@ export function PostCard({ post, className }: PostCardProps) {
           {post.publishedAt && (
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
               <Calendar className="h-4 w-4" />
-              <time dateTime={post.publishedAt.toISOString()}>
+              <time dateTime={getPublishedAtISO()}>
                 {formatPostDate(post.publishedAt)}
               </time>
             </div>

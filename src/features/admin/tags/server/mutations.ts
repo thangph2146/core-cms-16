@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -8,6 +10,8 @@ import type { BulkActionResult } from "../types"
 import {
   CreateTagSchema,
   UpdateTagSchema,
+  type CreateTagInput,
+  type UpdateTagInput,
 } from "./schemas"
 import { notifySuperAdminsOfTagAction } from "./notifications"
 import {
@@ -26,17 +30,11 @@ function sanitizeTag(tag: TagWithRelations): ListedTag {
   return mapTagRecord(tag)
 }
 
-export async function createTag(ctx: AuthContext, input: unknown): Promise<ListedTag> {
+export async function createTag(ctx: AuthContext, input: CreateTagInput): Promise<ListedTag> {
   ensurePermission(ctx, PERMISSIONS.TAGS_CREATE, PERMISSIONS.TAGS_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateTagSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateTagSchema.parse(input)
 
   const trimmedName = validatedInput.name.trim()
   // Generate slug if not provided
@@ -88,7 +86,7 @@ export async function createTag(ctx: AuthContext, input: unknown): Promise<Liste
   return sanitized
 }
 
-export async function updateTag(ctx: AuthContext, id: string, input: unknown): Promise<ListedTag> {
+export async function updateTag(ctx: AuthContext, id: string, input: UpdateTagInput): Promise<ListedTag> {
   ensurePermission(ctx, PERMISSIONS.TAGS_UPDATE, PERMISSIONS.TAGS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -96,13 +94,7 @@ export async function updateTag(ctx: AuthContext, id: string, input: unknown): P
   }
 
   // Validate input với zod
-  const validationResult = UpdateTagSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateTagSchema.parse(input)
 
   const existing = await prisma.tag.findUnique({
     where: { id },

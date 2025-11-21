@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS } from "@/lib/permissions"
 import { isSuperAdmin } from "@/lib/permissions"
@@ -11,31 +13,10 @@ import {
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitPostUpsert, emitPostRemove } from "./events"
+import { createPostSchema, updatePostSchema, type CreatePostSchema, type UpdatePostSchema } from "./validation"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
-
-export interface CreatePostInput {
-  title: string
-  content: Prisma.InputJsonValue
-  excerpt?: string | null
-  slug: string
-  image?: string | null
-  published?: boolean
-  publishedAt?: Date | null
-  authorId: string
-}
-
-export interface UpdatePostInput {
-  title?: string
-  content?: Prisma.InputJsonValue
-  excerpt?: string | null
-  slug?: string
-  image?: string | null
-  published?: boolean
-  publishedAt?: Date | null
-  authorId?: string
-}
 
 export interface BulkActionResult {
   count: number
@@ -45,38 +26,36 @@ function sanitizePost(post: PostWithAuthor) {
   return mapPostRecord(post)
 }
 
-export async function createPost(ctx: AuthContext, input: CreatePostInput) {
+export async function createPost(ctx: AuthContext, input: CreatePostSchema) {
   ensurePermission(ctx, PERMISSIONS.POSTS_CREATE, PERMISSIONS.POSTS_MANAGE)
 
-  if (!input.title || !input.slug || !input.authorId) {
-    throw new ApplicationError("Tiêu đề, slug và tác giả là bắt buộc", 400)
-  }
+  const validated = createPostSchema.parse(input)
 
   // Chỉ super admin mới được chọn tác giả khác, user khác chỉ được set là chính mình
   const isSuperAdminUser = isSuperAdmin(ctx.roles)
-  if (!isSuperAdminUser && input.authorId !== ctx.actorId) {
+  if (!isSuperAdminUser && validated.authorId !== ctx.actorId) {
     throw new ForbiddenError("Bạn không có quyền tạo bài viết cho người khác")
   }
 
   // Check if slug already exists
-  const existing = await prisma.post.findUnique({ where: { slug: input.slug } })
+  const existing = await prisma.post.findUnique({ where: { slug: validated.slug } })
   if (existing) {
     throw new ApplicationError("Slug đã tồn tại", 400)
   }
 
   // If published, set publishedAt to now if not provided
-  const publishedAt = input.published && !input.publishedAt ? new Date() : input.publishedAt
+  const publishedAt = validated.published && !validated.publishedAt ? new Date() : validated.publishedAt
 
   const post = await prisma.post.create({
     data: {
-      title: input.title,
-      content: input.content as Prisma.InputJsonValue,
-      excerpt: input.excerpt,
-      slug: input.slug,
-      image: input.image,
-      published: input.published ?? false,
+      title: validated.title,
+      content: validated.content as Prisma.InputJsonValue,
+      excerpt: validated.excerpt,
+      slug: validated.slug,
+      image: validated.image,
+      published: validated.published ?? false,
       publishedAt: publishedAt,
-      authorId: input.authorId,
+      authorId: validated.authorId,
     },
     include: {
       author: {
@@ -100,9 +79,11 @@ export async function createPost(ctx: AuthContext, input: CreatePostInput) {
 export async function updatePost(
   ctx: AuthContext,
   postId: string,
-  input: UpdatePostInput
+  input: UpdatePostSchema
 ) {
   ensurePermission(ctx, PERMISSIONS.POSTS_UPDATE, PERMISSIONS.POSTS_MANAGE)
+
+  const validated = updatePostSchema.parse(input)
 
   const existing = await prisma.post.findUnique({ where: { id: postId } })
   if (!existing) {
@@ -111,7 +92,7 @@ export async function updatePost(
 
   // Chỉ super admin mới được thay đổi tác giả, user khác không được phép
   const isSuperAdminUser = isSuperAdmin(ctx.roles)
-  if (input.authorId !== undefined) {
+  if (validated.authorId !== undefined) {
     if (!isSuperAdminUser) {
       throw new ForbiddenError("Bạn không có quyền thay đổi tác giả bài viết")
     }
@@ -119,36 +100,36 @@ export async function updatePost(
   }
 
   // Check if slug is being changed and if new slug already exists
-  if (input.slug && input.slug !== existing.slug) {
-    const slugExists = await prisma.post.findUnique({ where: { slug: input.slug } })
+  if (validated.slug && validated.slug !== existing.slug) {
+    const slugExists = await prisma.post.findUnique({ where: { slug: validated.slug } })
     if (slugExists) {
       throw new ApplicationError("Slug đã tồn tại", 400)
     }
   }
 
   // If published is being set to true and publishedAt is not set, set it to now
-  let publishedAt = input.publishedAt
-  if (input.published === true && !existing.publishedAt && !publishedAt) {
+  let publishedAt = validated.publishedAt
+  if (validated.published === true && !existing.publishedAt && !publishedAt) {
     publishedAt = new Date()
-  } else if (input.published === false) {
+  } else if (validated.published === false) {
     publishedAt = null
-  } else if (input.published === true && existing.publishedAt && !publishedAt) {
+  } else if (validated.published === true && existing.publishedAt && !publishedAt) {
     publishedAt = existing.publishedAt
   }
 
   const updateData: Prisma.PostUpdateInput = {}
   
-  if (input.title !== undefined) updateData.title = input.title
-  if (input.content !== undefined) updateData.content = input.content as Prisma.InputJsonValue
-  if (input.excerpt !== undefined) updateData.excerpt = input.excerpt
-  if (input.slug !== undefined) updateData.slug = input.slug
-  if (input.image !== undefined) updateData.image = input.image
-  if (input.published !== undefined) updateData.published = input.published
+  if (validated.title !== undefined) updateData.title = validated.title
+  if (validated.content !== undefined) updateData.content = validated.content as Prisma.InputJsonValue
+  if (validated.excerpt !== undefined) updateData.excerpt = validated.excerpt
+  if (validated.slug !== undefined) updateData.slug = validated.slug
+  if (validated.image !== undefined) updateData.image = validated.image
+  if (validated.published !== undefined) updateData.published = validated.published
   if (publishedAt !== undefined) updateData.publishedAt = publishedAt
-  if (input.authorId !== undefined && isSuperAdminUser) {
+  if (validated.authorId !== undefined && isSuperAdminUser) {
     // Update author relation using connect
     updateData.author = {
-      connect: { id: input.authorId },
+      connect: { id: validated.authorId },
     }
   }
 

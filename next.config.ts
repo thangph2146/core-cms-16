@@ -1,21 +1,41 @@
 import type { NextConfig } from "next";
 
+/**
+ * Next.js 16 Configuration
+ * 
+ * Optimizations for Performance & SEO:
+ * - Image optimization với remote patterns
+ * - Compression và minification
+ * - Production optimizations
+ */
 const nextConfig: NextConfig = {
+  // Image optimization
   images: {
     remotePatterns: [
-      // Cho phép tất cả HTTPS domains
       {
         protocol: "https",
         hostname: "**",
         pathname: "/**",
       },
-      // Cho phép tất cả HTTP domains (local development)
       {
         protocol: "http",
         hostname: "**",
         pathname: "/**",
       },
     ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 3600,
+  },
+  
+  // Compression
+  compress: true,
+  
+  // Production optimizations
+  poweredByHeader: false,
+  
+  // Experimental features for better performance
+  experimental: {
+    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"],
   },
 };
 

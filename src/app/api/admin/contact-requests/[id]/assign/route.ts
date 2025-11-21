@@ -8,6 +8,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/contact-requests/server/mutations"
+import { AssignContactRequestSchema } from "@/features/admin/contact-requests/server/schemas"
 import { createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 
@@ -26,6 +27,13 @@ async function assignContactRequestHandler(req: NextRequest, context: ApiRouteCo
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = AssignContactRequestSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -33,7 +41,7 @@ async function assignContactRequestHandler(req: NextRequest, context: ApiRouteCo
   }
 
   try {
-    const contactRequest = await assignContactRequest(ctx, contactRequestId, body)
+    const contactRequest = await assignContactRequest(ctx, contactRequestId, validationResult.data)
     // Serialize contact request to client format
     const serialized = {
       id: contactRequest.id,

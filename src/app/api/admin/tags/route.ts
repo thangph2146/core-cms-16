@@ -11,6 +11,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/tags/server/mutations"
+import { CreateTagSchema } from "@/features/admin/tags/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
@@ -71,6 +72,13 @@ async function postTagsHandler(req: NextRequest, context: ApiRouteContext) {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = CreateTagSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -78,7 +86,7 @@ async function postTagsHandler(req: NextRequest, context: ApiRouteContext) {
   }
 
   try {
-    const tag = await createTag(ctx, body)
+    const tag = await createTag(ctx, validationResult.data)
     // Serialize tag to client format (dates to strings)
     const serialized = {
       id: tag.id,

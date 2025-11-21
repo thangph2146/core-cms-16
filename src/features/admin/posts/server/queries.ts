@@ -61,6 +61,36 @@ export interface ListPostsResult {
   pagination: ResourcePagination
 }
 
+const POST_INCLUDE = {
+  author: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  categories: {
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+  tags: {
+    include: {
+      tag: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.PostInclude
+
 export async function listPosts(params: ListPostsInput = {}): Promise<ListPostsResult> {
   const { page, limit } = validatePagination(params.page, params.limit, 100)
   const where = buildWhereClause(params)
@@ -71,35 +101,7 @@ export async function listPosts(params: ListPostsInput = {}): Promise<ListPostsR
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { createdAt: "desc" },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        categories: {
-          include: {
-            category: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        tags: {
-          include: {
-            tag: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
+      include: POST_INCLUDE,
     }),
     prisma.post.count({ where }),
   ])
@@ -170,40 +172,13 @@ export async function getPostColumnOptions(
       return null
     })
     .filter((item): item is { label: string; value: string } => item !== null)
+  
 }
 
 export async function getPostById(id: string): Promise<PostDetail | null> {
   const post = await prisma.post.findUnique({
     where: { id },
-    include: {
-      author: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      categories: {
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-      tags: {
-        include: {
-          tag: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
+    include: POST_INCLUDE,
   })
 
   if (!post) {
@@ -218,4 +193,3 @@ export async function getPostById(id: string): Promise<PostDetail | null> {
 
 // Re-export helpers for convenience
 export { mapPostRecord, type PostWithAuthor } from "./helpers"
-

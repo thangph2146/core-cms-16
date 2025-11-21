@@ -8,8 +8,8 @@ import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
 import { isSuperAdmin } from "@/lib/permissions"
-import { createPost, type AuthContext, type CreatePostInput, ApplicationError } from "@/features/admin/posts/server/mutations"
-import type { Prisma } from "@prisma/client"
+import { createPost, type AuthContext, ApplicationError } from "@/features/admin/posts/server/mutations"
+import { createPostSchema } from "@/features/admin/posts/server/validation"
 
 async function getPostsHandler(req: NextRequest, context: ApiRouteContext) {
   const searchParams = req.nextUrl.searchParams
@@ -80,31 +80,15 @@ async function postPostsHandler(req: NextRequest, context: ApiRouteContext) {
     payload.authorId = context.session.user.id
   }
 
-  // Validate và transform payload thành CreatePostInput
-  const createInput: CreatePostInput = {
-    title: typeof payload.title === "string" ? payload.title : "",
-    slug: typeof payload.slug === "string" ? payload.slug : "",
-    content: payload.content as Prisma.InputJsonValue,
-    excerpt: payload.excerpt === null || payload.excerpt === undefined ? null : typeof payload.excerpt === "string" ? payload.excerpt : String(payload.excerpt),
-    image: payload.image === null || payload.image === undefined ? null : typeof payload.image === "string" ? payload.image : String(payload.image),
-    published: typeof payload.published === "boolean" ? payload.published : false,
-    publishedAt: payload.publishedAt === null || payload.publishedAt === undefined 
-      ? null 
-      : payload.publishedAt instanceof Date 
-        ? payload.publishedAt 
-        : typeof payload.publishedAt === "string" 
-          ? new Date(payload.publishedAt) 
-          : null,
-    authorId: typeof payload.authorId === "string" ? payload.authorId : context.session.user?.id ?? "unknown",
-  }
-
-  // Validate required fields
-  if (!createInput.title || !createInput.slug || !createInput.authorId) {
-    return NextResponse.json({ error: "Tiêu đề, slug và tác giả là bắt buộc" }, { status: 400 })
+  // Validate body với Zod schema
+  const validationResult = createPostSchema.safeParse(payload)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
   }
 
   try {
-    const created = await createPost(ctx, createInput)
+    const created = await createPost(ctx, validationResult.data)
     return NextResponse.json({ data: created })
   } catch (error) {
     if (error instanceof ApplicationError) {

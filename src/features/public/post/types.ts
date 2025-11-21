@@ -10,6 +10,7 @@ export interface Post {
   image: string | null
   publishedAt: Date | null
   createdAt: Date
+  updatedAt: Date
   author: {
     id: string
     name: string | null

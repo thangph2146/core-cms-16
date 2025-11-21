@@ -11,6 +11,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/categories/server/mutations"
+import { CreateCategorySchema } from "@/features/admin/categories/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
@@ -72,6 +73,13 @@ async function postCategoriesHandler(req: NextRequest, context: ApiRouteContext)
     return createErrorResponse("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.", { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = CreateCategorySchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return createErrorResponse(firstError?.message || "Dữ liệu không hợp lệ", { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -79,7 +87,7 @@ async function postCategoriesHandler(req: NextRequest, context: ApiRouteContext)
   }
 
   try {
-    const category = await createCategory(ctx, body)
+    const category = await createCategory(ctx, validationResult.data)
     // Serialize category to client format (dates to strings)
     const serialized = {
       id: category.id,

@@ -11,6 +11,21 @@ interface PostDetailClientProps {
 }
 
 export function PostDetailClient({ post }: PostDetailClientProps) {
+  // Helper function to convert publishedAt to ISO string
+  // Handles both Date objects and string values (from serialization)
+  const getPublishedAtISO = (): string => {
+    if (!post.publishedAt) return ""
+    if (typeof post.publishedAt === "string") {
+      return post.publishedAt
+    }
+    if (post.publishedAt instanceof Date) {
+      return post.publishedAt.toISOString()
+    }
+    // Fallback: convert to Date and then to ISO string
+    const dateValue = post.publishedAt as string | number | Date
+    return new Date(dateValue).toISOString()
+  }
+
   return (
     <article className="space-y-8 py-8 sm:py-12">
         {/* Header */}
@@ -30,7 +45,7 @@ export function PostDetailClient({ post }: PostDetailClientProps) {
             {post.publishedAt && (
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                <time dateTime={post.publishedAt.toISOString()}>
+                <time dateTime={getPublishedAtISO()}>
                   {formatPostDateLong(post.publishedAt)}
                 </time>
               </div>

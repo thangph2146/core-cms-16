@@ -11,6 +11,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/students/server/mutations"
+import { CreateStudentSchema } from "@/features/admin/students/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
@@ -78,6 +79,13 @@ async function postStudentsHandler(req: NextRequest, context: ApiRouteContext) {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = CreateStudentSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -85,7 +93,7 @@ async function postStudentsHandler(req: NextRequest, context: ApiRouteContext) {
   }
 
   try {
-    const student = await createStudent(ctx, body)
+    const student = await createStudent(ctx, validationResult.data)
     // Serialize student to client format (dates to strings)
     const serialized = {
       id: student.id,

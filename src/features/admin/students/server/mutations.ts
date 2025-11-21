@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction, isSuperAdmin } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -8,6 +10,8 @@ import {
   CreateStudentSchema,
   UpdateStudentSchema,
   BulkStudentActionSchema,
+  type CreateStudentInput,
+  type UpdateStudentInput,
 } from "./schemas"
 import { notifySuperAdminsOfStudentAction } from "./notifications"
 import {
@@ -26,17 +30,11 @@ function sanitizeStudent(student: StudentWithRelations): ListedStudent {
   return mapStudentRecord(student)
 }
 
-export async function createStudent(ctx: AuthContext, input: unknown): Promise<ListedStudent> {
+export async function createStudent(ctx: AuthContext, input: CreateStudentInput): Promise<ListedStudent> {
   ensurePermission(ctx, PERMISSIONS.STUDENTS_CREATE, PERMISSIONS.STUDENTS_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateStudentSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateStudentSchema.parse(input)
 
   const trimmedStudentCode = validatedInput.studentCode.trim()
 
@@ -104,7 +102,7 @@ export async function createStudent(ctx: AuthContext, input: unknown): Promise<L
   return sanitized
 }
 
-export async function updateStudent(ctx: AuthContext, id: string, input: unknown): Promise<ListedStudent> {
+export async function updateStudent(ctx: AuthContext, id: string, input: UpdateStudentInput): Promise<ListedStudent> {
   ensurePermission(ctx, PERMISSIONS.STUDENTS_UPDATE, PERMISSIONS.STUDENTS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -112,13 +110,7 @@ export async function updateStudent(ctx: AuthContext, id: string, input: unknown
   }
 
   // Validate input với zod
-  const validationResult = UpdateStudentSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateStudentSchema.parse(input)
 
   const existing = await prisma.student.findUnique({
     where: { id },

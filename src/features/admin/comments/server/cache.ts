@@ -1,50 +1,52 @@
 /**
  * Cached Database Queries for Comments
  * 
- * Sử dụng React.cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components để tối ưu performance
+ * Sử dụng unstable_cache (Data Cache) kết hợp với React cache (Request Memoization)
+ * - unstable_cache: Cache kết quả giữa các requests (Persisted Cache)
+ * - React cache: Deduplicate requests trong cùng một render pass
+ * 
+ * Pattern: Server Component → Cache Function → Database Query
  */
 
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 import { listComments, getCommentById, getCommentColumnOptions } from "./queries"
 import type { ListCommentsInput, ListCommentsResult, CommentDetail } from "../types"
 
 /**
  * Cache function: List comments
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param params - ListCommentsInput
- * @returns ListCommentsResult
+ * Caching strategy: Cache by params string
  */
 export const listCommentsCached = cache(async (params: ListCommentsInput = {}): Promise<ListCommentsResult> => {
-  return listComments(params)
+  const cacheKey = JSON.stringify(params)
+  return unstable_cache(
+    async () => listComments(params),
+    ['comments-list', cacheKey],
+    { 
+      tags: ['comments'], 
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get comment by ID
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param id - Comment ID
- * @returns CommentDetail | null
+ * Caching strategy: Cache by ID
  */
 export const getCommentDetailById = cache(async (id: string): Promise<CommentDetail | null> => {
-  return getCommentById(id)
+  return unstable_cache(
+    async () => getCommentById(id),
+    [`comment-${id}`],
+    { 
+      tags: ['comments', `comment-${id}`],
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get comment column options for filters
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param column - Column name
- * @param search - Optional search query
- * @param limit - Maximum number of options
- * @returns Array of { label, value } options
+ * Caching strategy: Cache by column and search
  */
 export const getCommentColumnOptionsCached = cache(
   async (
@@ -52,7 +54,14 @@ export const getCommentColumnOptionsCached = cache(
     search?: string,
     limit: number = 50
   ): Promise<Array<{ label: string; value: string }>> => {
-    return getCommentColumnOptions(column, search, limit)
+    const cacheKey = `${column}-${search || ''}-${limit}`
+    return unstable_cache(
+      async () => getCommentColumnOptions(column, search, limit),
+      [`comment-options-${cacheKey}`],
+      { 
+        tags: ['comments', 'comment-options'],
+        revalidate: 3600 
+      }
+    )()
   }
 )
-

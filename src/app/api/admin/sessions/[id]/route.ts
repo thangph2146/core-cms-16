@@ -13,6 +13,7 @@ import {
   ApplicationError,
   NotFoundError,
 } from "@/features/admin/sessions/server/mutations"
+import { UpdateSessionSchema } from "@/features/admin/sessions/server/schemas"
 import { createGetRoute, createPutRoute, createDeleteRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 
@@ -48,6 +49,13 @@ async function putSessionHandler(req: NextRequest, context: ApiRouteContext, ...
     return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
   }
 
+  // Validate body với Zod schema
+  const validationResult = UpdateSessionSchema.safeParse(body)
+  if (!validationResult.success) {
+    const firstError = validationResult.error.issues[0]
+    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+  }
+
   const ctx: AuthContext = {
     actorId: context.session.user?.id ?? "unknown",
     permissions: context.permissions,
@@ -55,7 +63,7 @@ async function putSessionHandler(req: NextRequest, context: ApiRouteContext, ...
   }
 
   try {
-    const session = await updateSession(ctx, sessionId, body)
+    const session = await updateSession(ctx, sessionId, validationResult.data)
     // Serialize session to client format (dates to strings)
     const serialized = {
       id: session.id,

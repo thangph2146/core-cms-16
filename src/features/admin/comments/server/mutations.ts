@@ -1,3 +1,5 @@
+"use server"
+
 /**
  * CRUD Operations for Comments
  * 
@@ -11,6 +13,7 @@ import type { ListedComment } from "../types"
 import type { BulkActionResult } from "../types"
 import {
   UpdateCommentSchema,
+  type UpdateCommentInput,
 } from "./schemas"
 import { notifySuperAdminsOfCommentAction } from "./notifications"
 import {
@@ -29,7 +32,7 @@ function sanitizeComment(comment: CommentWithRelations): ListedComment {
   return mapCommentRecord(comment)
 }
 
-export async function updateComment(ctx: AuthContext, id: string, input: unknown): Promise<ListedComment> {
+export async function updateComment(ctx: AuthContext, id: string, input: UpdateCommentInput): Promise<ListedComment> {
   ensurePermission(ctx, PERMISSIONS.COMMENTS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -37,13 +40,7 @@ export async function updateComment(ctx: AuthContext, id: string, input: unknown
   }
 
   // Validate input với zod
-  const validationResult = UpdateCommentSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateCommentSchema.parse(input)
 
   const existing = await prisma.comment.findUnique({
     where: { id },

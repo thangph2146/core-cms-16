@@ -1,46 +1,55 @@
 /**
  * Cached Database Queries for Students
  * 
- * Sử dụng React.cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components để tối ưu performance
+ * Sử dụng unstable_cache (Data Cache) kết hợp với React cache (Request Memoization)
+ * - unstable_cache: Cache kết quả giữa các requests (Persisted Cache)
+ * - React cache: Deduplicate requests trong cùng một render pass
+ * 
+ * Pattern: Server Component → Cache Function → Database Query
  */
 
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 import { listStudents, getStudentById, getStudentColumnOptions } from "./queries"
 import type { ListStudentsInput, ListStudentsResult, StudentDetail } from "../types"
 
 /**
  * Cache function: List students
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param params - ListStudentsInput
- * @returns ListStudentsResult
+ * Caching strategy: Cache by params string
  */
 export const listStudentsCached = cache(async (params: ListStudentsInput = {}): Promise<ListStudentsResult> => {
-  return listStudents(params)
+  const cacheKey = JSON.stringify(params)
+  return unstable_cache(
+    async () => listStudents(params),
+    ['students-list', cacheKey],
+    { 
+      tags: ['students'], 
+      revalidate: 3600 
+    }
+  )()
 })
 
 /**
  * Cache function: Get student by ID
- * 
- * Sử dụng cache() để tự động deduplicate requests và cache kết quả
- * Dùng cho Server Components
- * 
- * @param id - Student ID
- * @param actorId - Actor user ID for permission check
- * @param isSuperAdmin - Whether actor is super admin
- * @returns StudentDetail | null
+ * Caching strategy: Cache by ID
  */
 export const getStudentDetailById = cache(
   async (id: string, actorId?: string, isSuperAdmin?: boolean): Promise<StudentDetail | null> => {
-    return getStudentById(id, actorId, isSuperAdmin)
+    const cacheKey = `student-${id}-${actorId || ''}-${isSuperAdmin ? 'admin' : 'user'}`
+    return unstable_cache(
+      async () => getStudentById(id, actorId, isSuperAdmin),
+      [cacheKey],
+      { 
+        tags: ['students', `student-${id}`],
+        revalidate: 3600 
+      }
+    )()
   }
 )
 
 /**
  * Cache function: Get student column options for filters
+ * Caching strategy: Cache by column and search
  */
 export const getStudentColumnOptionsCached = cache(
   async (
@@ -50,7 +59,14 @@ export const getStudentColumnOptionsCached = cache(
     actorId?: string,
     isSuperAdmin?: boolean
   ): Promise<Array<{ label: string; value: string }>> => {
-    return getStudentColumnOptions(column, search, limit, actorId, isSuperAdmin)
+    const cacheKey = `${column}-${search || ''}-${limit}-${actorId || ''}-${isSuperAdmin ? 'admin' : 'user'}`
+    return unstable_cache(
+      async () => getStudentColumnOptions(column, search, limit, actorId, isSuperAdmin),
+      [`student-options-${cacheKey}`],
+      { 
+        tags: ['students', 'student-options'],
+        revalidate: 3600 
+      }
+    )()
   }
 )
-

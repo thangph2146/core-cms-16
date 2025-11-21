@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -18,6 +20,7 @@ import {
   ensurePermission,
   type AuthContext,
 } from "@/features/admin/resources/server"
+import { z } from "zod"
 
 // Re-export for backward compatibility with API routes
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
@@ -26,17 +29,11 @@ function sanitizeCategory(category: CategoryWithRelations): ListedCategory {
   return mapCategoryRecord(category)
 }
 
-export async function createCategory(ctx: AuthContext, input: unknown): Promise<ListedCategory> {
+export async function createCategory(ctx: AuthContext, input: z.infer<typeof CreateCategorySchema>): Promise<ListedCategory> {
   ensurePermission(ctx, PERMISSIONS.CATEGORIES_CREATE, PERMISSIONS.CATEGORIES_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateCategorySchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateCategorySchema.parse(input)
 
   const trimmedName = validatedInput.name.trim()
   // Generate slug if not provided
@@ -89,7 +86,7 @@ export async function createCategory(ctx: AuthContext, input: unknown): Promise<
   return sanitized
 }
 
-export async function updateCategory(ctx: AuthContext, id: string, input: unknown): Promise<ListedCategory> {
+export async function updateCategory(ctx: AuthContext, id: string, input: z.infer<typeof UpdateCategorySchema>): Promise<ListedCategory> {
   ensurePermission(ctx, PERMISSIONS.CATEGORIES_UPDATE, PERMISSIONS.CATEGORIES_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -97,13 +94,7 @@ export async function updateCategory(ctx: AuthContext, id: string, input: unknow
   }
 
   // Validate input với zod
-  const validationResult = UpdateCategorySchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateCategorySchema.parse(input)
 
   const existing = await prisma.category.findUnique({
     where: { id },
@@ -171,6 +162,7 @@ export async function updateCategory(ctx: AuthContext, id: string, input: unknow
   const category = await prisma.category.update({
     where: { id },
     data: updateData,
+    include: { posts: false }, // No relations needed for now, but to match return type if needed
   })
 
   const sanitized = sanitizeCategory(category)
@@ -437,4 +429,3 @@ export async function bulkHardDeleteCategories(ctx: AuthContext, ids: string[]):
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} danh mục`, affected: result.count }
 }
-

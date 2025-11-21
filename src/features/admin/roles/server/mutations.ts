@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -5,6 +7,8 @@ import { mapRoleRecord, type ListedRole, type RoleWithRelations } from "./querie
 import {
   CreateRoleSchema,
   UpdateRoleSchema,
+  type CreateRoleInput,
+  type UpdateRoleInput,
 } from "./schemas"
 import { notifySuperAdminsOfRoleAction } from "./notifications"
 import {
@@ -29,17 +33,11 @@ function sanitizeRole(role: RoleWithRelations): ListedRole {
   return mapRoleRecord(role)
 }
 
-export async function createRole(ctx: AuthContext, input: unknown): Promise<ListedRole> {
+export async function createRole(ctx: AuthContext, input: CreateRoleInput): Promise<ListedRole> {
   ensurePermission(ctx, PERMISSIONS.ROLES_CREATE, PERMISSIONS.ROLES_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateRoleSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateRoleSchema.parse(input)
 
   const existing = await prisma.role.findUnique({ where: { name: validatedInput.name.trim() } })
   if (existing) {
@@ -75,7 +73,7 @@ export async function createRole(ctx: AuthContext, input: unknown): Promise<List
   return sanitized
 }
 
-export async function updateRole(ctx: AuthContext, id: string, input: unknown): Promise<ListedRole> {
+export async function updateRole(ctx: AuthContext, id: string, input: UpdateRoleInput): Promise<ListedRole> {
   ensurePermission(ctx, PERMISSIONS.ROLES_UPDATE, PERMISSIONS.ROLES_MANAGE)
 
   // Validate ID
@@ -84,13 +82,7 @@ export async function updateRole(ctx: AuthContext, id: string, input: unknown): 
   }
 
   // Validate input với zod
-  const validationResult = UpdateRoleSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateRoleSchema.parse(input)
 
   const existing = await prisma.role.findUnique({
     where: { id },

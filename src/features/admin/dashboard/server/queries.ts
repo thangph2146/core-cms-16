@@ -1,4 +1,5 @@
 import { cache } from "react"
+import { unstable_cache } from "next/cache"
 import { prisma } from "@/lib/database"
 
 export interface DashboardStatsData {
@@ -63,9 +64,15 @@ function calculateChange(current: number, previous: number): number {
 /**
  * Get dashboard statistics from database
  * Fetches real data from Prisma based on schema.prisma
+ * 
+ * Sử dụng unstable_cache (Data Cache) kết hợp với React cache (Request Memoization)
+ * - unstable_cache: Cache kết quả giữa các requests (Persisted Cache)
+ * - React cache: Deduplicate requests trong cùng một render pass
  */
 export const getDashboardStatsCached = cache(async (): Promise<DashboardStatsData> => {
-  const now = new Date()
+  return unstable_cache(
+    async () => {
+      const now = new Date()
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
   // Fetch current counts
@@ -345,34 +352,41 @@ export const getDashboardStatsCached = cache(async (): Promise<DashboardStatsDat
     comments: post.comments.length,
   }))
 
-  return {
-    overview: {
-      totalUsers,
-      totalPosts,
-      totalComments,
-      totalCategories,
-      totalTags,
-      totalMessages,
-      totalNotifications,
-      totalContactRequests,
-      totalStudents,
-      totalSessions,
-      totalRoles,
-      usersChange,
-      postsChange,
-      commentsChange,
-      categoriesChange,
-      tagsChange,
-      messagesChange,
-      notificationsChange,
-      contactRequestsChange,
-      studentsChange,
-      sessionsChange,
-      rolesChange,
+      return {
+        overview: {
+          totalUsers,
+          totalPosts,
+          totalComments,
+          totalCategories,
+          totalTags,
+          totalMessages,
+          totalNotifications,
+          totalContactRequests,
+          totalStudents,
+          totalSessions,
+          totalRoles,
+          usersChange,
+          postsChange,
+          commentsChange,
+          categoriesChange,
+          tagsChange,
+          messagesChange,
+          notificationsChange,
+          contactRequestsChange,
+          studentsChange,
+          sessionsChange,
+          rolesChange,
+        },
+        monthlyData,
+        categoryData,
+        topPosts: topPostsData,
+      }
     },
-    monthlyData,
-    categoryData,
-    topPosts: topPostsData,
-  }
+    ['dashboard-stats'],
+    { 
+      tags: ['dashboard', 'stats'],
+      revalidate: 300 // Revalidate every 5 minutes for dashboard
+    }
+  )()
 })
 

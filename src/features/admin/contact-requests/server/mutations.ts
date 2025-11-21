@@ -1,3 +1,5 @@
+"use server"
+
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -8,6 +10,9 @@ import {
   CreateContactRequestSchema,
   UpdateContactRequestSchema,
   AssignContactRequestSchema,
+  type CreateContactRequestInput,
+  type UpdateContactRequestInput,
+  type AssignContactRequestInput,
 } from "./schemas"
 import {
   notifySuperAdminsOfContactRequestAction,
@@ -29,17 +34,11 @@ function sanitizeContactRequest(contactRequest: ContactRequestWithRelations): Li
   return mapContactRequestRecord(contactRequest)
 }
 
-export async function createContactRequest(ctx: AuthContext, input: unknown): Promise<ListedContactRequest> {
+export async function createContactRequest(ctx: AuthContext, input: CreateContactRequestInput): Promise<ListedContactRequest> {
   ensurePermission(ctx, PERMISSIONS.CONTACT_REQUESTS_UPDATE, PERMISSIONS.CONTACT_REQUESTS_MANAGE)
 
   // Validate input với zod
-  const validationResult = CreateContactRequestSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = CreateContactRequestSchema.parse(input)
 
   const contactRequest = await prisma.contactRequest.create({
     data: {
@@ -80,7 +79,7 @@ export async function createContactRequest(ctx: AuthContext, input: unknown): Pr
   return sanitized
 }
 
-export async function updateContactRequest(ctx: AuthContext, id: string, input: unknown): Promise<ListedContactRequest> {
+export async function updateContactRequest(ctx: AuthContext, id: string, input: UpdateContactRequestInput): Promise<ListedContactRequest> {
   ensurePermission(ctx, PERMISSIONS.CONTACT_REQUESTS_UPDATE, PERMISSIONS.CONTACT_REQUESTS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -88,13 +87,7 @@ export async function updateContactRequest(ctx: AuthContext, id: string, input: 
   }
 
   // Validate input với zod
-  const validationResult = UpdateContactRequestSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = UpdateContactRequestSchema.parse(input)
 
   const existing = await prisma.contactRequest.findUnique({
     where: { id },
@@ -214,7 +207,7 @@ export async function updateContactRequest(ctx: AuthContext, id: string, input: 
   return sanitized
 }
 
-export async function assignContactRequest(ctx: AuthContext, id: string, input: unknown): Promise<ListedContactRequest> {
+export async function assignContactRequest(ctx: AuthContext, id: string, input: AssignContactRequestInput): Promise<ListedContactRequest> {
   ensurePermission(ctx, PERMISSIONS.CONTACT_REQUESTS_ASSIGN, PERMISSIONS.CONTACT_REQUESTS_MANAGE)
 
   if (!id || typeof id !== "string" || id.trim() === "") {
@@ -222,13 +215,7 @@ export async function assignContactRequest(ctx: AuthContext, id: string, input: 
   }
 
   // Validate input với zod
-  const validationResult = AssignContactRequestSchema.safeParse(input)
-  if (!validationResult.success) {
-    const firstError = validationResult.error.issues[0]
-    throw new ApplicationError(firstError?.message || "Dữ liệu không hợp lệ", 400)
-  }
-
-  const validatedInput = validationResult.data
+  const validatedInput = AssignContactRequestSchema.parse(input)
   const assignedToId = validatedInput.assignedToId
 
   const existing = await prisma.contactRequest.findUnique({
