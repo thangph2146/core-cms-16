@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
@@ -47,12 +47,21 @@ function updateStudentQueries(
     }
     const next = updater({ key, params, data })
     if (next) {
-      logger.debug("Setting query data", {
-        key: key.slice(0, 2),
+      logger.debug("[useStudentsSocketBridge] Setting query data", {
+        queryKey: key.slice(0, 2),
         oldRowsCount: data.rows.length,
         newRowsCount: next.rows.length,
         oldTotal: data.total,
         newTotal: next.total,
+        oldTotalPages: data.totalPages,
+        newTotalPages: next.totalPages,
+        // Log sample rows để verify data
+        sampleRows: next.rows.slice(0, 3).map(r => ({
+          id: r.id,
+          name: r.name,
+          studentCode: r.studentCode,
+          isActive: r.isActive,
+        })),
       })
       queryClient.setQueryData(key, next)
       updated = true
@@ -69,6 +78,8 @@ export function useStudentsSocketBridge() {
   const queryClient = useQueryClient()
   const primaryRole = useMemo(() => session?.roles?.[0]?.name ?? null, [session?.roles])
   const [cacheVersion, setCacheVersion] = useState(0)
+  const cacheVersionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingUpdatesRef = useRef(0)
 
   const { socket, on } = useSocket({
     userId: session?.user?.id,
@@ -84,12 +95,22 @@ export function useStudentsSocketBridge() {
       const { student, previousStatus, newStatus } = payload as StudentUpsertPayload
       const rowStatus: "active" | "deleted" = student.deletedAt ? "deleted" : "active"
 
-      logger.debug("Received student:upsert", {
+      logger.debug("[useStudentsSocketBridge] Received student:upsert", {
         studentId: student.id,
         previousStatus,
         newStatus,
         rowStatus,
         deletedAt: student.deletedAt,
+        studentData: {
+          id: student.id,
+          name: student.name,
+          email: student.email,
+          studentCode: student.studentCode,
+          isActive: student.isActive,
+          userId: student.userId,
+          createdAt: student.createdAt,
+          deletedAt: student.deletedAt,
+        },
       })
 
       const updated = updateStudentQueries(queryClient, ({ params, data }) => {
@@ -118,6 +139,22 @@ export function useStudentsSocketBridge() {
         if (shouldInclude) {
           if (existingIndex >= 0) {
             // Thay thế hoàn toàn với dữ liệu từ server (server là source of truth)
+            const oldStudent = rows[existingIndex]
+            logger.debug("[useStudentsSocketBridge] Updating existing student in cache", {
+              studentId: student.id,
+              oldData: {
+                name: oldStudent.name,
+                email: oldStudent.email,
+                studentCode: oldStudent.studentCode,
+                isActive: oldStudent.isActive,
+              },
+              newData: {
+                name: student.name,
+                email: student.email,
+                studentCode: student.studentCode,
+                isActive: student.isActive,
+              },
+            })
             const updated = [...rows]
             updated[existingIndex] = student
             rows = updated
@@ -155,18 +192,47 @@ export function useStudentsSocketBridge() {
           totalPages,
         }
 
-        logger.debug("Cache updated for student", {
+        logger.debug("[useStudentsSocketBridge] Cache updated for student", {
           studentId: student.id,
+          viewStatus: params.status,
           rowsCount: result.rows.length,
           total: result.total,
+          totalPages: result.totalPages,
           wasRemoved: existingIndex >= 0 && !shouldInclude,
+          wasUpdated: existingIndex >= 0 && shouldInclude,
+          wasInserted: existingIndex === -1 && shouldInclude,
+          updatedStudent: shouldInclude && existingIndex >= 0 ? {
+            name: result.rows[existingIndex]?.name,
+            email: result.rows[existingIndex]?.email,
+            studentCode: result.rows[existingIndex]?.studentCode,
+            isActive: result.rows[existingIndex]?.isActive,
+          } : undefined,
         })
 
         return result
       })
       
       if (updated) {
-        setCacheVersion((prev) => prev + 1)
+        pendingUpdatesRef.current += 1
+        logger.debug("[useStudentsSocketBridge] Pending cache version update (upsert)", { 
+          pendingCount: pendingUpdatesRef.current 
+        })
+        
+        // Debounce cache version updates để batch nhiều socket events
+        // Chỉ update cacheVersion một lần sau khi tất cả updates hoàn thành
+        if (cacheVersionTimeoutRef.current) {
+          clearTimeout(cacheVersionTimeoutRef.current)
+        }
+        
+        cacheVersionTimeoutRef.current = setTimeout(() => {
+          const count = pendingUpdatesRef.current
+          pendingUpdatesRef.current = 0
+          logger.debug("[useStudentsSocketBridge] Updating cache version (upsert)", { 
+            batchCount: count 
+          })
+          setCacheVersion((prev) => prev + 1)
+          cacheVersionTimeoutRef.current = null
+        }, 100) // Debounce 100ms để batch các socket events
       }
     })
 
@@ -201,11 +267,32 @@ export function useStudentsSocketBridge() {
       })
       
       if (updated) {
-        setCacheVersion((prev) => prev + 1)
+        pendingUpdatesRef.current += 1
+        logger.debug("[useStudentsSocketBridge] Pending cache version update (remove)", { 
+          pendingCount: pendingUpdatesRef.current 
+        })
+        
+        // Debounce cache version updates để batch nhiều socket events
+        if (cacheVersionTimeoutRef.current) {
+          clearTimeout(cacheVersionTimeoutRef.current)
+        }
+        
+        cacheVersionTimeoutRef.current = setTimeout(() => {
+          const count = pendingUpdatesRef.current
+          pendingUpdatesRef.current = 0
+          logger.debug("[useStudentsSocketBridge] Updating cache version (remove)", { 
+            batchCount: count 
+          })
+          setCacheVersion((prev) => prev + 1)
+          cacheVersionTimeoutRef.current = null
+        }, 100) // Debounce 100ms để batch các socket events
       }
     })
 
     return () => {
+      if (cacheVersionTimeoutRef.current) {
+        clearTimeout(cacheVersionTimeoutRef.current)
+      }
       detachUpsert?.()
       detachRemove?.()
     }

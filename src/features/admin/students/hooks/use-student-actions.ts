@@ -3,11 +3,13 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { StudentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
@@ -21,11 +23,6 @@ interface UseStudentActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useStudentActions({
   canDelete,
   canRestore,
@@ -34,32 +31,15 @@ export function useStudentActions({
   showFeedback,
 }: UseStudentActionsOptions) {
   const queryClient = useQueryClient()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [togglingStudents, setTogglingStudents] = useState<Set<string>>(new Set())
   const [deletingStudents, setDeletingStudents] = useState<Set<string>>(new Set())
   const [restoringStudents, setRestoringStudents] = useState<Set<string>>(new Set())
   const [hardDeletingStudents, setHardDeletingStudents] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const handleToggleStatus = useCallback(
-    async (row: StudentRow, newStatus: boolean, refresh: () => void) => {
+    async (row: StudentRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canManage) {
         showFeedback("error", STUDENT_MESSAGES.NO_PERMISSION, STUDENT_MESSAGES.NO_MANAGE_PERMISSION)
         return
@@ -90,9 +70,7 @@ export function useStudentActions({
           STUDENT_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh ${row.studentCode}`
         )
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "students" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -103,7 +81,7 @@ export function useStudentActions({
         )
         
         // Rollback optimistic update nếu có lỗi
-        if (isSocketConnected) {
+        if (!isSocketConnected) {
           queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all() })
         }
       } finally {
@@ -121,7 +99,7 @@ export function useStudentActions({
     async (
       action: "delete" | "restore" | "hard-delete",
       row: StudentRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -171,9 +149,8 @@ export function useStudentActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // runResourceRefresh đã handle invalidate và refetch queries
+        await runResourceRefresh({ refresh, resource: "students" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -190,22 +167,26 @@ export function useStudentActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
 
       if (!startBulkProcessing()) return
 
+      logger.debug("[useStudentActions] executeBulkAction START", { action, idsCount: ids.length, ids })
+
       try {
-        await apiClient.post(apiRoutes.students.bulk, { action, ids })
+        logger.debug("[useStudentActions] Calling bulk API", { endpoint: apiRoutes.students.bulk, action, ids })
+        const apiResponse = await apiClient.post(apiRoutes.students.bulk, { action, ids })
+        logger.debug("[useStudentActions] Bulk API response", { response: apiResponse.data })
 
         const messages = {
           restore: { title: STUDENT_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} học sinh` },
@@ -217,9 +198,16 @@ export function useStudentActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Invalidate queries trước để đảm bảo cache được clear
+        // Sử dụng refetchType: "none" để không tự động refetch (tránh duplicate)
+        logger.debug("[useStudentActions] Invalidating queries", { queryKey: queryKeys.adminStudents.all() })
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "none" })
+        logger.debug("[useStudentActions] Queries invalidated")
+        
+        // Gọi refresh để trigger table reload (sẽ refetch query hiện tại)
+        logger.debug("[useStudentActions] Calling runResourceRefresh")
+        await runResourceRefresh({ refresh, resource: "students" })
+        logger.debug("[useStudentActions] runResourceRefresh completed")
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -232,10 +220,11 @@ export function useStudentActions({
           throw error
         }
       } finally {
+        logger.debug("[useStudentActions] executeBulkAction END", { action })
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

@@ -51,6 +51,10 @@ export default async function RoleDetailPage({
 }) {
   const { id } = await params
   
+  // Fetch role data từ cache để hiển thị tên trong breadcrumb
+  const role = await getRoleDetailById(id)
+  const roleName = role?.displayName || role?.name || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Vai trò")
   if (!validatedId) {
@@ -59,7 +63,7 @@ export default async function RoleDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Vai trò", href: "/admin/roles" },
-            { label: "Chi tiết", href: `/admin/roles/${id}` },
+            { label: roleName, href: `/admin/roles/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -81,7 +85,7 @@ export default async function RoleDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Vai trò", href: "/admin/roles" },
-          { label: "Chi tiết", isActive: true },
+          { label: roleName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

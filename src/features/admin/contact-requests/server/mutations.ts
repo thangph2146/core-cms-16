@@ -24,6 +24,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitContactRequestUpsert, emitContactRequestRemove, emitContactRequestAssigned } from "./events"
@@ -76,6 +78,9 @@ export async function createContactRequest(ctx: AuthContext, input: CreateContac
       email: sanitized.email,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "contact-requests", id: sanitized.id })
 
   return sanitized
 }
@@ -205,6 +210,9 @@ export async function updateContactRequest(ctx: AuthContext, id: string, input: 
     Object.keys(changes).length > 0 ? changes : undefined
   )
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "contact-requests", id })
+
   return sanitized
 }
 
@@ -313,6 +321,9 @@ export async function assignContactRequest(ctx: AuthContext, id: string, input: 
     )
   }
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "contact-requests", id })
+
   return sanitized
 }
 
@@ -347,6 +358,9 @@ export async function softDeleteContactRequest(ctx: AuthContext, id: string): Pr
       email: contactRequest.email,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "contact-requests", id })
 }
 
 export async function bulkSoftDeleteContactRequests(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -398,6 +412,9 @@ export async function bulkSoftDeleteContactRequests(ctx: AuthContext, ids: strin
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "contact-requests" })
+
   return { success: true, message: `Đã xóa ${result.count} yêu cầu liên hệ`, affected: result.count }
 }
 
@@ -432,6 +449,9 @@ export async function restoreContactRequest(ctx: AuthContext, id: string): Promi
       email: contactRequest.email,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "contact-requests", id })
 }
 
 export async function bulkRestoreContactRequests(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -483,6 +503,9 @@ export async function bulkRestoreContactRequests(ctx: AuthContext, ids: string[]
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "contact-requests" })
+
   return { success: true, message: `Đã khôi phục ${result.count} yêu cầu liên hệ`, affected: result.count }
 }
 
@@ -515,6 +538,9 @@ export async function hardDeleteContactRequest(ctx: AuthContext, id: string): Pr
     ctx.actorId,
     contactRequest
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "contact-requests", id })
 }
 
 export async function bulkHardDeleteContactRequests(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -562,6 +588,9 @@ export async function bulkHardDeleteContactRequests(ctx: AuthContext, ids: strin
       )
     }
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "contact-requests" })
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} yêu cầu liên hệ`, affected: result.count }
 }

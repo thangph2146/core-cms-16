@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { QueryClient, QueryKey } from "@tanstack/react-query"
+import { logger } from "@/lib/config"
 
 interface UseResourceTableRefreshOptions {
   queryClient: QueryClient
@@ -56,15 +57,24 @@ export function useResourceTableRefresh({
       softRefreshRef.current = refreshFn
       refreshRef.current = async () => {
         const invalidateKey = getInvalidateQueryKey?.()
+        logger.debug("[useResourceTableRefresh] refreshRef.current START", { 
+          hasInvalidateKey: !!invalidateKey,
+          invalidateKey: invalidateKey ? JSON.stringify(invalidateKey) : undefined,
+        })
+        
         if (invalidateKey) {
-          // Invalidate và refetch tất cả queries (kể cả inactive) để đảm bảo data mới nhất
-          // Sử dụng refetchType: "all" để refetch cả active và inactive queries
-          await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "all" })
-          // Đảm bảo refetch được thực hiện ngay lập tức
-          await queryClient.refetchQueries({ queryKey: invalidateKey, type: "all" })
+          // Invalidate queries nhưng KHÔNG tự động refetch (refetchType: "none")
+          // Điều này chỉ clear cache, không trigger refetch
+          // refreshFn() sẽ trigger refetch query hiện tại khi table reload
+          logger.debug("[useResourceTableRefresh] Invalidating queries", { invalidateKey: JSON.stringify(invalidateKey) })
+          await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "none" })
+          logger.debug("[useResourceTableRefresh] Queries invalidated")
         }
-        // Gọi refreshFn để trigger reload trong table
+        
+        // Gọi refreshFn để trigger reload trong table (sẽ refetch query hiện tại)
+        logger.debug("[useResourceTableRefresh] Calling refreshFn()")
         refreshFn()
+        logger.debug("[useResourceTableRefresh] refreshFn() completed")
       }
 
       if (pendingRealtimeRefreshRef.current) {
@@ -78,10 +88,14 @@ export function useResourceTableRefresh({
   useEffect(() => {
     if (!cacheVersion) return
 
+    logger.debug("[useResourceTableRefresh] cacheVersion changed", { cacheVersion })
+
     if (softRefreshRef.current) {
+      logger.debug("[useResourceTableRefresh] Triggering soft refresh from cacheVersion")
       softRefreshRef.current()
       pendingRealtimeRefreshRef.current = false
     } else {
+      logger.debug("[useResourceTableRefresh] softRefreshRef not ready, marking pending")
       pendingRealtimeRefreshRef.current = true
     }
   }, [cacheVersion])

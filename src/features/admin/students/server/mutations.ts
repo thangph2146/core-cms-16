@@ -20,6 +20,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitStudentUpsert, emitStudentRemove } from "./events"
@@ -99,6 +101,9 @@ export async function createStudent(ctx: AuthContext, input: CreateStudentInput)
       name: sanitized.name,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "students", id: sanitized.id })
 
   return sanitized
 }
@@ -235,6 +240,9 @@ export async function updateStudent(ctx: AuthContext, id: string, input: UpdateS
     Object.keys(changes).length > 0 ? changes : undefined
   )
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "students", id })
+
   return sanitized
 }
 
@@ -274,6 +282,9 @@ export async function softDeleteStudent(ctx: AuthContext, id: string): Promise<v
       name: student.name,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "students", id })
 }
 
 export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -325,6 +336,9 @@ export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): P
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "students" })
+
   return { success: true, message: `Đã xóa ${result.count} học sinh`, affectedCount: result.count }
 }
 
@@ -358,6 +372,9 @@ export async function restoreStudent(ctx: AuthContext, id: string): Promise<void
       name: student.name,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "students", id })
 }
 
 export async function bulkRestoreStudents(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -409,6 +426,9 @@ export async function bulkRestoreStudents(ctx: AuthContext, ids: string[]): Prom
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "students" })
+
   return { success: true, message: `Đã khôi phục ${result.count} học sinh`, affectedCount: result.count }
 }
 
@@ -441,6 +461,9 @@ export async function hardDeleteStudent(ctx: AuthContext, id: string): Promise<v
     ctx.actorId,
     student
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "students", id })
 }
 
 export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -496,6 +519,9 @@ export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): P
       )
     }
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "students" })
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} học sinh`, affectedCount: result.count }
 }

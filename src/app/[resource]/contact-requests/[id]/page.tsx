@@ -54,6 +54,10 @@ export default async function ContactRequestDetailPage({
 }) {
   const { id } = await params
   
+  // Fetch contact request data từ cache để hiển thị tên trong breadcrumb
+  const contactRequest = await getContactRequestDetailById(id)
+  const contactRequestName = contactRequest?.name || contactRequest?.email || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Yêu cầu liên hệ")
   if (!validatedId) {
@@ -62,7 +66,7 @@ export default async function ContactRequestDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Yêu cầu liên hệ", href: "/admin/contact-requests" },
-            { label: "Chi tiết", href: `/admin/contact-requests/${id}` },
+            { label: contactRequestName, href: `/admin/contact-requests/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -84,7 +88,7 @@ export default async function ContactRequestDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Yêu cầu liên hệ", href: "/admin/contact-requests" },
-          { label: "Chi tiết", isActive: true },
+          { label: contactRequestName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

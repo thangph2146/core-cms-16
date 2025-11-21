@@ -22,6 +22,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitCommentUpsert, emitCommentRemove } from "./events"
@@ -130,6 +132,9 @@ export async function updateComment(ctx: AuthContext, id: string, input: UpdateC
 
   await emitCommentUpsert(comment.id, existing.deletedAt ? "deleted" : "active")
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "comments", id })
+
   return sanitized
 }
 
@@ -182,6 +187,9 @@ export async function approveComment(ctx: AuthContext, id: string): Promise<void
   )
 
   await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "comments", id })
 }
 
 export async function unapproveComment(ctx: AuthContext, id: string): Promise<void> {
@@ -233,6 +241,9 @@ export async function unapproveComment(ctx: AuthContext, id: string): Promise<vo
   )
 
   await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "comments", id })
 }
 
 export async function softDeleteComment(ctx: AuthContext, id: string): Promise<void> {
@@ -282,6 +293,9 @@ export async function softDeleteComment(ctx: AuthContext, id: string): Promise<v
   )
 
   await emitCommentUpsert(comment.id, "active")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "comments", id })
 }
 
 export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -353,6 +367,9 @@ export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): P
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "comments" })
+
   return { success: true, message: `Đã xóa ${result.count} bình luận`, affected: result.count }
 }
 
@@ -403,6 +420,9 @@ export async function restoreComment(ctx: AuthContext, id: string): Promise<void
   )
 
   await emitCommentUpsert(comment.id, "deleted")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "comments", id })
 }
 
 export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -474,6 +494,9 @@ export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Prom
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "comments" })
+
   return { success: true, message: `Đã khôi phục ${result.count} bình luận`, affected: result.count }
 }
 
@@ -528,6 +551,9 @@ export async function hardDeleteComment(ctx: AuthContext, id: string): Promise<v
   )
 
   emitCommentRemove(comment.id, "deleted")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "comments", id })
 }
 
 export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -598,6 +624,9 @@ export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): P
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "comments" })
+
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} bình luận`, affected: result.count }
 }
 
@@ -659,6 +688,9 @@ export async function bulkApproveComments(ctx: AuthContext, ids: string[]): Prom
     await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "comments" })
+
   return { success: true, message: `Đã duyệt ${result.count} bình luận`, affected: result.count }
 }
 
@@ -719,6 +751,9 @@ export async function bulkUnapproveComments(ctx: AuthContext, ids: string[]): Pr
     )
     await emitCommentUpsert(comment.id, comment.deletedAt ? "deleted" : "active")
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "comments" })
 
   return { success: true, message: `Đã hủy duyệt ${result.count} bình luận`, affected: result.count }
 }

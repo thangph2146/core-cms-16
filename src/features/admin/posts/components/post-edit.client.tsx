@@ -8,7 +8,6 @@ import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
 import type { Prisma } from "@prisma/client"
 import { isSuperAdmin } from "@/lib/permissions"
-import { useRouter } from "next/navigation"
 
 export interface PostEditData {
     id: string
@@ -56,7 +55,6 @@ export function PostEditClient({
 }: PostEditClientProps) {
     const { data: session } = useSession()
     const queryClient = useQueryClient()
-    const router = useRouter()
     const userRoles = session?.roles || []
     const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)
 
@@ -109,14 +107,9 @@ export function PostEditClient({
             // Refetch để đảm bảo data mới nhất
             await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "all" })
 
-            // Nếu có navigation (variant === "page" và có toDetail), router.push() sẽ tự động trigger refresh
-            // Chỉ gọi router.refresh() nếu không có navigation (ví dụ: dialog/sheet variant)
-            // Hoặc nếu đang ở dialog/sheet, cần refresh để cập nhật list table
-            if (variant !== "page" || !backUrl) {
-                // Refresh router để trigger server component re-render và revalidate cache
-                // Điều này đảm bảo detail page và list page (Server Components) cũng được cập nhật
-                router.refresh()
-            }
+            // Navigation sẽ được xử lý bởi useResourceFormSubmit
+            // Không cần gọi router.refresh() ở đây vì Next.js sẽ tự động revalidate khi navigate
+            // Nếu variant là dialog/sheet, table sẽ tự động refresh thông qua React Query invalidation
 
             if (onSuccess) {
                 onSuccess()

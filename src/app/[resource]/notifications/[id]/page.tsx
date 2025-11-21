@@ -51,6 +51,10 @@ export default async function NotificationDetailPage({
 }) {
   const { id } = await params
   
+  // Fetch notification data từ cache để hiển thị tên trong breadcrumb
+  const notification = await getNotificationByIdCached(id)
+  const notificationTitle = notification?.title || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Thông báo")
   if (!validatedId) {
@@ -59,7 +63,7 @@ export default async function NotificationDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Thông báo", href: "/admin/notifications" },
-            { label: "Chi tiết", href: `/admin/notifications/${id}` },
+            { label: notificationTitle, href: `/admin/notifications/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -81,7 +85,7 @@ export default async function NotificationDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Thông báo", href: "/admin/notifications" },
-          { label: "Chi tiết", isActive: true },
+          { label: notificationTitle, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

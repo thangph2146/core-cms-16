@@ -3,9 +3,11 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { UserRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { USER_MESSAGES } from "../constants/messages"
@@ -18,51 +20,27 @@ interface UseUserActionsOptions {
   canDelete: boolean
   canRestore: boolean
   canManage: boolean
-  isSocketConnected: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
-}
-
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
 }
 
 export function useUserActions({
   canDelete,
   canRestore,
   canManage,
-  isSocketConnected,
   showFeedback,
 }: UseUserActionsOptions) {
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [deletingUsers, setDeletingUsers] = useState<Set<string>>(new Set())
   const [restoringUsers, setRestoringUsers] = useState<Set<string>>(new Set())
   const [hardDeletingUsers, setHardDeletingUsers] = useState<Set<string>>(new Set())
   const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       row: UserRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       // Không cho phép xóa super admin
       if ((action === "delete" || action === "hard-delete") && row.email === PROTECTED_SUPER_ADMIN_EMAIL) {
@@ -118,9 +96,7 @@ export function useUserActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "users" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -137,11 +113,11 @@ export function useUserActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeToggleActive = useCallback(
-    async (row: UserRow, newStatus: boolean, refresh: () => void): Promise<void> => {
+    async (row: UserRow, newStatus: boolean, refresh: ResourceRefreshHandler): Promise<void> => {
       if (!canManage) {
         showFeedback("error", USER_MESSAGES.NO_PERMISSION, USER_MESSAGES.NO_MANAGE_PERMISSION)
         return
@@ -165,9 +141,7 @@ export function useUserActions({
           USER_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} người dùng ${row.email}`
         )
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "users" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -184,7 +158,7 @@ export function useUserActions({
         })
       }
     },
-    [canManage, isSocketConnected, showFeedback],
+    [canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
@@ -192,7 +166,7 @@ export function useUserActions({
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
       rows: UserRow[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -222,9 +196,7 @@ export function useUserActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "users" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -240,7 +212,7 @@ export function useUserActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

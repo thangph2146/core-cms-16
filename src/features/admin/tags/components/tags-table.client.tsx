@@ -43,7 +43,7 @@ export function TagsTableClient({
   initialData,
 }: TagsTableClientProps) {
   const queryClient = useQueryClient()
-  const { isSocketConnected, cacheVersion } = useTagsSocketBridge()
+  const { cacheVersion } = useTagsSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useTagFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useTagDeleteConfirm()
 
@@ -158,18 +158,23 @@ export function TagsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      const response = await apiClient.get<TagsResponse>(url)
-      const payload = response.data
+      const response = await apiClient.get<{
+        success: boolean
+        data?: TagsResponse
+        error?: string
+        message?: string
+      }>(url)
 
-      if (!payload || !payload.data) {
-        throw new Error("Không thể tải danh sách thẻ tag")
+      const payload = response.data.data
+      if (!payload) {
+        throw new Error(response.data.error || response.data.message || "Không thể tải danh sách thẻ tag")
       }
 
       return {
-        rows: payload.data || [],
+        rows: payload.data ?? [],
         page: payload.pagination?.page ?? page,
         limit: payload.pagination?.limit ?? limit,
-        total: payload.pagination?.total ?? 0,
+        total: payload.pagination?.total ?? payload.data?.length ?? 0,
         totalPages: payload.pagination?.totalPages ?? 0,
       }
     },
@@ -221,11 +226,11 @@ export function TagsTableClient({
           type: action === "hard-delete" ? "hard" : action === "restore" ? "restore" : "soft",
           bulkIds: ids,
           onConfirm: async () => {
-            await executeBulkAction(action, ids, refresh, clearSelection)
+            await executeBulkAction(action, ids, async () => refresh(), clearSelection)
           },
         })
       } else {
-        executeBulkAction(action, ids, refresh, clearSelection)
+        executeBulkAction(action, ids, async () => refresh(), clearSelection)
       }
     },
     [executeBulkAction, setDeleteConfirm],

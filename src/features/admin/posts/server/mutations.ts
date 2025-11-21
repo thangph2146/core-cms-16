@@ -1,7 +1,7 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
-import { revalidatePath, revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag, updateTag } from "next/cache"
 import { PERMISSIONS } from "@/lib/permissions"
 import { isSuperAdmin } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
@@ -12,6 +12,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitPostUpsert, emitPostRemove } from "./events"
@@ -102,12 +104,12 @@ export async function createPost(ctx: AuthContext, input: CreatePostSchema) {
 
   const sanitized = sanitizePost(post as PostWithAuthor)
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache
+  await invalidateResourceCache({
+    resource: "posts",
+    id: sanitized.id,
+    additionalTags: ["active-posts"],
+  })
 
   // Emit socket event for real-time updates
   await emitPostUpsert(sanitized.id, null)
@@ -230,25 +232,38 @@ export async function updatePost(
 
   const sanitized = sanitizePost(post as PostWithAuthor)
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  revalidatePath(`/admin/posts/${postId}`, "page")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag(`post-${postId}`, {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({
+    resource: "posts",
+    id: postId,
+    additionalTags: ["active-posts"],
+  })
 
   // Revalidate public cache nếu bài viết đã được publish
   if (post.published && post.publishedAt) {
-    // Revalidate cache tags (unstable_cache)
-    await revalidateTag(`post-${post.slug}`, {})
-    await revalidateTag("categories", {}) // Categories cũng có thể thay đổi
+    // Update tags immediately (read-your-own-writes semantics)
+    // Chỉ hoạt động trong Server Actions, wrap trong try-catch để không fail khi gọi từ Route Handlers
+    try {
+      updateTag(`post-${post.slug}`)
+      updateTag("categories") // Categories cũng có thể thay đổi
+      if (validated.slug && validated.slug !== existing.slug) {
+        updateTag(`post-${existing.slug}`)
+      }
+    } catch {
+      // updateTag chỉ hoạt động trong Server Actions, ignore nếu không phải
+    }
     
     // Revalidate slug cũ nếu slug đã thay đổi
     if (validated.slug && validated.slug !== existing.slug) {
-      await revalidateTag(`post-${existing.slug}`, {})
       revalidatePath(`/bai-viet/${existing.slug}`, "page")
+    }
+    
+    // Revalidate tags để purge cache (async)
+    // Hoạt động trong cả Server Actions và Route Handlers
+    revalidateTag(`post-${post.slug}`, "default")
+    revalidateTag("categories", "default")
+    if (validated.slug && validated.slug !== existing.slug) {
+      revalidateTag(`post-${existing.slug}`, "default")
     }
     
     // Revalidate public paths
@@ -257,7 +272,8 @@ export async function updatePost(
     revalidatePath(`/bai-viet/${post.slug}`, "page")
   } else if (existing.published && existing.publishedAt) {
     // Nếu bài viết đã được unpublish, vẫn cần revalidate để xóa khỏi public
-    await revalidateTag(`post-${existing.slug}`, {})
+    updateTag(`post-${existing.slug}`)
+    revalidateTag(`post-${existing.slug}`, "default")
     revalidatePath("/bai-viet", "page")
     revalidatePath(`/bai-viet/${existing.slug}`, "page")
   }
@@ -284,16 +300,21 @@ export async function deletePost(ctx: AuthContext, postId: string) {
     data: { deletedAt: new Date() },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache
+  await invalidateResourceCache({
+    resource: "posts",
+    id: postId,
+    additionalTags: ["active-posts"],
+  })
 
   // Revalidate public cache nếu bài viết đã được publish
   if (existing.published && existing.publishedAt) {
-    await revalidateTag(`post-${existing.slug}`, {})
+    try {
+      updateTag(`post-${existing.slug}`)
+    } catch {
+      // updateTag chỉ hoạt động trong Server Actions, ignore nếu không phải
+    }
+    revalidateTag(`post-${existing.slug}`, "default")
     revalidatePath("/bai-viet", "page")
     revalidatePath(`/bai-viet/${existing.slug}`, "page")
   }
@@ -317,16 +338,21 @@ export async function restorePost(ctx: AuthContext, postId: string) {
     data: { deletedAt: null },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache
+  await invalidateResourceCache({
+    resource: "posts",
+    id: postId,
+    additionalTags: ["active-posts"],
+  })
 
   // Revalidate public cache nếu bài viết đã được publish
   if (existing.published && existing.publishedAt) {
-    await revalidateTag(`post-${existing.slug}`, {})
+    try {
+      updateTag(`post-${existing.slug}`)
+    } catch {
+      // updateTag chỉ hoạt động trong Server Actions, ignore nếu không phải
+    }
+    revalidateTag(`post-${existing.slug}`, "default")
     revalidatePath("/bai-viet", "page")
     revalidatePath(`/bai-viet/${existing.slug}`, "page")
   }
@@ -350,17 +376,21 @@ export async function hardDeletePost(ctx: AuthContext, postId: string) {
 
   await prisma.post.delete({ where: { id: postId } })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag(`post-${postId}`, {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache
+  await invalidateResourceCache({
+    resource: "posts",
+    id: postId,
+    additionalTags: ["active-posts"],
+  })
 
   // Revalidate public cache nếu bài viết đã được publish
   if (existing.published && existing.publishedAt) {
-    await revalidateTag(`post-${existing.slug}`, {})
+    try {
+      updateTag(`post-${existing.slug}`)
+    } catch {
+      // updateTag chỉ hoạt động trong Server Actions, ignore nếu không phải
+    }
+    revalidateTag(`post-${existing.slug}`, "default")
     revalidatePath("/bai-viet", "page")
     revalidatePath(`/bai-viet/${existing.slug}`, "page")
   }
@@ -534,19 +564,28 @@ export async function bulkPostsAction(
     }
   }
 
-  // Revalidate admin cache
-  revalidatePath("/admin/posts", "page")
-  revalidatePath("/admin/posts", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("posts", {})
-  await revalidateTag("active-posts", {})
+  // Invalidate admin cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "posts",
+    additionalTags: ["active-posts"],
+  })
 
   // Revalidate public cache cho các posts đã được publish
   const publishedPosts = posts.filter((post) => post.published && post.publishedAt)
   if (publishedPosts.length > 0) {
-    // Revalidate từng post slug
+    // Update tags immediately (read-your-own-writes semantics)
+    // Chỉ hoạt động trong Server Actions, wrap trong try-catch để không fail khi gọi từ Route Handlers
+    try {
+      publishedPosts.forEach((post) => {
+        updateTag(`post-${post.slug}`)
+      })
+    } catch {
+      // updateTag chỉ hoạt động trong Server Actions, ignore nếu không phải
+    }
+    // Revalidate tags để purge cache (async)
+    // Hoạt động trong cả Server Actions và Route Handlers
     await Promise.all(
-      publishedPosts.map((post) => revalidateTag(`post-${post.slug}`, {}))
+      publishedPosts.map((post) => revalidateTag(`post-${post.slug}`, "default"))
     )
     // Revalidate từng post path
     publishedPosts.forEach((post) => {

@@ -51,6 +51,10 @@ async function SessionDetailContent({ sessionId }: { sessionId: string }) {
 export default async function SessionDetailPage({ params }: SessionDetailPageProps) {
   const { id } = await params
   
+  // Fetch session data từ cache để hiển thị tên trong breadcrumb
+  const session = await getSessionDetailById(id)
+  const sessionName = session?.userEmail || session?.userId || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Session")
   if (!validatedId) {
@@ -59,7 +63,7 @@ export default async function SessionDetailPage({ params }: SessionDetailPagePro
         <AdminHeader
           breadcrumbs={[
             { label: "Session", href: "/admin/sessions" },
-            { label: "Chi tiết", href: `/admin/sessions/${id}` },
+            { label: sessionName, href: `/admin/sessions/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -81,7 +85,7 @@ export default async function SessionDetailPage({ params }: SessionDetailPagePro
       <AdminHeader
         breadcrumbs={[
           { label: "Session", href: "/admin/sessions" },
-          { label: "Chi tiết", isActive: true },
+          { label: sessionName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

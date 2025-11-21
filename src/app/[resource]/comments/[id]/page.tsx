@@ -55,6 +55,10 @@ export default async function CommentDetailPage({
 }) {
   const { id } = await params
   
+  // Fetch comment data từ cache để hiển thị tên trong breadcrumb
+  const comment = await getCommentDetailById(id)
+  const authorName = comment?.authorName || comment?.authorEmail || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Bình luận")
   if (!validatedId) {
@@ -63,7 +67,7 @@ export default async function CommentDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Bình luận", href: "/admin/comments" },
-            { label: "Chi tiết", href: `/admin/comments/${id}` },
+            { label: authorName, href: `/admin/comments/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -85,7 +89,7 @@ export default async function CommentDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Bình luận", href: "/admin/comments" },
-          { label: "Chi tiết", isActive: true },
+          { label: authorName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

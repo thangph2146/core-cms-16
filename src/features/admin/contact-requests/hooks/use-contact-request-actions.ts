@@ -3,11 +3,13 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { ContactRequestRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
@@ -23,11 +25,6 @@ interface UseContactRequestActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useContactRequestActions({
   canDelete,
   canRestore,
@@ -37,8 +34,6 @@ export function useContactRequestActions({
   showFeedback,
 }: UseContactRequestActionsOptions) {
   const queryClient = useQueryClient()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [markingReadRequests, setMarkingReadRequests] = useState<Set<string>>(new Set())
   const [markingUnreadRequests, setMarkingUnreadRequests] = useState<Set<string>>(new Set())
   const [togglingRequests, setTogglingRequests] = useState<Set<string>>(new Set())
@@ -46,25 +41,10 @@ export function useContactRequestActions({
   const [restoringRequests, setRestoringRequests] = useState<Set<string>>(new Set())
   const [hardDeletingRequests, setHardDeletingRequests] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const handleToggleRead = useCallback(
-    async (row: ContactRequestRow, newStatus: boolean, refresh: () => void) => {
+    async (row: ContactRequestRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canUpdate) {
         showFeedback("error", CONTACT_REQUEST_MESSAGES.NO_PERMISSION, CONTACT_REQUEST_MESSAGES.NO_UPDATE_PERMISSION)
         return
@@ -98,9 +78,7 @@ export function useContactRequestActions({
             ? `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là đã đọc.`
             : `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là chưa đọc.`
         )
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "contact-requests" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -134,7 +112,7 @@ export function useContactRequestActions({
     async (
       action: "delete" | "restore" | "hard-delete",
       row: ContactRequestRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -184,9 +162,7 @@ export function useContactRequestActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "contact-requests" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -203,14 +179,14 @@ export function useContactRequestActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -230,9 +206,7 @@ export function useContactRequestActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "contact-requests" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -248,7 +222,7 @@ export function useContactRequestActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

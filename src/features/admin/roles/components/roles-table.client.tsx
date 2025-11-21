@@ -198,20 +198,25 @@ export function RolesTableClient({
       })
 
       try {
-        const response = await apiClient.get<RolesResponse>(apiRoutes.roles.list(), {
+        const response = await apiClient.get<{
+          success: boolean
+          data?: RolesResponse
+          error?: string
+          message?: string
+        }>(apiRoutes.roles.list(), {
           params: requestParams,
         })
-        const payload = response.data
 
-        if (!payload || !payload.data) {
-          throw new Error("Không thể tải danh sách vai trò")
+        const payload = response.data.data
+        if (!payload) {
+          throw new Error(response.data.error || response.data.message || "Không thể tải danh sách vai trò")
         }
 
         return {
-          rows: payload.data || [],
+          rows: payload.data ?? [],
           page: payload.pagination?.page ?? page,
           limit: payload.pagination?.limit ?? limit,
-          total: payload.pagination?.total ?? 0,
+          total: payload.pagination?.total ?? payload.data?.length ?? 0,
           totalPages: payload.pagination?.totalPages ?? 0,
         }
       } catch (error: unknown) {

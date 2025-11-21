@@ -51,6 +51,10 @@ export default async function CategoryEditPage({
 }) {
   const { id } = await params
   
+  // Fetch category data từ cache để hiển thị tên trong breadcrumb
+  const category = await getCategoryDetailById(id)
+  const categoryName = category?.name || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Danh mục")
   if (!validatedId) {
@@ -59,6 +63,7 @@ export default async function CategoryEditPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Danh mục", href: "/admin/categories" },
+            { label: categoryName, href: `/admin/categories/${id}` },
             { label: "Chỉnh sửa", href: `/admin/categories/${id}/edit` },
           ]}
         />
@@ -81,6 +86,7 @@ export default async function CategoryEditPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Danh mục", href: "/admin/categories" },
+          { label: categoryName, href: `/admin/categories/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

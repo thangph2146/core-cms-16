@@ -21,8 +21,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { type ResourceFormSection } from "./resource-form"
-import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
+import { useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
+import { useResourceNavigation } from "../hooks"
 
 export interface ResourceDetailField<T = unknown> {
   name: keyof T | string
@@ -92,31 +93,17 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
   afterSections,
   onBack,
 }: ResourceDetailPageProps<T>) {
-  const router = useResourceRouter()
   const resourceSegment = useResourceSegment()
   const resolvedBackUrl = React.useMemo(
     () => (backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined),
     [backUrl, resourceSegment],
   )
   
+  const { navigateBack } = useResourceNavigation()
+  
   const handleBack = async () => {
-    // Gọi custom onBack callback nếu có (để invalidate React Query cache)
-    if (onBack) {
-      await onBack()
-    }
-    // Navigate về backUrl
     if (resolvedBackUrl) {
-      // Refresh router TRƯỚC để invalidate Router Cache cho current route
-      router.refresh()
-      // Thêm delay nhỏ để đảm bảo refresh hoàn thành
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      // Navigate với cache-busting parameter để force Server Component refetch
-      const url = new URL(resolvedBackUrl, window.location.origin)
-      url.searchParams.set("_t", Date.now().toString())
-      await router.push(url.pathname + url.search)
-      // Refresh router SAU KHI navigate để invalidate Router Cache cho route mới
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      router.refresh()
+      await navigateBack(resolvedBackUrl, onBack)
     }
   }
 
@@ -321,7 +308,7 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
               {resolvedBackUrl && (
                 <Button
                   variant="outline"
-                  onClick={() => router.push(resolvedBackUrl)}
+                  onClick={() => navigateBack(resolvedBackUrl, onBack)}
                   className="mt-4"
                 >
                   <ArrowLeft className="mr-2 h-5 w-5" />

@@ -1,7 +1,6 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
-import { revalidatePath, revalidateTag } from "next/cache"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { logger } from "@/lib/config"
@@ -18,6 +17,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitRoleUpsert, emitRoleRemove } from "./events"
@@ -58,12 +59,12 @@ export async function createRole(ctx: AuthContext, input: CreateRoleInput): Prom
 
   const sanitized = sanitizeRole(role)
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "roles",
+    id: sanitized.id,
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket event for real-time updates
   await emitRoleUpsert(sanitized.id, null)
@@ -153,14 +154,12 @@ export async function updateRole(ctx: AuthContext, id: string, input: UpdateRole
 
   const sanitized = sanitizeRole(role)
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  revalidatePath(`/admin/roles/${id}`, "page")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag(`role-${id}`, {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({
+    resource: "roles",
+    id,
+    additionalTags: ["active-roles"],
+  })
 
   // Determine previous status for socket event
   const previousStatus: "active" | "deleted" | null = existing.deletedAt ? "deleted" : "active"
@@ -206,12 +205,12 @@ export async function softDeleteRole(ctx: AuthContext, id: string): Promise<void
     },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "roles",
+    id,
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket event for real-time updates
   await emitRoleUpsert(id, previousStatus)
@@ -260,12 +259,11 @@ export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "roles",
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -311,12 +309,12 @@ export async function restoreRole(ctx: AuthContext, id: string): Promise<void> {
     },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "roles",
+    id,
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket event for real-time updates
   await emitRoleUpsert(id, previousStatus)
@@ -341,9 +339,13 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
   }
 
   // Tìm tất cả roles được request để phân loại trạng thái
+  // Prisma findMany mặc định KHÔNG filter theo deletedAt, nên sẽ tìm thấy cả soft-deleted và active roles
+  // Nhưng KHÔNG tìm thấy hard-deleted roles (đã bị xóa vĩnh viễn khỏi database)
+  // Sử dụng findMany mà KHÔNG filter theo deletedAt để tìm được tất cả roles (kể cả đã bị soft delete)
   const allRequestedRoles = await prisma.role.findMany({
     where: {
       id: { in: ids },
+      // KHÔNG filter theo deletedAt ở đây để tìm được cả soft-deleted và active roles
     },
     select: { id: true, deletedAt: true, name: true, displayName: true, createdAt: true },
   })
@@ -411,12 +413,11 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
     totalSoftDeletedFound: softDeletedRoles.length,
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "roles",
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -441,7 +442,23 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
     }
   }
 
-  return { success: true, message: `Đã khôi phục ${result.count} vai trò`, affected: result.count }
+  // Tạo message chi tiết nếu có roles không thể restore
+  let message = `Đã khôi phục ${result.count} vai trò`
+  if (result.count < ids.length) {
+    const skippedCount = ids.length - result.count
+    const skippedParts: string[] = []
+    if (activeRoles.length > 0) {
+      skippedParts.push(`${activeRoles.length} vai trò đang hoạt động`)
+    }
+    if (notFoundCount > 0) {
+      skippedParts.push(`${notFoundCount} vai trò đã bị xóa vĩnh viễn`)
+    }
+    if (skippedParts.length > 0) {
+      message += ` (${skippedCount} vai trò không thể khôi phục: ${skippedParts.join(", ")})`
+    }
+  }
+
+  return { success: true, message, affected: result.count }
 }
 
 export async function hardDeleteRole(ctx: AuthContext, id: string): Promise<void> {
@@ -469,13 +486,12 @@ export async function hardDeleteRole(ctx: AuthContext, id: string): Promise<void
     where: { id },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag(`role-${id}`, {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "roles",
+    id,
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket event for real-time updates
   emitRoleRemove(id, previousStatus)
@@ -516,12 +532,11 @@ export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     },
   })
 
-  // Revalidate admin cache
-  revalidatePath("/admin/roles", "page")
-  revalidatePath("/admin/roles", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("roles", {})
-  await revalidateTag("active-roles", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "roles",
+    additionalTags: ["active-roles"],
+  })
 
   // Emit socket events để update UI - fire and forget để tránh timeout
   // Emit song song cho tất cả roles đã bị hard delete

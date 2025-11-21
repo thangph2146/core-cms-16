@@ -47,13 +47,6 @@ export function StudentsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useStudentFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useStudentDeleteConfirm()
 
-  const getInvalidateQueryKey = useCallback(() => queryKeys.adminStudents.all(), [])
-  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
-    queryClient,
-    getInvalidateQueryKey,
-    cacheVersion,
-  })
-
   const {
     handleToggleStatus,
     executeSingleAction,
@@ -69,6 +62,15 @@ export function StudentsTableClient({
     canManage,
     isSocketConnected,
     showFeedback,
+  })
+
+  const getInvalidateQueryKey = useCallback(() => queryKeys.adminStudents.all(), [])
+  // Chỉ trigger refresh từ socket khi không có bulk operation đang chạy
+  // Khi có bulk operation, runResourceRefresh sẽ handle refresh
+  const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
+    queryClient,
+    getInvalidateQueryKey,
+    cacheVersion: bulkState.isProcessing ? undefined : cacheVersion, // Skip socket refresh khi đang bulk
   })
 
   const handleToggleStatusWithRefresh = useCallback(
@@ -161,20 +163,67 @@ export function StudentsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      const response = await apiClient.get<StudentsResponse>(url)
-      const payload = response.data
+      logger.debug("[StudentsTableClient] fetchStudents START", { url, params })
 
-      if (!payload || !payload.data) {
-        throw new Error("Không thể tải danh sách học sinh")
+      const response = await apiClient.get<{
+        success: boolean
+        data?: StudentsResponse
+        error?: string
+        message?: string
+      }>(url)
+
+      logger.debug("[StudentsTableClient] fetchStudents API response", { 
+        success: response.data.success,
+        hasData: !!response.data.data,
+        dataRowsCount: response.data.data?.data?.length ?? 0,
+        pagination: response.data.data?.pagination,
+        // Log sample rows để verify data
+        sampleRows: response.data.data?.data?.slice(0, 3).map((r: StudentRow) => ({
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          studentCode: r.studentCode,
+          isActive: r.isActive,
+          deletedAt: r.deletedAt,
+        })),
+        fullResponse: response.data,
+      })
+
+      const payload = response.data.data
+      if (!payload) {
+        logger.error("[StudentsTableClient] fetchStudents - No payload", { response: response.data })
+        throw new Error(response.data.error || response.data.message || "Không thể tải danh sách học sinh")
       }
 
-      return {
-        rows: payload.data || [],
+      // Đảm bảo rows luôn là array
+      const rows = Array.isArray(payload.data) ? payload.data : []
+
+      const result = {
+        rows,
         page: payload.pagination?.page ?? params.page,
         limit: payload.pagination?.limit ?? params.limit,
-        total: payload.pagination?.total ?? 0,
+        total: payload.pagination?.total ?? rows.length,
         totalPages: payload.pagination?.totalPages ?? 0,
       }
+
+      logger.debug("[StudentsTableClient] fetchStudents END", { 
+        rowsCount: result.rows.length,
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        // Log sample rows để verify UI sẽ hiển thị
+        sampleRows: result.rows.slice(0, 3).map(r => ({
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          studentCode: r.studentCode,
+          isActive: r.isActive,
+          deletedAt: r.deletedAt,
+        })),
+      })
+
+      return result
     },
     [],
   )

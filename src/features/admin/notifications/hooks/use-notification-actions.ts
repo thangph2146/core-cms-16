@@ -3,11 +3,12 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useDeleteNotification } from "@/hooks/use-notifications"
+import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { NotificationRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { NOTIFICATION_MESSAGES } from "../constants"
@@ -17,40 +18,18 @@ interface UseNotificationActionsOptions {
   triggerTableRefresh: () => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useNotificationActions({
   showFeedback,
   triggerTableRefresh,
 }: UseNotificationActionsOptions) {
   const { data: session } = useSession()
   const deleteNotificationMutation = useDeleteNotification()
-  const [isProcessing, setIsProcessing] = useState(false)
-  const isProcessingRef = useRef(false)
   const [togglingNotifications, setTogglingNotifications] = useState<Set<string>>(new Set())
   const [markingReadNotifications, setMarkingReadNotifications] = useState<Set<string>>(new Set())
   const [markingUnreadNotifications, setMarkingUnreadNotifications] = useState<Set<string>>(new Set())
   const [deletingNotifications, setDeletingNotifications] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing,
-    ref: isProcessingRef,
-  }
-
-  const startProcessing = useCallback(() => {
-    if (isProcessingRef.current) return false
-    isProcessingRef.current = true
-    setIsProcessing(true)
-    return true
-  }, [])
-
-  const stopProcessing = useCallback(() => {
-    isProcessingRef.current = false
-    setIsProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const handleToggleRead = useCallback(
     async (row: NotificationRow, newStatus: boolean, refresh: () => void) => {
@@ -126,7 +105,7 @@ export function useNotificationActions({
       }
 
       try {
-        startProcessing()
+        startBulkProcessing()
         const response = await apiClient.post<{
           success: boolean
           data?: { count: number }
@@ -161,10 +140,10 @@ export function useNotificationActions({
           "Không thể đánh dấu đã đọc các thông báo."
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_MARK_READ_ERROR, errorMessage)
       } finally {
-        stopProcessing()
+        stopBulkProcessing()
       }
     },
-    [showFeedback, triggerTableRefresh, session?.user?.id, startProcessing, stopProcessing],
+    [showFeedback, triggerTableRefresh, session?.user?.id, startBulkProcessing, stopBulkProcessing],
   )
 
   const handleBulkMarkAsUnread = useCallback(
@@ -196,7 +175,7 @@ export function useNotificationActions({
       }
 
       try {
-        startProcessing()
+        startBulkProcessing()
         const response = await apiClient.post<{
           success: boolean
           data?: { count: number }
@@ -231,10 +210,10 @@ export function useNotificationActions({
           "Không thể đánh dấu chưa đọc các thông báo."
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_MARK_UNREAD_ERROR, errorMessage)
       } finally {
-        stopProcessing()
+        stopBulkProcessing()
       }
     },
-    [showFeedback, triggerTableRefresh, session?.user?.id, startProcessing, stopProcessing],
+    [showFeedback, triggerTableRefresh, session?.user?.id, startBulkProcessing, stopBulkProcessing],
   )
 
   const handleDeleteSingle = useCallback(
@@ -306,7 +285,7 @@ export function useNotificationActions({
       }
 
       try {
-        startProcessing()
+        startBulkProcessing()
         const response = await apiClient.delete<{
           success: boolean
           data?: { count: number }
@@ -337,10 +316,10 @@ export function useNotificationActions({
           "Không thể xóa các thông báo."
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_DELETE_ERROR, errorMessage)
       } finally {
-        stopProcessing()
+        stopBulkProcessing()
       }
     },
-    [showFeedback, triggerTableRefresh, session?.user?.id, startProcessing, stopProcessing],
+    [showFeedback, triggerTableRefresh, session?.user?.id, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

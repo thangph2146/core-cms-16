@@ -21,6 +21,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 
@@ -85,6 +87,9 @@ export async function createSession(ctx: AuthContext, input: CreateSessionInput)
       accessToken: sanitized.accessToken,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "sessions", id: sanitized.id })
 
   return sanitized
 }
@@ -228,6 +233,9 @@ export async function updateSession(ctx: AuthContext, id: string, input: UpdateS
     Object.keys(changes).length > 0 ? changes : undefined
   )
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "sessions", id })
+
   return sanitized
 }
 
@@ -263,6 +271,9 @@ export async function softDeleteSession(ctx: AuthContext, id: string): Promise<v
       accessToken: session.accessToken,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "sessions", id })
 }
 
 export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -303,6 +314,9 @@ export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): P
     )
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "sessions" })
+
   return { success: true, message: `Đã xóa ${result.count} session`, affectedCount: result.count }
 }
 
@@ -338,6 +352,9 @@ export async function restoreSession(ctx: AuthContext, id: string): Promise<void
       accessToken: session.accessToken,
     }
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "sessions", id })
 }
 
 export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -377,6 +394,9 @@ export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Prom
       result.count
     )
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "sessions" })
 
   return { success: true, message: `Đã khôi phục ${result.count} session`, affectedCount: result.count }
 }
@@ -419,6 +439,9 @@ export async function hardDeleteSession(ctx: AuthContext, id: string): Promise<v
     ctx.actorId,
     session
   )
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "sessions", id })
 }
 
 export async function bulkHardDeleteSessions(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -482,6 +505,9 @@ export async function bulkHardDeleteSessions(ctx: AuthContext, ids: string[]): P
       result.count
     )
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "sessions" })
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} session`, affectedCount: result.count }
 }

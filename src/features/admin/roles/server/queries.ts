@@ -7,7 +7,14 @@
 
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
-import { validatePagination, buildPagination, type ResourcePagination } from "@/features/admin/resources/server"
+import {
+  validatePagination,
+  buildPagination,
+  type ResourcePagination,
+  applyColumnOptionsStatusFilter,
+  applyColumnOptionsSearchFilter,
+  mapToColumnOptions,
+} from "@/features/admin/resources/server"
 import { mapRoleRecord, buildWhereClause } from "./helpers"
 
 export interface ListRolesInput {
@@ -66,22 +73,22 @@ export async function getRoleColumnOptions(
   search?: string,
   limit: number = 50
 ): Promise<Array<{ label: string; value: string }>> {
-  const where: Prisma.RoleWhereInput = {
-    deletedAt: null, // Only active roles
-  }
+  const where: Prisma.RoleWhereInput = {}
 
-  // Add search filter if provided
+  // Apply status filter (default: active - column options thường chỉ cần active items)
+  applyColumnOptionsStatusFilter(where, "active")
+
+  // Apply search filter based on column
   if (search && search.trim()) {
-    const searchValue = search.trim()
     switch (column) {
       case "name":
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
         break
       case "displayName":
-        where.displayName = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "displayName")
         break
       default:
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
     }
   }
 
@@ -106,18 +113,7 @@ export async function getRoleColumnOptions(
   })
 
   // Map results to options format
-  return results
-    .map((item) => {
-      const value = item[column as keyof typeof item]
-      if (typeof value === "string" && value.trim()) {
-        return {
-          label: value,
-          value: value,
-        }
-      }
-      return null
-    })
-    .filter((item): item is { label: string; value: string } => item !== null)
+  return mapToColumnOptions(results, column)
 }
 
 export async function getRoleById(id: string): Promise<ListedRole | null> {

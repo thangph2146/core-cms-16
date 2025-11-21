@@ -13,4 +13,10 @@ export { useDynamicFilterOptions } from "./use-dynamic-filter-options"
 export { useResourceTableRefresh } from "./use-resource-table-refresh"
 export { useResourceTableLoader } from "./use-resource-table-loader"
 export { useResourceInitialDataCache } from "./use-resource-initial-data-cache"
+export { runResourceRefresh } from "./resource-refresh"
+export { useResourceBulkProcessing } from "./use-resource-bulk-processing"
+
+// Navigation helpers
+export { useResourceNavigation } from "./use-resource-navigation"
+export type { UseResourceNavigationOptions, UseResourceNavigationResult } from "./use-resource-navigation"
 

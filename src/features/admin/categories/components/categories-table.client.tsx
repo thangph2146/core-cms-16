@@ -46,7 +46,7 @@ export function CategoriesTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useCategoryFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useCategoryDeleteConfirm()
 
-  const { isSocketConnected, cacheVersion } = useCategoriesSocketBridge()
+  const { cacheVersion } = useCategoriesSocketBridge()
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminCategories.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
     queryClient,
@@ -65,7 +65,6 @@ export function CategoriesTableClient({
     canDelete,
     canRestore,
     canManage,
-    isSocketConnected,
     showFeedback,
   })
 

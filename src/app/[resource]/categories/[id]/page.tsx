@@ -51,6 +51,10 @@ export default async function CategoryDetailPage({
 }) {
   const { id } = await params
   
+  // Fetch category data từ cache để hiển thị tên trong breadcrumb
+  const category = await getCategoryDetailById(id)
+  const categoryName = category?.name || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Danh mục")
   if (!validatedId) {
@@ -59,7 +63,7 @@ export default async function CategoryDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Danh mục", href: "/admin/categories" },
-            { label: "Chi tiết", href: `/admin/categories/${id}` },
+            { label: categoryName, href: `/admin/categories/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -81,7 +85,7 @@ export default async function CategoryDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Danh mục", href: "/admin/categories" },
-          { label: "Chi tiết", isActive: true },
+          { label: categoryName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

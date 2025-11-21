@@ -11,9 +11,9 @@ import {
 } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
+import { useResourceNavigation } from "@/features/admin/resources/hooks"
 
 export interface TagDetailData {
   id: string
@@ -32,15 +32,11 @@ export interface TagDetailClientProps {
 }
 
 export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDetailClientProps) {
-  const router = useResourceRouter()
   const queryClient = useQueryClient()
-  
-  const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
-    await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
-    await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
-  }
+  const { navigateBack, router } = useResourceNavigation({
+    queryClient,
+    invalidateQueryKey: queryKeys.adminTags.all(),
+  })
 
   const detailFields: ResourceDetailField<TagDetailData>[] = []
 
@@ -100,7 +96,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       description={`Chi tiết thẻ tag ${tag.slug}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
-      onBack={handleBack}
+      onBack={() => navigateBack(backUrl)}
       actions={
         <Button
           variant="outline"

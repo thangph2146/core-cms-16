@@ -60,6 +60,10 @@ export default async function PostDetailPage({
   const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
   const detailHref = applyResourceSegmentToPath(`/admin/posts/${id}`, resourceSegment)
   
+  // Fetch post data từ cache để hiển thị tên trong breadcrumb
+  const post = await getPostDetailById(id)
+  const postTitle = post?.title || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Bài viết")
   if (!validatedId) {
@@ -68,7 +72,7 @@ export default async function PostDetailPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Bài viết", href: listHref },
-            { label: "Chi tiết", href: detailHref },
+            { label: postTitle, href: detailHref },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -90,7 +94,7 @@ export default async function PostDetailPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Bài viết", href: listHref },
-          { label: "Chi tiết", isActive: true },
+          { label: postTitle, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

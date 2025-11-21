@@ -2,8 +2,8 @@
  * API Route: GET /api/admin/students - List students
  * POST /api/admin/students - Create student
  */
-import { NextRequest, NextResponse } from "next/server"
-import { listStudentsCached } from "@/features/admin/students/server/cache"
+import { NextRequest } from "next/server"
+import { listStudents } from "@/features/admin/students/server/queries"
 import { serializeStudentsList } from "@/features/admin/students/server/helpers"
 import {
   createStudent,
@@ -15,7 +15,9 @@ import { CreateStudentSchema } from "@/features/admin/students/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
+import { createSuccessResponse, createErrorResponse } from "@/lib/config"
 import { isSuperAdmin } from "@/lib/permissions"
+import { StudentsResponse } from "@/features/admin/students/types"
 
 async function getStudentsHandler(req: NextRequest, context: ApiRouteContext) {
   const searchParams = req.nextUrl.searchParams
@@ -26,7 +28,7 @@ async function getStudentsHandler(req: NextRequest, context: ApiRouteContext) {
   })
 
   if (!paginationValidation.valid) {
-    return NextResponse.json({ error: paginationValidation.error }, { status: 400 })
+    return createErrorResponse(paginationValidation.error || "Invalid pagination parameters", { status: 400 })
   }
 
   const searchValidation = sanitizeSearchQuery(searchParams.get("search") || "", 200)
@@ -48,7 +50,9 @@ async function getStudentsHandler(req: NextRequest, context: ApiRouteContext) {
   const actorId = context.session.user?.id
   const isSuperAdminUser = isSuperAdmin(context.roles)
 
-  const result = await listStudentsCached({
+  // Sử dụng listStudents (non-cached) thay vì listStudentsCached để đảm bảo data luôn fresh
+  // API routes cần fresh data, không nên sử dụng cache để tránh trả về dữ liệu cũ
+  const result = await listStudents({
     page: paginationValidation.page,
     limit: paginationValidation.limit,
     search: searchValidation.value || undefined,
@@ -60,7 +64,7 @@ async function getStudentsHandler(req: NextRequest, context: ApiRouteContext) {
 
   // Serialize result to match StudentsResponse format
   const serialized = serializeStudentsList(result)
-  return NextResponse.json({
+  return createSuccessResponse({
     data: serialized.rows,
     pagination: {
       page: serialized.page,
@@ -68,7 +72,7 @@ async function getStudentsHandler(req: NextRequest, context: ApiRouteContext) {
       total: serialized.total,
       totalPages: serialized.totalPages,
     },
-  })
+  } as StudentsResponse)
 }
 
 async function postStudentsHandler(req: NextRequest, context: ApiRouteContext) {
@@ -76,14 +80,14 @@ async function postStudentsHandler(req: NextRequest, context: ApiRouteContext) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
+    return createErrorResponse("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.", { status: 400 })
   }
 
   // Validate body với Zod schema
   const validationResult = CreateStudentSchema.safeParse(body)
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0]
-    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+    return createErrorResponse(firstError?.message || "Dữ liệu không hợp lệ", { status: 400 })
   }
 
   const ctx: AuthContext = {
@@ -105,16 +109,16 @@ async function postStudentsHandler(req: NextRequest, context: ApiRouteContext) {
       createdAt: student.createdAt,
       deletedAt: student.deletedAt,
     }
-    return NextResponse.json({ data: serialized }, { status: 201 })
+    return createSuccessResponse(serialized, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message || "Không thể tạo học sinh" }, { status: error.status || 400 })
+      return createErrorResponse(error.message || "Không thể tạo học sinh", { status: error.status || 400 })
     }
     if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message || "Không tìm thấy" }, { status: 404 })
+      return createErrorResponse(error.message || "Không tìm thấy", { status: 404 })
     }
     console.error("Error creating student:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi tạo học sinh" }, { status: 500 })
+    return createErrorResponse("Đã xảy ra lỗi khi tạo học sinh", { status: 500 })
   }
 }
 

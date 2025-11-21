@@ -59,6 +59,10 @@ export default async function EditUserPage({
 }) {
   const { id } = await params
   
+  // Fetch user data từ cache để hiển thị tên trong breadcrumb
+  const user = await getUserDetailById(id)
+  const userName = user?.name || user?.email || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Người dùng")
   if (!validatedId) {
@@ -67,8 +71,8 @@ export default async function EditUserPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Users", href: "/admin/users" },
-            { label: "Chi tiết", href: `/admin/users/${id}` },
-            { label: "Chỉnh sửa", isActive: true },
+            { label: userName, href: `/admin/users/${id}` },
+            { label: "Chỉnh sửa", href: `/admin/users/${id}/edit` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -90,7 +94,7 @@ export default async function EditUserPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Users", href: "/admin/users" },
-          { label: "Chi tiết", href: `/admin/users/${id}` },
+          { label: userName, href: `/admin/users/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

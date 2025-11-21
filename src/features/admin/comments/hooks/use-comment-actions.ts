@@ -3,11 +3,13 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { CommentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
@@ -23,11 +25,6 @@ interface UseCommentActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useCommentActions({
   canApprove,
   canDelete,
@@ -37,8 +34,6 @@ export function useCommentActions({
   showFeedback,
 }: UseCommentActionsOptions) {
   const queryClient = useQueryClient()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [approvingComments, setApprovingComments] = useState<Set<string>>(new Set())
   const [unapprovingComments, setUnapprovingComments] = useState<Set<string>>(new Set())
   const [togglingComments, setTogglingComments] = useState<Set<string>>(new Set())
@@ -46,25 +41,10 @@ export function useCommentActions({
   const [restoringComments, setRestoringComments] = useState<Set<string>>(new Set())
   const [hardDeletingComments, setHardDeletingComments] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const handleToggleApprove = useCallback(
-    async (row: CommentRow, newStatus: boolean, refresh: () => void) => {
+    async (row: CommentRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canApprove) {
         showFeedback("error", COMMENT_MESSAGES.NO_PERMISSION, COMMENT_MESSAGES.NO_APPROVE_PERMISSION)
         return
@@ -97,9 +77,7 @@ export function useCommentActions({
           await apiClient.post(apiRoutes.comments.unapprove(row.id))
           showFeedback("success", COMMENT_MESSAGES.UNAPPROVE_SUCCESS, `Đã hủy duyệt bình luận từ ${row.authorName || row.authorEmail}`)
         }
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "comments" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : COMMENT_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", newStatus ? COMMENT_MESSAGES.APPROVE_ERROR : COMMENT_MESSAGES.UNAPPROVE_ERROR, `Không thể ${newStatus ? "duyệt" : "hủy duyệt"} bình luận`, errorMessage)
@@ -128,7 +106,7 @@ export function useCommentActions({
     async (
       action: "delete" | "restore" | "hard-delete",
       row: CommentRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -174,9 +152,7 @@ export function useCommentActions({
       try {
         await apiClient.post(actionConfig.endpoint, actionConfig.payload)
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "comments" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : COMMENT_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -193,14 +169,14 @@ export function useCommentActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -222,9 +198,7 @@ export function useCommentActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "comments" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : COMMENT_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -242,7 +216,7 @@ export function useCommentActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

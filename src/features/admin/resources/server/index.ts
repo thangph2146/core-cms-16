@@ -59,3 +59,20 @@ export {
   type TablePermissions,
 } from "./page-helpers"
 
+// Cache invalidation helpers
+export {
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
+  type ResourceName,
+  type InvalidateCacheOptions,
+} from "./cache-invalidation"
+
+// Column options helpers
+export {
+  applyColumnOptionsStatusFilter,
+  applyColumnOptionsSearchFilter,
+  buildColumnOptionsWhereClause,
+  mapToColumnOptions,
+  type ColumnOptionsQueryOptions,
+} from "./column-options-helpers"
+

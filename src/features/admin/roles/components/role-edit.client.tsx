@@ -7,16 +7,13 @@
 
 "use client"
 
-import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { getBaseRoleFields, getRoleFormSections, getAllPermissionsOptionGroups, type RoleFormData } from "../form-fields"
+import { getBaseRoleFields, getRoleFormSections, type RoleFormData } from "../form-fields"
 import type { RoleRow } from "../types"
-import { logger } from "@/lib/config/logger"
 
 interface RoleEditData extends RoleRow {
   permissions: string[]
@@ -46,79 +43,16 @@ export function RoleEditClient({
   roleId: _roleId,
   permissions: permissionsFromServer = [],
 }: RoleEditClientProps) {
-  // Capture role for use in hook callbacks
-  const currentRole = role
   const queryClient = useQueryClient()
-  const router = useRouter()
-
-  const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
-    await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
-    await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
-  }
-
-  // Get grouped permissions để kiểm tra
-  const permissionsGroups = getAllPermissionsOptionGroups()
-  
-  // Get all options from groups
-  const allPermissionsOptions = permissionsFromServer.length > 0 
-    ? permissionsFromServer 
-    : permissionsGroups.flatMap((group) => group.options)
-  
-  // Debug: Kiểm tra duplicate (chỉ log khi có vấn đề)
-  React.useEffect(() => {
-    logger.debug("=== DEBUG allPermissionsOptions (RoleEdit) ===", {
-      totalOptions: allPermissionsOptions.length,
-      source: permissionsFromServer.length > 0 ? "fromServer" : "fromGroups",
-      allOptions: allPermissionsOptions,
-    })
-    
-    // Check for duplicate values
-    const valueCounts = new Map<string, number>()
-    allPermissionsOptions.forEach((opt) => {
-      const count = valueCounts.get(opt.value) || 0
-      valueCounts.set(opt.value, count + 1)
-    })
-    
-    const duplicates = Array.from(valueCounts.entries()).filter(([_, count]) => count > 1)
-    if (duplicates.length > 0) {
-      logger.warn("⚠️ Duplicate permission values found (RoleEdit)", {
-        duplicates: duplicates.map(([value, count]) => ({ value, count })),
-        totalDuplicates: duplicates.length,
-      })
-    }
-    
-    logger.debug("=== DEBUG permissionsGroups (RoleEdit) ===", {
-      totalGroups: permissionsGroups.length,
-      groups: permissionsGroups.map((g, i) => ({ 
-        index: i, 
-        label: g.label, 
-        optionsCount: g.options.length,
-        options: g.options.map(opt => ({ value: opt.value, label: opt.label }))
-      })),
-    })
-    
-    // Check for duplicate group labels
-    const labelCounts = new Map<string, number>()
-    permissionsGroups.forEach((group) => {
-      const count = labelCounts.get(group.label) || 0
-      labelCounts.set(group.label, count + 1)
-    })
-    
-    const duplicateLabels = Array.from(labelCounts.entries()).filter(([_, count]) => count > 1)
-    if (duplicateLabels.length > 0) {
-      logger.warn("⚠️ Duplicate group labels found (RoleEdit)", {
-        duplicateLabels: duplicateLabels.map(([label, count]) => ({ label, count })),
-        totalDuplicateLabels: duplicateLabels.length,
-      })
-    }
-  }, [allPermissionsOptions, permissionsGroups, permissionsFromServer])
+  const { navigateBack } = useResourceNavigation({
+    queryClient,
+    invalidateQueryKey: queryKeys.adminRoles.all(),
+  })
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.roles.update(id),
     method: "PUT",
-    resourceId: currentRole?.id,
+    resourceId: role?.id,
     messages: {
       successTitle: "Cập nhật vai trò thành công",
       successDescription: "Vai trò đã được cập nhật thành công.",
@@ -127,8 +61,8 @@ export function RoleEditClient({
     navigation: {
       toDetail: variant === "page" && backUrl
         ? backUrl
-        : variant === "page" && currentRole?.id
-          ? `/admin/roles/${currentRole.id}`
+        : variant === "page" && role?.id
+          ? `/admin/roles/${role.id}`
           : undefined,
       fallback: backUrl,
     },
@@ -138,10 +72,9 @@ export function RoleEditClient({
         permissions: Array.isArray(data.permissions) ? data.permissions : [],
       }
       // Prevent editing super_admin name (client-side check for UX)
-      if (currentRole) {
-        const roleName = (currentRole as RoleRow).name
+      if (role) {
+        const roleName = (role as RoleRow).name
         if (roleName === "super_admin" && (submitData as RoleEditData).name && (submitData as RoleEditData).name !== roleName) {
-          // Throw error to be caught by hook's error handler
           throw new Error("Không thể thay đổi tên vai trò super_admin")
         }
       }
@@ -151,27 +84,16 @@ export function RoleEditClient({
       // Invalidate React Query cache để cập nhật danh sách vai trò
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
       // Invalidate detail query nếu có roleId
-      const targetRoleId = currentRole?.id
+      const targetRoleId = role?.id
       if (targetRoleId) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.detail(targetRoleId) })
       }
-      
       // Refetch để đảm bảo data mới nhất
       await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
-
-      // Nếu có navigation (variant === "page" và có toDetail), router.push() sẽ tự động trigger refresh
-      // Chỉ gọi router.refresh() nếu không có navigation (ví dụ: dialog/sheet variant)
-      // Hoặc nếu đang ở dialog/sheet, cần refresh để cập nhật list table
-      if (variant !== "page" || !backUrl) {
-        // Refresh router để trigger server component re-render và revalidate cache
-        // Điều này đảm bảo detail page và list page (Server Components) cũng được cập nhật
-        router.refresh()
-      }
-
+      
       if (onSuccess) {
         onSuccess()
       }
-      // Navigation sẽ được xử lý bởi useResourceFormSubmit thông qua navigation.toDetail
     },
   })
 
@@ -204,7 +126,7 @@ export function RoleEditClient({
       cancelLabel="Hủy"
       backUrl={backUrl}
       backLabel={backLabel}
-      onBack={handleBack}
+      onBack={() => navigateBack(backUrl || `/admin/roles/${role?.id || ""}`)}
       variant={variant}
       open={open}
       onOpenChange={onOpenChange}

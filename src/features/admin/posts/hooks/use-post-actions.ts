@@ -3,9 +3,11 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { PostRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { POST_MESSAGES } from "../constants/messages"
@@ -15,50 +17,26 @@ interface UsePostActionsOptions {
   canDelete: boolean
   canRestore: boolean
   canManage: boolean
-  isSocketConnected: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
-}
-
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
 }
 
 export function usePostActions({
   canDelete,
   canRestore,
   canManage,
-  isSocketConnected,
   showFeedback,
 }: UsePostActionsOptions) {
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [deletingPosts, setDeletingPosts] = useState<Set<string>>(new Set())
   const [restoringPosts, setRestoringPosts] = useState<Set<string>>(new Set())
   const [hardDeletingPosts, setHardDeletingPosts] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       row: PostRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -108,9 +86,7 @@ export function usePostActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "posts" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -127,14 +103,14 @@ export function usePostActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -152,7 +128,7 @@ export function usePostActions({
           const actionText = action === "restore" ? "khôi phục" : action === "delete" ? "xóa" : "xóa vĩnh viễn"
           showFeedback("error", "Không có thay đổi", result?.message || `Không có bài viết nào được ${actionText}`)
           clearSelection()
-          refresh()
+          await runResourceRefresh({ refresh, resource: "posts" })
           return
         }
 
@@ -168,7 +144,7 @@ export function usePostActions({
         clearSelection()
 
         // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
-        refresh()
+        await runResourceRefresh({ refresh, resource: "posts" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {

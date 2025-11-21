@@ -7,7 +7,7 @@
 
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
-import { validatePagination } from "@/features/admin/resources/server"
+import { validatePagination, buildPagination } from "@/features/admin/resources/server"
 import { mapStudentRecord, buildWhereClause } from "./helpers"
 import type { ListStudentsInput, StudentDetail, ListStudentsResult } from "../types"
 
@@ -34,14 +34,14 @@ export async function listStudents(params: ListStudentsInput = {}): Promise<List
     prisma.student.count({ where }),
   ])
 
-  const totalPages = Math.ceil(total / limit)
+  const pagination = buildPagination(page, limit, total)
 
   return {
     rows: data.map(mapStudentRecord),
-    total,
-    page,
-    limit,
-    totalPages,
+    total: pagination.total,
+    page: pagination.page,
+    limit: pagination.limit,
+    totalPages: pagination.totalPages,
   }
 }
 

@@ -22,6 +22,7 @@ import { ModeToggle } from "@/components/layouts/shared"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
 import { queryKeys } from "@/lib/query-keys"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 export interface AdminBreadcrumbItem {
   label: string
@@ -55,17 +56,11 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
       console.error("Error invalidating queries:", error)
     })
     
-    // Refresh router TRƯỚC để invalidate Router Cache cho current route
-    router.refresh()
-    // Thêm delay nhỏ để đảm bảo refresh hoàn thành
-    await new Promise((resolve) => setTimeout(resolve, 100))
     // Navigate với cache-busting parameter để force Server Component refetch
+    // Next.js sẽ tự động revalidate khi navigate, không cần gọi router.refresh() ngay
     const url = new URL(href, window.location.origin)
     url.searchParams.set("_t", Date.now().toString())
-    await router.push(url.pathname + url.search)
-    // Refresh router SAU KHI navigate để invalidate Router Cache cho route mới
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    router.refresh()
+    router.replace(url.pathname + url.search)
   }, [router, queryClient])
 
   return (
@@ -97,6 +92,8 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
               const resolvedHref = item.href
                 ? applyResourceSegmentToPath(item.href, resourceSegment)
                 : undefined
+              // Truncate label nếu quá dài để tránh breadcrumb quá dài
+              const truncatedLabel = truncateBreadcrumbLabel(item.label)
               return (
                 <React.Fragment key={index}>
                   {index > 0 && (
@@ -104,13 +101,14 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
                   )}
                   <BreadcrumbItem className={item.isActive ? "" : "hidden md:block"}>
                     {isLast || !resolvedHref ? (
-                      <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                      <BreadcrumbPage title={item.label}>{truncatedLabel}</BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink 
                         href={resolvedHref}
                         onClick={(e) => handleBreadcrumbClick(e, resolvedHref)}
+                        title={item.label}
                       >
-                        {item.label}
+                        {truncatedLabel}
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>

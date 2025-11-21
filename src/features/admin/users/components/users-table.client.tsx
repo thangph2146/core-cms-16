@@ -46,7 +46,7 @@ export function UsersTableClient({
 }: UsersTableClientProps) {
   const queryClient = useQueryClient()
   const router = useResourceRouter()
-  const { isSocketConnected, cacheVersion } = useUsersSocketBridge()
+  const { cacheVersion } = useUsersSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useUserFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useUserDeleteConfirm()
 
@@ -70,7 +70,6 @@ export function UsersTableClient({
     canDelete,
     canRestore,
     canManage,
-    isSocketConnected,
     showFeedback,
   })
 

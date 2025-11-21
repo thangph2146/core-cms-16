@@ -12,6 +12,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitUserUpsert, emitUserRemove } from "./events"
@@ -89,6 +91,9 @@ export async function createUser(ctx: AuthContext, input: CreateUserSchema): Pro
 
   // Emit socket event
   await emitUserUpsert(user.id, null)
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "users", id: user.id })
 
   return sanitizeUser(user)
 }
@@ -257,6 +262,9 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
   const previousStatus: "active" | "deleted" = existing.deletedAt ? "deleted" : "active"
   await emitUserUpsert(user.id, previousStatus)
 
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({ resource: "users", id: user.id })
+
   return sanitizeUser(user)
 }
 
@@ -294,6 +302,9 @@ export async function softDeleteUser(ctx: AuthContext, id: string): Promise<void
 
   // Emit socket event
   await emitUserUpsert(id, "active")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "users", id })
 }
 
 export async function bulkSoftDeleteUsers(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -366,6 +377,9 @@ export async function bulkSoftDeleteUsers(ctx: AuthContext, ids: string[]): Prom
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "users" })
+
   return { count: result.count }
 }
 
@@ -398,6 +412,9 @@ export async function restoreUser(ctx: AuthContext, id: string): Promise<void> {
 
   // Emit socket event
   await emitUserUpsert(id, "deleted")
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "users", id })
 }
 
 export async function bulkRestoreUsers(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -454,6 +471,9 @@ export async function bulkRestoreUsers(ctx: AuthContext, ids: string[]): Promise
     }
   }
 
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "users" })
+
   return { count: result.count }
 }
 
@@ -495,6 +515,9 @@ export async function hardDeleteUser(ctx: AuthContext, id: string): Promise<void
   // Emit socket event - cần lấy previousStatus trước khi delete
   const previousStatus: "active" | "deleted" = user.deletedAt ? "deleted" : "active"
   emitUserRemove(id, previousStatus)
+
+  // Invalidate cache
+  await invalidateResourceCache({ resource: "users", id })
 }
 
 export async function bulkHardDeleteUsers(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -550,6 +573,9 @@ export async function bulkHardDeleteUsers(ctx: AuthContext, ids: string[]): Prom
     const previousStatus: "active" | "deleted" = user.deletedAt ? "deleted" : "active"
     emitUserRemove(user.id, previousStatus)
   }
+
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({ resource: "users" })
 
   return { count: result.count }
 }

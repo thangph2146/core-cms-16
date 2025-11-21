@@ -141,4 +141,19 @@ export function sanitizeFilters(
   }, {})
 }
 
+/**
+ * Truncate text cho breadcrumb labels
+ * Giới hạn độ dài để tránh breadcrumb quá dài
+ * 
+ * @param text - Text cần truncate
+ * @param maxLength - Độ dài tối đa (default: 30)
+ * @returns Text đã được truncate với "..." nếu quá dài
+ */
+export function truncateBreadcrumbLabel(text: string, maxLength: number = 30): string {
+  if (!text || text.length <= maxLength) {
+    return text
+  }
+  return text.substring(0, maxLength).trim() + "..."
+}
+
 

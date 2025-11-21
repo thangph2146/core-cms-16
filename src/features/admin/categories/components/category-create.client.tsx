@@ -13,7 +13,6 @@ import { apiRoutes } from "@/lib/api/routes"
 import { getBaseCategoryFields, type CategoryFormData } from "../form-fields"
 import { useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query-keys"
-import { useRouter } from "next/navigation"
 
 export interface CategoryCreateClientProps {
   backUrl?: string
@@ -21,7 +20,6 @@ export interface CategoryCreateClientProps {
 
 export function CategoryCreateClient({ backUrl = "/admin/categories" }: CategoryCreateClientProps) {
   const queryClient = useQueryClient()
-  const router = useRouter()
 
   const handleBack = async () => {
     // Invalidate React Query cache để đảm bảo list page có data mới nhất

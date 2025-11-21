@@ -2,8 +2,9 @@
  * API Route: GET /api/admin/roles - List roles
  * POST /api/admin/roles - Create role
  */
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { listRolesCached } from "@/features/admin/roles/server/cache"
+import { serializeRolesList } from "@/features/admin/roles/server/helpers"
 import {
   createRole,
   type AuthContext,
@@ -14,6 +15,7 @@ import { CreateRoleSchema } from "@/features/admin/roles/server/schemas"
 import { createGetRoute, createPostRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validatePagination, sanitizeSearchQuery } from "@/lib/api/validation"
+import { createSuccessResponse, createErrorResponse } from "@/lib/config"
 
 async function getRolesHandler(req: NextRequest, _context: ApiRouteContext) {
   const searchParams = req.nextUrl.searchParams
@@ -24,7 +26,7 @@ async function getRolesHandler(req: NextRequest, _context: ApiRouteContext) {
   })
 
   if (!paginationValidation.valid) {
-    return NextResponse.json({ error: paginationValidation.error }, { status: 400 })
+    return createErrorResponse(paginationValidation.error || "Invalid pagination parameters", { status: 400 })
   }
 
   const searchValidation = sanitizeSearchQuery(searchParams.get("search") || "", 200)
@@ -42,16 +44,25 @@ async function getRolesHandler(req: NextRequest, _context: ApiRouteContext) {
     }
   })
 
-  const activeFilters = Object.keys(columnFilters).length > 0 ? columnFilters : undefined
   const result = await listRolesCached({
-    page: paginationValidation.page!,
-    limit: paginationValidation.limit!,
+    page: paginationValidation.page,
+    limit: paginationValidation.limit,
     search: searchValidation.value || undefined,
-    filters: activeFilters,
-    status: status as "active" | "deleted" | "all",
+    filters: Object.keys(columnFilters).length > 0 ? columnFilters : undefined,
+    status,
   })
 
-  return NextResponse.json(result)
+  // Serialize result to match RolesResponse format
+  const serialized = serializeRolesList(result)
+  return createSuccessResponse({
+    data: serialized.rows,
+    pagination: {
+      page: serialized.page,
+      limit: serialized.limit,
+      total: serialized.total,
+      totalPages: serialized.totalPages,
+    },
+  })
 }
 
 async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
@@ -59,14 +70,14 @@ async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." }, { status: 400 })
+    return createErrorResponse("Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.", { status: 400 })
   }
 
   // Validate body với Zod schema
   const validationResult = CreateRoleSchema.safeParse(body)
   if (!validationResult.success) {
     const firstError = validationResult.error.issues[0]
-    return NextResponse.json({ error: firstError?.message || "Dữ liệu không hợp lệ" }, { status: 400 })
+    return createErrorResponse(firstError?.message || "Dữ liệu không hợp lệ", { status: 400 })
   }
 
   const ctx: AuthContext = {
@@ -77,16 +88,27 @@ async function postRolesHandler(req: NextRequest, context: ApiRouteContext) {
 
   try {
     const role = await createRole(ctx, validationResult.data)
-    return NextResponse.json({ data: role }, { status: 201 })
+    // Serialize role to client format (dates to strings)
+    const serialized = {
+      id: role.id,
+      name: role.name,
+      displayName: role.displayName,
+      description: role.description,
+      permissions: role.permissions,
+      isActive: role.isActive,
+      createdAt: role.createdAt.toISOString(),
+      deletedAt: role.deletedAt ? role.deletedAt.toISOString() : null,
+    }
+    return createSuccessResponse(serialized, { status: 201 })
   } catch (error) {
     if (error instanceof ApplicationError) {
-      return NextResponse.json({ error: error.message || "Không thể tạo vai trò" }, { status: error.status || 400 })
+      return createErrorResponse(error.message || "Không thể tạo vai trò", { status: error.status || 400 })
     }
     if (error instanceof NotFoundError) {
-      return NextResponse.json({ error: error.message || "Không tìm thấy" }, { status: 404 })
+      return createErrorResponse(error.message || "Không tìm thấy", { status: 404 })
     }
     console.error("Error creating role:", error)
-    return NextResponse.json({ error: "Đã xảy ra lỗi khi tạo vai trò" }, { status: 500 })
+    return createErrorResponse("Đã xảy ra lỗi khi tạo vai trò", { status: 500 })
   }
 }
 

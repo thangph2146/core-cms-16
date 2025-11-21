@@ -8,7 +8,8 @@
 "use client"
 
 import { useState } from "react"
-import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
+import { useResourceSegment } from "@/hooks/use-resource-segment"
+import { useResourceNavigation } from "../hooks"
 import { Loader2, Save, ArrowLeft, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -116,28 +117,13 @@ export function ResourceForm<T extends Record<string, unknown>>({
   open = true,
   onOpenChange,
 }: ResourceFormProps<T>) {
-  const router = useResourceRouter()
   const resourceSegment = useResourceSegment()
   const resolvedBackUrl = backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined
+  const { navigateBack, router } = useResourceNavigation()
   
   const handleBack = async () => {
-    // Gọi custom onBack callback nếu có (để invalidate React Query cache)
-    if (onBack) {
-      await onBack()
-    }
-    // Navigate về backUrl
     if (resolvedBackUrl) {
-      // Refresh router TRƯỚC để invalidate Router Cache cho current route
-      router.refresh()
-      // Thêm delay nhỏ để đảm bảo refresh hoàn thành
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      // Navigate với cache-busting parameter để force Server Component refetch
-      const url = new URL(resolvedBackUrl, window.location.origin)
-      url.searchParams.set("_t", Date.now().toString())
-      await router.push(url.pathname + url.search)
-      // Refresh router SAU KHI navigate để invalidate Router Cache cho route mới
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      router.refresh()
+      await navigateBack(resolvedBackUrl, onBack)
     }
   }
   const [isPending, setIsPending] = useState(false)
@@ -209,11 +195,9 @@ export function ResourceForm<T extends Record<string, unknown>>({
         onSuccess?.()
         if (variant === "page") {
           // For page variant, call onOpenChange if provided (e.g., to close edit mode)
-          // Otherwise just refresh
+          // Navigation sẽ được xử lý bởi useResourceFormSubmit, không cần refresh ở đây
           if (onOpenChange) {
             onOpenChange(false)
-          } else {
-            router.refresh()
           }
         } else {
           onOpenChange?.(false)
@@ -234,7 +218,11 @@ export function ResourceForm<T extends Record<string, unknown>>({
     } else if (variant === "dialog" || variant === "sheet") {
       onOpenChange?.(false)
     } else if (resolvedBackUrl) {
-      router.push(resolvedBackUrl)
+      // Sử dụng navigateBack để đảm bảo cache được invalidate đúng cách
+      navigateBack(resolvedBackUrl, onBack).catch(() => {
+        // Fallback nếu navigateBack fail
+        router.replace(resolvedBackUrl)
+      })
     }
   }
 

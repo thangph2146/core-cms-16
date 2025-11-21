@@ -7,7 +7,7 @@
 
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
-import { validatePagination, buildPagination } from "@/features/admin/resources/server"
+import { validatePagination, buildPagination, applyColumnOptionsStatusFilter, applyColumnOptionsSearchFilter, mapToColumnOptions } from "@/features/admin/resources/server"
 import { mapCategoryRecord, buildWhereClause } from "./helpers"
 import type { ListCategoriesInput, CategoryDetail, ListCategoriesResult } from "../types"
 
@@ -39,23 +39,23 @@ export async function getCategoryColumnOptions(
   search?: string,
   limit: number = 50
 ): Promise<Array<{ label: string; value: string }>> {
-  const where: Prisma.CategoryWhereInput = {
-    deletedAt: null, // Only active categories
-  }
+  const where: Prisma.CategoryWhereInput = {}
 
-  // Add search filter if provided
+  // Apply status filter (default: active - column options thường chỉ cần active items)
+  applyColumnOptionsStatusFilter(where, "active")
+
+  // Apply search filter based on column
   if (search && search.trim()) {
-    const searchValue = search.trim()
     switch (column) {
       case "name":
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
         break
       case "slug":
-        where.slug = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "slug")
         break
       default:
         // For other columns, search in name as fallback
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
     }
   }
 
@@ -80,18 +80,7 @@ export async function getCategoryColumnOptions(
   })
 
   // Map results to options format
-  return results
-    .map((item) => {
-      const value = item[column as keyof typeof item]
-      if (typeof value === "string" && value.trim()) {
-        return {
-          label: value,
-          value: value,
-        }
-      }
-      return null
-    })
-    .filter((item): item is { label: string; value: string } => item !== null)
+  return mapToColumnOptions(results, column)
 }
 
 export async function getCategoryById(id: string): Promise<CategoryDetail | null> {

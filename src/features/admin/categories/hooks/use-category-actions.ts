@@ -3,9 +3,13 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { CategoryRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { CATEGORY_MESSAGES } from "../constants/messages"
@@ -15,50 +19,27 @@ interface UseCategoryActionsOptions {
   canDelete: boolean
   canRestore: boolean
   canManage: boolean
-  isSocketConnected: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
-}
-
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
 }
 
 export function useCategoryActions({
   canDelete,
   canRestore,
   canManage,
-  isSocketConnected,
   showFeedback,
 }: UseCategoryActionsOptions) {
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
+  const queryClient = useQueryClient()
   const [deletingCategories, setDeletingCategories] = useState<Set<string>>(new Set())
   const [restoringCategories, setRestoringCategories] = useState<Set<string>>(new Set())
   const [hardDeletingCategories, setHardDeletingCategories] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       row: CategoryRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -108,9 +89,7 @@ export function useCategoryActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "categories" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CATEGORY_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -127,14 +106,14 @@ export function useCategoryActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -154,9 +133,13 @@ export function useCategoryActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Invalidate queries trước để đảm bảo cache được clear
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" })
+        // Refetch ngay để đảm bảo data mới nhất
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "all" })
+        
+        // Gọi refresh để trigger table reload
+        await runResourceRefresh({ refresh, resource: "categories" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CATEGORY_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -172,7 +155,7 @@ export function useCategoryActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

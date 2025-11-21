@@ -3,13 +3,17 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { logger } from "@/lib/config"
 import type { TagRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { TAG_MESSAGES } from "../constants/messages"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 
 interface UseTagActionsOptions {
   canDelete: boolean
@@ -18,45 +22,24 @@ interface UseTagActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useTagActions({
   canDelete,
   canRestore,
   canManage,
   showFeedback,
 }: UseTagActionsOptions) {
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
+  const queryClient = useQueryClient()
   const [deletingTags, setDeletingTags] = useState<Set<string>>(new Set())
   const [restoringTags, setRestoringTags] = useState<Set<string>>(new Set())
   const [hardDeletingTags, setHardDeletingTags] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       row: TagRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -106,10 +89,7 @@ export function useTagActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
-        // Thêm delay để đảm bảo server đã xử lý xong cache invalidation và database transaction
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        await refresh()
+        await runResourceRefresh({ refresh, resource: "tags" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : TAG_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -133,7 +113,7 @@ export function useTagActions({
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => Promise<void>,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -141,40 +121,25 @@ export function useTagActions({
       if (!startBulkProcessing()) return
 
       try {
-        const response = await apiClient.post<{ data: { success: boolean; message: string; affected: number } }>(
-          apiRoutes.tags.bulk,
-          { action, ids }
-        )
+        await apiClient.post(apiRoutes.tags.bulk, { action, ids })
 
-        const result = response.data?.data
-        const affected = result?.affected ?? 0
-
-        // Nếu không có tag nào được xử lý (affected === 0), hiển thị thông báo
-        if (affected === 0) {
-          const actionText = action === "restore" ? "khôi phục" : action === "delete" ? "xóa" : "xóa vĩnh viễn"
-          showFeedback("error", "Không có thay đổi", result?.message || `Không có thẻ tag nào được ${actionText}`)
-          clearSelection()
-          // Vẫn refresh để đảm bảo UI được cập nhật với data mới nhất
-          await new Promise((resolve) => setTimeout(resolve, 300))
-          await refresh()
-          return
-        }
-
-        // Hiển thị success message với số lượng thực tế đã xử lý
         const messages = {
-          restore: { title: TAG_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${affected} thẻ tag` },
-          delete: { title: TAG_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${affected} thẻ tag` },
-          "hard-delete": { title: TAG_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${affected} thẻ tag` },
+          restore: { title: TAG_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} thẻ tag` },
+          delete: { title: TAG_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${ids.length} thẻ tag` },
+          "hard-delete": { title: TAG_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} thẻ tag` },
         }
 
         const message = messages[action]
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
-        // Thêm delay để đảm bảo server đã xử lý xong cache invalidation và database transaction
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        await refresh()
+        // Invalidate queries trước để đảm bảo cache được clear
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
+        // Refetch ngay để đảm bảo data mới nhất
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
+        
+        // Gọi refresh để trigger table reload
+        await runResourceRefresh({ refresh, resource: "tags" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : TAG_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -190,7 +155,7 @@ export function useTagActions({
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

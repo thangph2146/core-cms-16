@@ -9,6 +9,7 @@ import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
   serializeDate,
+  applyStatusFilter,
   applySearchFilter,
   applyDateFilter,
   applyStringFilter,
@@ -66,13 +67,14 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
   const status = params.status ?? "active"
 
   // Handle status filter - có thể là active/deleted/all hoặc enum status
-  if (status === "active") {
-    where.deletedAt = null
-  } else if (status === "deleted") {
-    where.deletedAt = { not: null }
-  } else if (status === "NEW" || status === "IN_PROGRESS" || status === "RESOLVED" || status === "CLOSED") {
+  // Nếu là enum status (NEW, IN_PROGRESS, etc.), set status và chỉ lấy active items
+  if (status === "NEW" || status === "IN_PROGRESS" || status === "RESOLVED" || status === "CLOSED") {
     where.status = status
-    where.deletedAt = null
+    // Enum status chỉ lấy active items (không bị xóa)
+    applyStatusFilter(where, "active")
+  } else {
+    // Nếu là active/deleted/all, dùng applyStatusFilter để nhất quán
+    applyStatusFilter(where, status as "active" | "deleted" | "all")
   }
 
   // Apply search filter

@@ -41,7 +41,7 @@ export function SessionsTableClient({
 }: SessionsTableClientProps) {
   const router = useResourceRouter()
   const queryClient = useQueryClient()
-  const { isSocketConnected, cacheVersion } = useSessionsSocketBridge()
+  const { cacheVersion } = useSessionsSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useSessionFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useSessionDeleteConfirm()
 
@@ -65,7 +65,6 @@ export function SessionsTableClient({
     canDelete,
     canRestore,
     canManage,
-    isSocketConnected,
     showFeedback,
   })
 

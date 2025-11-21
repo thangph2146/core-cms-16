@@ -12,11 +12,12 @@ import {
   ResourceTableClient,
   SelectionActionsWrapper,
 } from "@/features/admin/resources/components"
-import type { ResourceViewMode } from "@/features/admin/resources/types"
+import type { ResourceViewMode, ResourceRefreshHandler } from "@/features/admin/resources/types"
 import {
   useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  runResourceRefresh,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -44,7 +45,7 @@ export function PostsTableClient({
 }: PostsTableClientProps) {
   const router = useResourceRouter()
   const queryClient = useQueryClient()
-  const { isSocketConnected, cacheVersion } = usePostsSocketBridge()
+  const { cacheVersion } = usePostsSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = usePostFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = usePostDeleteConfirm()
   const [togglingPosts, setTogglingPosts] = useState<Set<string>>(new Set())
@@ -68,12 +69,11 @@ export function PostsTableClient({
     canDelete,
     canRestore,
     canManage,
-    isSocketConnected,
     showFeedback,
   })
 
   const handleTogglePublished = useCallback(
-    async (row: PostRow, newStatus: boolean, refresh: () => void) => {
+    async (row: PostRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canToggleStatus) {
         showFeedback("error", "Không có quyền", "Bạn không có quyền thay đổi trạng thái xuất bản")
         return
@@ -95,9 +95,7 @@ export function PostsTableClient({
           "Cập nhật thành công",
           `Bài viết "${row.title}" đã được ${newStatus ? "xuất bản" : "chuyển sang bản nháp"}.`,
         )
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "posts" })
       } catch (error) {
         logger.error("Error toggling post publish status", error as Error)
         showFeedback(
@@ -113,7 +111,7 @@ export function PostsTableClient({
         })
       }
     },
-    [canToggleStatus, showFeedback, isSocketConnected],
+    [canToggleStatus, showFeedback],
   )
 
   const { baseColumns, deletedColumns } = usePostColumns({

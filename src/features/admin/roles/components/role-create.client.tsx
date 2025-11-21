@@ -8,7 +8,6 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
@@ -22,7 +21,6 @@ export interface RoleCreateClientProps {
 
 export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permissionsFromServer = [] }: RoleCreateClientProps) {
   const queryClient = useQueryClient()
-  const router = useRouter()
 
   const handleBack = async () => {
     // Invalidate React Query cache để đảm bảo list page có data mới nhất

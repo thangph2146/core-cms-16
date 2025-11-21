@@ -187,6 +187,10 @@ export const queryKeys = {
     list: (params: AdminUsersListParams): readonly unknown[] => {
       return ["adminUsers", normalizeListParams(params)]
     },
+    /**
+     * User detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["users", "detail", id],
   },
 
   /**
@@ -280,6 +284,10 @@ export const queryKeys = {
     list: (params: AdminStudentsListParams): readonly unknown[] => {
       return ["adminStudents", normalizeListParams(params)]
     },
+    /**
+     * Student detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["adminStudents", "detail", id],
   },
 
   /**
@@ -296,6 +304,8 @@ export const queryKeys = {
     list: (params: AdminTagsListParams): readonly unknown[] => {
       return ["adminTags", normalizeListParams(params)]
     },
+
+    detail: (id: string): readonly unknown[] => ["adminTags", "detail", id],
   },
 
   /**
@@ -328,6 +338,10 @@ export const queryKeys = {
     list: (params: AdminCategoriesListParams): readonly unknown[] => {
       return ["adminCategories", normalizeListParams(params)]
     },
+    /**
+     * Category detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["adminCategories", "detail", id],
   },
 
   /**

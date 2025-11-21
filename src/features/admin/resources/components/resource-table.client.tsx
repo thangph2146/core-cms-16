@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { logger } from "@/lib/config"
 import type {
   ResourceTableLoader,
   ResourceViewMode,
@@ -73,7 +74,12 @@ export function ResourceTableClient<T extends object>({
   const emptyMessage = activeView.emptyMessage
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1)
+    logger.debug("[ResourceTableClient] handleRefresh called")
+    setRefreshKey((prev) => {
+      const next = prev + 1
+      logger.debug("[ResourceTableClient] refreshKey updated", { prev, next })
+      return next
+    })
   }, [])
 
   // Expose refresh function to parent component

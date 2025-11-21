@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useResourceRouter } from "@/hooks/use-resource-segment"
+import { useResourceNavigation } from "@/features/admin/resources/hooks"
 import { formatDateVi } from "../utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query-keys"
@@ -34,15 +34,11 @@ export interface CategoryDetailClientProps {
 }
 
 export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/categories" }: CategoryDetailClientProps) {
-  const router = useResourceRouter()
   const queryClient = useQueryClient()
-
-  const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
-    await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
-    await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "all" })
-  }
+  const { navigateBack, router } = useResourceNavigation({
+    queryClient,
+    invalidateQueryKey: queryKeys.adminCategories.all(),
+  })
 
   const detailFields: ResourceDetailField<CategoryDetailData>[] = []
 
@@ -122,7 +118,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       description={`Chi tiết danh mục ${category.slug}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
-      onBack={handleBack}
+      onBack={() => navigateBack(backUrl)}
       actions={
         <Button
           variant="outline"

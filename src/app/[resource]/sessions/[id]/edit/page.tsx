@@ -51,6 +51,10 @@ async function SessionEditContent({ sessionId }: { sessionId: string }) {
 export default async function SessionEditPage({ params }: SessionEditPageProps) {
   const { id } = await params
   
+  // Fetch session data từ cache để hiển thị tên trong breadcrumb
+  const session = await getSessionDetailById(id)
+  const sessionName = session?.userEmail || session?.userId || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Session")
   if (!validatedId) {
@@ -59,6 +63,7 @@ export default async function SessionEditPage({ params }: SessionEditPageProps) 
         <AdminHeader
           breadcrumbs={[
             { label: "Session", href: "/admin/sessions" },
+            { label: sessionName, href: `/admin/sessions/${id}` },
             { label: "Chỉnh sửa", href: `/admin/sessions/${id}/edit` },
           ]}
         />
@@ -81,6 +86,7 @@ export default async function SessionEditPage({ params }: SessionEditPageProps) 
       <AdminHeader
         breadcrumbs={[
           { label: "Session", href: "/admin/sessions" },
+          { label: sessionName, href: `/admin/sessions/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

@@ -54,6 +54,11 @@ async function StudentEditContent({ studentId }: { studentId: string }) {
 export default async function StudentEditPage({ params }: StudentEditPageProps) {
   const { id } = await params
   
+  // Fetch student data từ cache để hiển thị tên trong breadcrumb
+  const { actorId, isSuperAdminUser } = await getAuthInfo()
+  const student = await getStudentDetailById(id, actorId, isSuperAdminUser)
+  const studentName = student?.name || student?.studentCode || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Học sinh")
   if (!validatedId) {
@@ -62,6 +67,7 @@ export default async function StudentEditPage({ params }: StudentEditPageProps) 
         <AdminHeader
           breadcrumbs={[
             { label: "Học sinh", href: "/admin/students" },
+            { label: studentName, href: `/admin/students/${id}` },
             { label: "Chỉnh sửa", href: `/admin/students/${id}/edit` },
           ]}
         />
@@ -84,6 +90,7 @@ export default async function StudentEditPage({ params }: StudentEditPageProps) 
       <AdminHeader
         breadcrumbs={[
           { label: "Học sinh", href: "/admin/students" },
+          { label: studentName, href: `/admin/students/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

@@ -8,10 +8,11 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useResourceRouter } from "@/hooks/use-resource-segment"
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { isSuperAdmin } from "@/lib/permissions"
 import { useRoles } from "../hooks/use-roles"
 import { normalizeRoleIds, type Role } from "../utils"
@@ -52,10 +53,10 @@ export function UserEditClient({
   roles: rolesFromServer,
 }: UserEditClientProps) {
   const { data: session } = useSession()
+  const queryClient = useQueryClient()
   const currentUserRoles = session?.roles || []
   const isSuperAdminUser = isSuperAdmin(currentUserRoles)
   const { roles } = useRoles({ initialRoles: rolesFromServer })
-  const router = useResourceRouter()
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.users.update(id),
@@ -88,10 +89,17 @@ export function UserEditClient({
       return submitData
     },
     onSuccess: async () => {
-      onSuccess?.()
-      if (variant === "page" && userId) {
-        router.refresh()
+      // Invalidate React Query cache để cập nhật danh sách users
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "all" })
+      // Invalidate detail query nếu có userId
+      const targetUserId = userId || user?.id
+      if (targetUserId) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.detail(targetUserId) })
       }
+      // Refetch để đảm bảo data mới nhất
+      await queryClient.refetchQueries({ queryKey: queryKeys.adminUsers.all(), type: "all" })
+      
+      onSuccess?.()
     },
   })
 

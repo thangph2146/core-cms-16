@@ -1,7 +1,6 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
-import { revalidatePath, revalidateTag } from "next/cache"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { logger } from "@/lib/config"
@@ -21,6 +20,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { emitTagUpsert, emitTagRemove } from "./events"
@@ -71,13 +72,12 @@ export async function createTag(ctx: AuthContext, input: CreateTagInput): Promis
 
   const sanitized = sanitizeTag(tag)
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "tags",
+    id: sanitized.id,
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket event for real-time updates
   await emitTagUpsert(sanitized.id, null)
@@ -167,15 +167,12 @@ export async function updateTag(ctx: AuthContext, id: string, input: UpdateTagIn
 
   const sanitized = sanitizeTag(tag)
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  revalidatePath(`/admin/tags/${id}`, "page")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag(`tag-${id}`, {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({
+    resource: "tags",
+    id,
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Determine previous status for socket event
   const previousStatus: "active" | "deleted" | null = existing.deletedAt ? "deleted" : "active"
@@ -213,13 +210,12 @@ export async function softDeleteTag(ctx: AuthContext, id: string): Promise<void>
     },
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "tags",
+    id,
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket event for real-time updates
   await emitTagUpsert(id, "active")
@@ -301,13 +297,11 @@ export async function bulkSoftDeleteTags(ctx: AuthContext, ids: string[]): Promi
     found: tags.length,
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "tags",
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -350,13 +344,12 @@ export async function restoreTag(ctx: AuthContext, id: string): Promise<void> {
     },
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "tags",
+    id,
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket event for real-time updates
   await emitTagUpsert(id, "deleted")
@@ -476,13 +469,11 @@ export async function bulkRestoreTags(ctx: AuthContext, ids: string[]): Promise<
     tagsToRestoreIds: tagsToRestore.map((t) => t.id),
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "tags",
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -547,12 +538,11 @@ export async function hardDeleteTag(ctx: AuthContext, id: string): Promise<void>
     where: { id },
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tag 'tags' và tag cụ thể
-  await revalidateTag("tags", {})
-  await revalidateTag(`tag-${id}`, {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "tags",
+    id,
+  })
 
   // Emit socket event for real-time updates
   emitTagRemove(id, previousStatus)
@@ -610,13 +600,11 @@ export async function bulkHardDeleteTags(ctx: AuthContext, ids: string[]): Promi
     found: tags.length,
   })
 
-  // Revalidate cache để cập nhật danh sách tags
-  revalidatePath("/admin/tags", "page")
-  revalidatePath("/admin/tags", "layout")
-  // Invalidate unstable_cache với tất cả tags liên quan
-  await revalidateTag("tags", {})
-  await revalidateTag("tag-options", {})
-  await revalidateTag("active-tags", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "tags",
+    additionalTags: ["tag-options", "active-tags"],
+  })
 
   // Emit socket events và notifications realtime cho từng tag đã được xóa
   // Emit socket events để update UI - fire and forget để tránh timeout

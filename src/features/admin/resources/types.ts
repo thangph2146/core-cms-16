@@ -1,6 +1,8 @@
 import type { ReactNode } from "react"
 import type { DataTableColumn, DataTableResult, DataTableQueryState } from "@/components/tables"
 
+export type ResourceRefreshHandler = () => Promise<void> | void
+
 export interface ResourceSelectionContext<T extends object> {
   view: ResourceViewMode<T>
   selectedIds: string[]

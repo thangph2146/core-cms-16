@@ -7,6 +7,7 @@
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
+  serializeDate,
   applyStatusFilter,
   applySearchFilter,
   applyDateFilter,
@@ -95,8 +96,9 @@ export function buildWhereClause(params: ListStudentsInput): Prisma.StudentWhere
 
 /**
  * Serialize student data for DataTable format
+ * Handles both Date objects and date strings (from cache serialization)
  */
-export function serializeStudentForTable(student: ListedStudent): StudentRow {
+export function serializeStudentForTable(student: ListedStudent | { id: string; userId: string | null; name: string | null; email: string | null; studentCode: string; isActive: boolean; createdAt: Date | string; deletedAt: Date | string | null }): StudentRow {
   return {
     id: student.id,
     userId: student.userId,
@@ -104,8 +106,8 @@ export function serializeStudentForTable(student: ListedStudent): StudentRow {
     email: student.email,
     studentCode: student.studentCode,
     isActive: student.isActive,
-    createdAt: student.createdAt,
-    deletedAt: student.deletedAt,
+    createdAt: serializeDate(student.createdAt)!,
+    deletedAt: serializeDate(student.deletedAt),
   }
 }
 
@@ -133,9 +135,9 @@ export function serializeStudentDetail(student: StudentDetail) {
     email: student.email,
     studentCode: student.studentCode,
     isActive: student.isActive,
-    createdAt: student.createdAt,
-    updatedAt: student.updatedAt,
-    deletedAt: student.deletedAt,
+    createdAt: serializeDate(student.createdAt)!,
+    updatedAt: serializeDate(student.updatedAt)!,
+    deletedAt: serializeDate(student.deletedAt),
     userName: student.userName,
     userEmail: student.userEmail,
   }

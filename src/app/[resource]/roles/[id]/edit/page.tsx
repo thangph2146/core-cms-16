@@ -51,6 +51,10 @@ export default async function RoleEditPage({
 }) {
   const { id } = await params
   
+  // Fetch role data từ cache để hiển thị tên trong breadcrumb
+  const role = await getRoleDetailById(id)
+  const roleName = role?.displayName || role?.name || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Vai trò")
   if (!validatedId) {
@@ -59,6 +63,7 @@ export default async function RoleEditPage({
         <AdminHeader
           breadcrumbs={[
             { label: "Vai trò", href: "/admin/roles" },
+            { label: roleName, href: `/admin/roles/${id}` },
             { label: "Chỉnh sửa", href: `/admin/roles/${id}/edit` },
           ]}
         />
@@ -81,6 +86,7 @@ export default async function RoleEditPage({
       <AdminHeader
         breadcrumbs={[
           { label: "Vai trò", href: "/admin/roles" },
+          { label: roleName, href: `/admin/roles/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

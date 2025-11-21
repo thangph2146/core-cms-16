@@ -3,11 +3,13 @@
  * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
+import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import { logger } from "@/lib/config"
 import type { RoleRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
@@ -22,11 +24,6 @@ interface UseRoleActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
-interface BulkProcessingState {
-  isProcessing: boolean
-  ref: React.MutableRefObject<boolean>
-}
-
 export function useRoleActions({
   canDelete,
   canRestore,
@@ -35,32 +32,15 @@ export function useRoleActions({
   showFeedback,
 }: UseRoleActionsOptions) {
   const queryClient = useQueryClient()
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
-  const isBulkProcessingRef = useRef(false)
   const [togglingRoles, setTogglingRoles] = useState<Set<string>>(new Set())
   const [deletingRoles, setDeletingRoles] = useState<Set<string>>(new Set())
   const [restoringRoles, setRestoringRoles] = useState<Set<string>>(new Set())
   const [hardDeletingRoles, setHardDeletingRoles] = useState<Set<string>>(new Set())
 
-  const bulkState: BulkProcessingState = {
-    isProcessing: isBulkProcessing,
-    ref: isBulkProcessingRef,
-  }
-
-  const startBulkProcessing = useCallback(() => {
-    if (isBulkProcessingRef.current) return false
-    isBulkProcessingRef.current = true
-    setIsBulkProcessing(true)
-    return true
-  }, [])
-
-  const stopBulkProcessing = useCallback(() => {
-    isBulkProcessingRef.current = false
-    setIsBulkProcessing(false)
-  }, [])
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
 
   const handleToggleStatus = useCallback(
-    async (row: RoleRow, newStatus: boolean, refresh: () => void) => {
+    async (row: RoleRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canManage) {
         showFeedback("error", ROLE_MESSAGES.NO_PERMISSION, ROLE_MESSAGES.NO_MANAGE_PERMISSION)
         return
@@ -98,9 +78,7 @@ export function useRoleActions({
           ROLE_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} vai trò ${row.displayName}`
         )
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "roles" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -129,7 +107,7 @@ export function useRoleActions({
     async (
       action: "delete" | "restore" | "hard-delete",
       row: RoleRow,
-      refresh: () => void
+      refresh: ResourceRefreshHandler
     ): Promise<void> => {
       const actionConfig = {
         delete: {
@@ -188,9 +166,7 @@ export function useRoleActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        await runResourceRefresh({ refresh, resource: "roles" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -207,14 +183,14 @@ export function useRoleActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -234,9 +210,13 @@ export function useRoleActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Invalidate queries trước để đảm bảo cache được clear
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
+        // Refetch ngay để đảm bảo data mới nhất
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
+        
+        // Gọi refresh để trigger table reload
+        await runResourceRefresh({ refresh, resource: "roles" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -252,7 +232,7 @@ export function useRoleActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

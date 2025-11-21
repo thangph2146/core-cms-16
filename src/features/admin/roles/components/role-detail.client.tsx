@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useResourceRouter } from "@/hooks/use-resource-segment"
+import { useResourceNavigation } from "@/features/admin/resources/hooks"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { getAllPermissionsOptionGroups } from "../form-fields"
@@ -52,16 +52,12 @@ export interface RoleDetailClientProps {
 }
 
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
-  const router = useResourceRouter()
   const queryClient = useQueryClient()
+  const { navigateBack, router } = useResourceNavigation({
+    queryClient,
+    invalidateQueryKey: queryKeys.adminRoles.all(),
+  })
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
-
-  const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
-    await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
-    await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
-  }
 
   // Get grouped permissions
   const permissionsGroups = getAllPermissionsOptionGroups()
@@ -308,7 +304,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       description={`Chi tiết vai trò ${role.name}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
-      onBack={handleBack}
+      onBack={() => navigateBack(backUrl)}
       actions={
         <Button
           variant="outline"

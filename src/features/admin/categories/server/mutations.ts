@@ -1,7 +1,6 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
-import { revalidatePath, revalidateTag } from "next/cache"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
 import { logger } from "@/lib/config"
@@ -20,6 +19,8 @@ import {
   ForbiddenError,
   NotFoundError,
   ensurePermission,
+  invalidateResourceCache,
+  invalidateResourceCacheBulk,
   type AuthContext,
 } from "@/features/admin/resources/server"
 import { z } from "zod"
@@ -85,13 +86,12 @@ export async function createCategory(ctx: AuthContext, input: z.infer<typeof Cre
     }
   )
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "categories",
+    id: sanitized.id,
+    additionalTags: ["category-options", "active-categories"],
+  })
 
   return sanitized
 }
@@ -172,7 +172,6 @@ export async function updateCategory(ctx: AuthContext, id: string, input: z.infe
   const category = await prisma.category.update({
     where: { id },
     data: updateData,
-    include: { posts: false }, // No relations needed for now, but to match return type if needed
   })
 
   const sanitized = sanitizeCategory(category)
@@ -193,15 +192,12 @@ export async function updateCategory(ctx: AuthContext, id: string, input: z.infe
     Object.keys(changes).length > 0 ? changes : undefined
   )
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  revalidatePath(`/admin/categories/${id}`, "page")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag(`category-${id}`, {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
+  await invalidateResourceCache({
+    resource: "categories",
+    id,
+    additionalTags: ["category-options", "active-categories"],
+  })
 
   return sanitized
 }
@@ -235,13 +231,12 @@ export async function softDeleteCategory(ctx: AuthContext, id: string): Promise<
     }
   )
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "categories",
+    id,
+    additionalTags: ["category-options", "active-categories"],
+  })
 }
 
 export async function bulkSoftDeleteCategories(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -297,13 +292,11 @@ export async function bulkSoftDeleteCategories(ctx: AuthContext, ids: string[]):
     },
   })
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "categories",
+    additionalTags: ["category-options", "active-categories"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -360,13 +353,12 @@ export async function restoreCategory(ctx: AuthContext, id: string): Promise<voi
     }
   )
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "categories",
+    id,
+    additionalTags: ["category-options", "active-categories"],
+  })
 }
 
 export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -377,9 +369,13 @@ export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Pr
   }
 
   // Tìm tất cả categories được request để phân loại trạng thái
+  // Prisma findMany mặc định KHÔNG filter theo deletedAt, nên sẽ tìm thấy cả soft-deleted và active categories
+  // Nhưng KHÔNG tìm thấy hard-deleted categories (đã bị xóa vĩnh viễn khỏi database)
+  // Sử dụng findMany mà KHÔNG filter theo deletedAt để tìm được tất cả categories (kể cả đã bị soft delete)
   const allRequestedCategories = await prisma.category.findMany({
     where: {
       id: { in: ids },
+      // KHÔNG filter theo deletedAt ở đây để tìm được cả soft-deleted và active categories
     },
     select: { id: true, name: true, slug: true, deletedAt: true },
   })
@@ -423,13 +419,11 @@ export async function bulkRestoreCategories(ctx: AuthContext, ids: string[]): Pr
     },
   })
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache với tất cả categories liên quan
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "categories",
+    additionalTags: ["category-options", "active-categories"],
+  })
 
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -503,14 +497,12 @@ export async function hardDeleteCategory(ctx: AuthContext, id: string): Promise<
     category
   )
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("categories", {})
-  await revalidateTag(`category-${id}`, {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache
+  await invalidateResourceCache({
+    resource: "categories",
+    id,
+    additionalTags: ["category-options", "active-categories"],
+  })
 }
 
 export async function bulkHardDeleteCategories(ctx: AuthContext, ids: string[]): Promise<BulkActionResult> {
@@ -559,13 +551,11 @@ export async function bulkHardDeleteCategories(ctx: AuthContext, ids: string[]):
     }
   }
 
-  // Revalidate cache để cập nhật danh sách categories
-  revalidatePath("/admin/categories", "page")
-  revalidatePath("/admin/categories", "layout")
-  // Invalidate unstable_cache
-  await revalidateTag("categories", {})
-  await revalidateTag("category-options", {})
-  await revalidateTag("active-categories", {})
+  // Invalidate cache cho bulk operation
+  await invalidateResourceCacheBulk({
+    resource: "categories",
+    additionalTags: ["category-options", "active-categories"],
+  })
 
   return { success: true, message: `Đã xóa vĩnh viễn ${result.count} danh mục${result.count < categories.length ? ` (${categories.length - result.count} danh mục không tồn tại)` : ""}`, affected: result.count }
 }

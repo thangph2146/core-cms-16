@@ -7,7 +7,13 @@
 
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
-import { validatePagination, buildPagination } from "@/features/admin/resources/server"
+import {
+  validatePagination,
+  buildPagination,
+  applyColumnOptionsStatusFilter,
+  applyColumnOptionsSearchFilter,
+  mapToColumnOptions,
+} from "@/features/admin/resources/server"
 import { mapTagRecord, buildWhereClause } from "./helpers"
 import type { ListTagsInput, TagDetail, ListTagsResult } from "../types"
 
@@ -39,22 +45,22 @@ export async function getTagColumnOptions(
   search?: string,
   limit: number = 50
 ): Promise<Array<{ label: string; value: string }>> {
-  const where: Prisma.TagWhereInput = {
-    deletedAt: null, // Only active tags
-  }
+  const where: Prisma.TagWhereInput = {}
 
-  // Add search filter if provided
+  // Apply status filter (default: active - column options thường chỉ cần active items)
+  applyColumnOptionsStatusFilter(where, "active")
+
+  // Apply search filter based on column
   if (search && search.trim()) {
-    const searchValue = search.trim()
     switch (column) {
       case "name":
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
         break
       case "slug":
-        where.slug = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "slug")
         break
       default:
-        where.name = { contains: searchValue, mode: "insensitive" }
+        applyColumnOptionsSearchFilter(where, search, "name")
     }
   }
 
@@ -79,18 +85,7 @@ export async function getTagColumnOptions(
   })
 
   // Map results to options format
-  return results
-    .map((item) => {
-      const value = item[column as keyof typeof item]
-      if (typeof value === "string" && value.trim()) {
-        return {
-          label: value,
-          value: value,
-        }
-      }
-      return null
-    })
-    .filter((item): item is { label: string; value: string } => item !== null)
+  return mapToColumnOptions(results, column)
 }
 
 export async function getTagById(id: string): Promise<TagDetail | null> {
