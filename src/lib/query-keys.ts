@@ -211,6 +211,10 @@ export const queryKeys = {
     list: (params: AdminRolesListParams): readonly unknown[] => {
       return ["adminRoles", normalizeListParams(params)]
     },
+    /**
+     * Role detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["adminRoles", "detail", id],
   },
 
   /**
