@@ -32,18 +32,21 @@ export interface TagDetailClientProps {
   backUrl?: string
 }
 
+// Module-level Set để track các tagId đã log (tránh duplicate trong React Strict Mode)
+const loggedTagIds = new Set<string>()
+
 export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDetailClientProps) {
   const queryClient = useQueryClient()
-  const hasLoggedRef = useRef(false)
   const { navigateBack, router } = useResourceNavigation({
     queryClient,
     invalidateQueryKey: queryKeys.adminTags.all(),
   })
 
-  // Log detail load một lần (chỉ log khi tagId thay đổi)
+  // Log detail load một lần cho mỗi tagId (tránh duplicate trong React Strict Mode)
   useEffect(() => {
-    if (hasLoggedRef.current) return
-    hasLoggedRef.current = true
+    const logKey = `tags-detail-${tagId}`
+    if (loggedTagIds.has(logKey)) return
+    loggedTagIds.add(logKey)
     
     resourceLogger.detailAction({
       resource: "tags",
@@ -63,7 +66,15 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
         deletedAt: tag.deletedAt,
       },
     })
-  }, [tagId]) // Chỉ depend vào tagId để tránh log duplicate khi tag object thay đổi
+
+    // Cleanup khi component unmount hoặc tagId thay đổi
+    return () => {
+      // Chỉ cleanup sau một khoảng thời gian để tránh log lại khi navigate nhanh
+      setTimeout(() => {
+        loggedTagIds.delete(logKey)
+      }, 1000)
+    }
+  }, [tagId, tag.id, tag.name, tag.slug, tag.createdAt, tag.updatedAt, tag.deletedAt])
 
   const detailFields: ResourceDetailField<TagDetailData>[] = []
 

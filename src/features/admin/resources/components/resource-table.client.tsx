@@ -82,13 +82,18 @@ export function ResourceTableClient<T extends object>({
     })
   }, [])
 
-  // Expose refresh function to parent component (chỉ gọi một lần)
+  // Expose refresh function to parent component (chỉ gọi một lần, tránh duplicate trong React Strict Mode)
   const onRefreshReadyRef = useRef(onRefreshReady)
+  const exposedRefs = useRef<Set<string>>(new Set())
   useEffect(() => {
     onRefreshReadyRef.current = onRefreshReady
   }, [onRefreshReady])
 
   useEffect(() => {
+    // Sử dụng component instance ID để track (mỗi component instance có unique ID)
+    const instanceId = `refresh-${handleRefresh.toString().slice(0, 20)}`
+    if (exposedRefs.current.has(instanceId)) return
+    exposedRefs.current.add(instanceId)
     onRefreshReadyRef.current?.(handleRefresh)
   }, [handleRefresh])
 

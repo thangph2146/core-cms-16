@@ -34,6 +34,10 @@ import { useTagRowActions } from "@/features/admin/tags/utils/row-actions"
 import type { AdminTagsListParams } from "@/lib/query-keys"
 import type { TagRow, TagsResponse, TagsTableClientProps } from "../types"
 import { TAG_CONFIRM_MESSAGES, TAG_LABELS } from "../constants/messages"
+
+// Module-level Set để track các table keys đã log (tránh duplicate trong React Strict Mode)
+const loggedTableKeys = new Set<string>()
+
 export function TagsTableClient({
   canDelete = false,
   canRestore = false,
@@ -47,10 +51,14 @@ export function TagsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useTagFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useTagDeleteConfirm()
 
-  // Log table load một lần
+  // Log table load một lần (tránh duplicate trong React Strict Mode)
+  const tableLogKey = useMemo(
+    () => `tags-table-${initialData?.page ?? 1}-${initialData?.total ?? 0}`,
+    [initialData?.page, initialData?.total]
+  )
   useEffect(() => {
-    if (hasLoggedRef.current) return
-    hasLoggedRef.current = true
+    if (loggedTableKeys.has(tableLogKey)) return
+    loggedTableKeys.add(tableLogKey)
     
     resourceLogger.tableAction({
       resource: "tags",
@@ -76,7 +84,14 @@ export function TagsTableClient({
         },
       })
     }
-  }, [initialData])
+
+    // Cleanup sau một khoảng thời gian
+    return () => {
+      setTimeout(() => {
+        loggedTableKeys.delete(tableLogKey)
+      }, 1000)
+    }
+  }, [tableLogKey, initialData])
 
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminTags.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
