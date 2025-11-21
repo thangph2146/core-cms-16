@@ -61,6 +61,7 @@ import {
   InsertImageDialog,
   InsertImagePayload,
 } from "@/components/editor/plugins/images-plugin"
+import { Logo } from "../../../../public/svg/Logo"
 
 const imageCache = new Set()
 const RESIZE_HANDLE_HIDE_DELAY = 200
@@ -651,6 +652,37 @@ function BrokenImage(): JSX.Element {
   )
 }
 
+function ImagePlaceholder({
+  width,
+  height,
+}: {
+  width: DimensionValue
+  height: DimensionValue
+}): JSX.Element {
+  const size = typeof width === "number" ? width : typeof height === "number" ? height : 200
+  const displaySize = Math.min(size, 200)
+  
+  return (
+    <div
+      className="flex items-center justify-center bg-gray-100 rounded"
+      style={{
+        width: typeof width === "number" ? width : displaySize,
+        height: typeof height === "number" ? height : displaySize,
+        minWidth: displaySize,
+        minHeight: displaySize,
+      }}
+    >
+      <Logo
+        className="opacity-30"
+        style={{
+          width: displaySize * 0.6,
+          height: displaySize * 0.6,
+        }}
+      />
+    </div>
+  )
+}
+
 function CaptionComposer({
   caption,
   isEditable,
@@ -822,7 +854,16 @@ export default function ImageComponent({
   )
 
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div draggable={draggable}>
+          <ImagePlaceholder
+            width={responsiveDimensions.width}
+            height={responsiveDimensions.height}
+          />
+        </div>
+      }
+    >
       <>
         <div draggable={draggable}>
           {isLoadError ? (
