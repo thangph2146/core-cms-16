@@ -12,6 +12,7 @@ import type { CommentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { COMMENT_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UseCommentActionsOptions {
   canApprove: boolean
@@ -180,7 +181,7 @@ export function useCommentActions({
         const errorMessage = error instanceof Error ? error.message : COMMENT_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} comment`, error)
+          logger.error(`Failed to ${action} comment`, error as Error)
         } else {
           throw error
         }

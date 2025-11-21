@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
+import { logger } from "@/lib/config"
 import type { RoleRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
@@ -194,7 +195,7 @@ export function useRoleActions({
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} role`, error)
+          logger.error(`Failed to ${action} role`, error as Error)
         } else {
           throw error
         }

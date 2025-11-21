@@ -1,9 +1,11 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { PERMISSIONS } from "@/lib/permissions"
 import { isSuperAdmin } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapPostRecord, type PostWithAuthor } from "./helpers"
 import {
   ApplicationError,
@@ -19,7 +21,9 @@ import { createPostSchema, updatePostSchema, type CreatePostSchema, type UpdateP
 export { ApplicationError, ForbiddenError, NotFoundError, type AuthContext }
 
 export interface BulkActionResult {
-  count: number
+  success: boolean
+  message: string
+  affected: number
 }
 
 function sanitizePost(post: PostWithAuthor) {
@@ -46,29 +50,74 @@ export async function createPost(ctx: AuthContext, input: CreatePostSchema) {
   // If published, set publishedAt to now if not provided
   const publishedAt = validated.published && !validated.publishedAt ? new Date() : validated.publishedAt
 
-  const post = await prisma.post.create({
-    data: {
-      title: validated.title,
-      content: validated.content as Prisma.InputJsonValue,
-      excerpt: validated.excerpt,
-      slug: validated.slug,
-      image: validated.image,
-      published: validated.published ?? false,
-      publishedAt: publishedAt,
-      authorId: validated.authorId,
-    },
-    include: {
-      author: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
+  // Create post with categories and tags using transaction
+  const post = await prisma.$transaction(async (tx) => {
+    // Create post first
+    const createdPost = await tx.post.create({
+      data: {
+        title: validated.title,
+        content: validated.content as Prisma.InputJsonValue,
+        excerpt: validated.excerpt,
+        slug: validated.slug,
+        image: validated.image,
+        published: validated.published ?? false,
+        publishedAt: publishedAt,
+        authorId: validated.authorId,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
       },
-    },
+    })
+
+    // Create categories if provided
+    if (validated.categoryIds && validated.categoryIds.length > 0) {
+      await tx.postCategory.createMany({
+        data: validated.categoryIds.map((categoryId) => ({
+          postId: createdPost.id,
+          categoryId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    // Create tags if provided
+    if (validated.tagIds && validated.tagIds.length > 0) {
+      await tx.postTag.createMany({
+        data: validated.tagIds.map((tagId) => ({
+          postId: createdPost.id,
+          tagId,
+        })),
+        skipDuplicates: true,
+      })
+    }
+
+    return createdPost
   })
 
   const sanitized = sanitizePost(post as PostWithAuthor)
+
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+
+  // Revalidate public cache nếu bài viết đã được publish
+  if (post.published && post.publishedAt) {
+    // Revalidate cache tags (unstable_cache)
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${post.slug}`, {})
+    await revalidateTag("categories", {}) // Categories cũng có thể thay đổi
+    
+    // Revalidate public paths
+    revalidatePath("/bai-viet", "page")
+    revalidatePath("/bai-viet", "layout")
+    revalidatePath(`/bai-viet/${post.slug}`, "page")
+  }
 
   // Emit socket event for real-time updates
   await emitPostUpsert(sanitized.id, null)
@@ -133,21 +182,93 @@ export async function updatePost(
     }
   }
 
-  const post = await prisma.post.update({
-    where: { id: postId },
-    data: updateData,
-    include: {
-      author: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
+  // Handle categories and tags update using transaction
+  const post = await prisma.$transaction(async (tx) => {
+    // Update post basic fields
+    const updatedPost = await tx.post.update({
+      where: { id: postId },
+      data: updateData,
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
       },
-    },
+    })
+
+    // Handle categories update
+    if (validated.categoryIds !== undefined) {
+      // Delete existing categories
+      await tx.postCategory.deleteMany({
+        where: { postId },
+      })
+      // Create new categories
+      if (validated.categoryIds.length > 0) {
+        await tx.postCategory.createMany({
+          data: validated.categoryIds.map((categoryId) => ({
+            postId,
+            categoryId,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
+    // Handle tags update
+    if (validated.tagIds !== undefined) {
+      // Delete existing tags
+      await tx.postTag.deleteMany({
+        where: { postId },
+      })
+      // Create new tags
+      if (validated.tagIds.length > 0) {
+        await tx.postTag.createMany({
+          data: validated.tagIds.map((tagId) => ({
+            postId,
+            tagId,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
+    return updatedPost
   })
 
   const sanitized = sanitizePost(post as PostWithAuthor)
+
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+  revalidatePath(`/admin/posts/${postId}`, "page")
+
+  // Revalidate public cache nếu bài viết đã được publish
+  if (post.published && post.publishedAt) {
+    // Revalidate cache tags (unstable_cache)
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${post.slug}`, {})
+    await revalidateTag("categories", {}) // Categories cũng có thể thay đổi
+    
+    // Revalidate slug cũ nếu slug đã thay đổi
+    if (validated.slug && validated.slug !== existing.slug) {
+      await revalidateTag(`post-${existing.slug}`, {})
+      revalidatePath(`/bai-viet/${existing.slug}`, "page")
+    }
+    
+    // Revalidate public paths
+    revalidatePath("/bai-viet", "page")
+    revalidatePath("/bai-viet", "layout")
+    revalidatePath(`/bai-viet/${post.slug}`, "page")
+  } else if (existing.published && existing.publishedAt) {
+    // Nếu bài viết đã được unpublish, vẫn cần revalidate để xóa khỏi public
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${existing.slug}`, {})
+    revalidatePath("/bai-viet", "page")
+    revalidatePath(`/bai-viet/${existing.slug}`, "page")
+  }
 
   // Determine previous status for socket event
   const previousStatus: "active" | "deleted" | null = existing.deletedAt ? "deleted" : "active"
@@ -171,6 +292,18 @@ export async function deletePost(ctx: AuthContext, postId: string) {
     data: { deletedAt: new Date() },
   })
 
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+
+  // Revalidate public cache nếu bài viết đã được publish
+  if (existing.published && existing.publishedAt) {
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${existing.slug}`, {})
+    revalidatePath("/bai-viet", "page")
+    revalidatePath(`/bai-viet/${existing.slug}`, "page")
+  }
+
   // Emit socket event for real-time updates
   await emitPostUpsert(postId, "active")
 
@@ -190,6 +323,18 @@ export async function restorePost(ctx: AuthContext, postId: string) {
     data: { deletedAt: null },
   })
 
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+
+  // Revalidate public cache nếu bài viết đã được publish
+  if (existing.published && existing.publishedAt) {
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${existing.slug}`, {})
+    revalidatePath("/bai-viet", "page")
+    revalidatePath(`/bai-viet/${existing.slug}`, "page")
+  }
+
   // Emit socket event for real-time updates
   await emitPostUpsert(postId, "deleted")
 
@@ -208,6 +353,18 @@ export async function hardDeletePost(ctx: AuthContext, postId: string) {
   const previousStatus: "active" | "deleted" = existing.deletedAt ? "deleted" : "active"
 
   await prisma.post.delete({ where: { id: postId } })
+
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+
+  // Revalidate public cache nếu bài viết đã được publish
+  if (existing.published && existing.publishedAt) {
+    await revalidateTag("posts", {})
+    await revalidateTag(`post-${existing.slug}`, {})
+    revalidatePath("/bai-viet", "page")
+    revalidatePath(`/bai-viet/${existing.slug}`, "page")
+  }
 
   // Emit socket event for real-time updates
   emitPostRemove(postId, previousStatus)
@@ -233,16 +390,16 @@ export async function bulkPostsAction(
   }
 
   let count = 0
-  let posts: Array<{ id: string; deletedAt: Date | null }> = []
+  let posts: Array<{ id: string; deletedAt: Date | null; slug: string; published: boolean; publishedAt: Date | null }> = []
 
   if (action === "delete") {
-    // Lấy thông tin posts trước khi delete để emit socket events
+    // Lấy thông tin posts trước khi delete để emit socket events và revalidate cache
     posts = await prisma.post.findMany({
       where: {
         id: { in: postIds },
         deletedAt: null,
       },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, slug: true, published: true, publishedAt: true },
     })
 
     count = (
@@ -258,7 +415,7 @@ export async function bulkPostsAction(
       // Emit events song song và await tất cả để đảm bảo hoàn thành
       const emitPromises = posts.map((post) => 
         emitPostUpsert(post.id, "active").catch((error) => {
-          console.error(`Failed to emit post:upsert for ${post.id}:`, error)
+          logger.error(`Failed to emit post:upsert for ${post.id}`, error as Error)
           return null // Return null để Promise.allSettled không throw
         })
       )
@@ -266,21 +423,75 @@ export async function bulkPostsAction(
       await Promise.allSettled(emitPromises)
     }
   } else if (action === "restore") {
-    // Lấy thông tin posts trước khi restore để emit socket events
-    posts = await prisma.post.findMany({
+    // Tìm tất cả posts được request để phân loại trạng thái
+    const allRequestedPosts = await prisma.post.findMany({
       where: {
         id: { in: postIds },
-        deletedAt: { not: null },
       },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, slug: true, published: true, publishedAt: true, createdAt: true },
     })
 
+    // Phân loại posts
+    const softDeletedPosts = allRequestedPosts.filter((post) => post.deletedAt !== null)
+    const activePosts = allRequestedPosts.filter((post) => post.deletedAt === null)
+    const notFoundCount = postIds.length - allRequestedPosts.length
+
+    // Log chi tiết để debug
+    logger.debug("bulkPostsAction restore: Post status analysis", {
+      requested: postIds.length,
+      found: allRequestedPosts.length,
+      softDeleted: softDeletedPosts.length,
+      active: activePosts.length,
+      notFound: notFoundCount,
+      requestedIds: postIds,
+      foundIds: allRequestedPosts.map((p) => p.id),
+      softDeletedIds: softDeletedPosts.map((p) => p.id),
+      activeIds: activePosts.map((p) => p.id),
+      softDeletedDetails: softDeletedPosts.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        deletedAt: p.deletedAt,
+        createdAt: p.createdAt,
+      })),
+    })
+
+    // Nếu không có post nào đã bị soft delete, trả về message chi tiết
+    if (softDeletedPosts.length === 0) {
+      const parts: string[] = []
+      if (activePosts.length > 0) {
+        parts.push(`${activePosts.length} bài viết đang hoạt động`)
+      }
+      if (notFoundCount > 0) {
+        parts.push(`${notFoundCount} bài viết không tồn tại (đã bị xóa vĩnh viễn)`)
+      }
+
+      const message = parts.length > 0
+        ? `Không có bài viết nào để khôi phục (${parts.join(", ")})`
+        : `Không tìm thấy bài viết nào để khôi phục`
+
+      return { 
+        success: true, 
+        message, 
+        affected: 0,
+      }
+    }
+
+    // Chỉ restore các posts đã bị soft delete
+    posts = softDeletedPosts
     count = (
       await prisma.post.updateMany({
-        where: { id: { in: postIds }, deletedAt: { not: null } },
+        where: { 
+          id: { in: softDeletedPosts.map((p) => p.id) },
+          deletedAt: { not: null },
+        },
         data: { deletedAt: null },
       })
     ).count
+
+    logger.debug("bulkPostsAction restore: Restored posts", {
+      restoredCount: count,
+      totalSoftDeletedFound: softDeletedPosts.length,
+    })
 
     // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
     // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
@@ -288,7 +499,7 @@ export async function bulkPostsAction(
       // Emit events song song và await tất cả để đảm bảo hoàn thành
       const emitPromises = posts.map((post) => 
         emitPostUpsert(post.id, "deleted").catch((error) => {
-          console.error(`Failed to emit post:upsert for ${post.id}:`, error)
+          logger.error(`Failed to emit post:upsert for ${post.id}`, error as Error)
           return null // Return null để Promise.allSettled không throw
         })
       )
@@ -296,12 +507,12 @@ export async function bulkPostsAction(
       await Promise.allSettled(emitPromises)
     }
   } else if (action === "hard-delete") {
-    // Lấy thông tin posts trước khi delete để emit socket events
+    // Lấy thông tin posts trước khi delete để emit socket events và revalidate cache
     posts = await prisma.post.findMany({
       where: {
         id: { in: postIds },
       },
-      select: { id: true, deletedAt: true },
+      select: { id: true, deletedAt: true, slug: true, published: true, publishedAt: true },
     })
 
     count = (
@@ -318,12 +529,42 @@ export async function bulkPostsAction(
         try {
           emitPostRemove(post.id, previousStatus)
         } catch (error) {
-          console.error(`Failed to emit post:remove for ${post.id}:`, error)
+          logger.error(`Failed to emit post:remove for ${post.id}`, error as Error)
         }
       })
     }
   }
 
-  return { count }
+  // Revalidate admin cache
+  revalidatePath("/admin/posts", "page")
+  revalidatePath("/admin/posts", "layout")
+
+  // Revalidate public cache cho các posts đã được publish
+  const publishedPosts = posts.filter((post) => post.published && post.publishedAt)
+  if (publishedPosts.length > 0) {
+    await revalidateTag("posts", {})
+    // Revalidate từng post slug
+    await Promise.all(
+      publishedPosts.map((post) => revalidateTag(`post-${post.slug}`, {}))
+    )
+    // Revalidate từng post path
+    publishedPosts.forEach((post) => {
+      revalidatePath(`/bai-viet/${post.slug}`, "page")
+    })
+    // Revalidate list page
+    revalidatePath("/bai-viet", "page")
+  }
+
+  // Build success message với số lượng thực tế đã xử lý
+  let successMessage = ""
+  if (action === "restore") {
+    successMessage = `Đã khôi phục ${count} bài viết`
+  } else if (action === "delete") {
+    successMessage = `Đã xóa ${count} bài viết`
+  } else if (action === "hard-delete") {
+    successMessage = `Đã xóa vĩnh viễn ${count} bài viết`
+  }
+
+  return { success: true, message: successMessage, affected: count }
 }
 

@@ -6,6 +6,7 @@
  */
 
 import type { DataTableResult } from "@/components/tables"
+import { logger } from "@/lib/config"
 import { serializeDate } from "@/features/admin/resources/server"
 import type { ListNotificationsResult, ListedNotification } from "./queries"
 import type { NotificationRow } from "../types"
@@ -50,7 +51,7 @@ export function serializeNotificationsList(data: ListNotificationsResult): DataT
         try {
           return serializeNotificationForTable(notification)
         } catch (error) {
-          console.error("Error serializing notification:", error, { notificationId: notification.id })
+          logger.error("Error serializing notification", { notificationId: notification.id, error: error as Error })
           // Return a safe fallback notification
           return {
             id: notification.id,
@@ -70,7 +71,7 @@ export function serializeNotificationsList(data: ListNotificationsResult): DataT
       }),
     }
   } catch (error) {
-    console.error("Error serializing notifications list:", error)
+    logger.error("Error serializing notifications list", { data, error: error as Error })
     // Return empty result on error
     return {
       page: data.pagination?.page ?? 1,

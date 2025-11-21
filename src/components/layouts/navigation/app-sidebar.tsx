@@ -101,12 +101,12 @@ export function AppSidebar({ navMainSlot, ...props }: AppSidebarProps) {
               <TooltipTrigger asChild>
                 <SidebarMenuButton size="lg" asChild>
                   <a href={dashboardHref}>
-                    <div className="bg-white flex aspect-square size-8 items-center justify-center rounded-lg p-1">
+                    <div className="bg-white flex aspect-square size-8 items-center justify-center rounded-lg p-1" suppressHydrationWarning>
                       <Logo className="size-8 text-sidebar-primary-foreground" />
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight" suppressHydrationWarning>
-                      <span className="truncate font-medium">{brandingName}</span>
-                      <span className="truncate text-xs">{brandingDescription}</span>
+                      <span className="truncate font-medium" suppressHydrationWarning>{brandingName}</span>
+                      <span className="truncate text-xs" suppressHydrationWarning>{brandingDescription}</span>
                     </div>
                   </a>
                 </SidebarMenuButton>

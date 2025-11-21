@@ -6,6 +6,7 @@
  */
 
 import type { DataTableResult } from "@/components/tables"
+import { logger } from "@/lib/config"
 
 /**
  * Generic pagination response structure
@@ -27,18 +28,31 @@ export interface ResourceResponse<T> {
 
 /**
  * Serialize date to ISO string
+ * Handles Date objects, date strings, and other date-like values
  */
-export function serializeDate(date: Date | null | undefined): string | null {
+export function serializeDate(date: Date | string | null | undefined): string | null {
   if (!date) return null
+  
   try {
+    // Convert to Date object if it's a string
+    let dateObj: Date
+    if (typeof date === "string") {
+      dateObj = new Date(date)
+    } else if (date instanceof Date) {
+      dateObj = date
+    } else {
+      // Try to convert unknown type to Date
+      dateObj = new Date(date as unknown as string | number)
+    }
+
     // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.warn("Invalid date encountered in serializeDate:", date)
+    if (isNaN(dateObj.getTime())) {
+      logger.warn("Invalid date encountered in serializeDate", { date, type: typeof date })
       return null
     }
-    return date.toISOString()
+    return dateObj.toISOString()
   } catch (error) {
-    console.error("Error serializing date:", error, { date })
+    logger.error("Error serializing date", { date, error: error as Error })
     return null
   }
 }

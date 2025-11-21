@@ -9,6 +9,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { PostRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { POST_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UsePostActionsOptions {
   canDelete: boolean
@@ -114,7 +115,7 @@ export function usePostActions({
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} post`, error)
+          logger.error(`Failed to ${action} post`, error as Error)
         } else {
           throw error
         }
@@ -141,21 +142,33 @@ export function usePostActions({
       if (!startBulkProcessing()) return
 
       try {
-        await apiClient.post(apiRoutes.posts.bulk, { action, ids })
+        const response = await apiClient.post(apiRoutes.posts.bulk, { action, ids })
 
+        const result = response.data?.data
+        const affected = result?.affected ?? 0
+
+        // Nếu không có post nào được xử lý (affected === 0), hiển thị thông báo
+        if (affected === 0) {
+          const actionText = action === "restore" ? "khôi phục" : action === "delete" ? "xóa" : "xóa vĩnh viễn"
+          showFeedback("error", "Không có thay đổi", result?.message || `Không có bài viết nào được ${actionText}`)
+          clearSelection()
+          refresh()
+          return
+        }
+
+        // Hiển thị success message với số lượng thực tế đã xử lý
         const messages = {
-          restore: { title: POST_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} bài viết` },
-          delete: { title: POST_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${ids.length} bài viết` },
-          "hard-delete": { title: POST_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} bài viết` },
+          restore: { title: POST_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${affected} bài viết` },
+          delete: { title: POST_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${affected} bài viết` },
+          "hard-delete": { title: POST_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${affected} bài viết` },
         }
 
         const message = messages[action]
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
+        refresh()
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -171,7 +184,7 @@ export function usePostActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

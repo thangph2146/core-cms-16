@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapUserRecord, type ListedUser, type UserWithRoles } from "./queries"
 import { notifySuperAdminsOfUserAction } from "./notifications"
 import {
@@ -344,7 +345,7 @@ export async function bulkSoftDeleteUsers(ctx: AuthContext, ids: string[]): Prom
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = deletableUsers.map((user) => 
       emitUserUpsert(user.id, "active").catch((error) => {
-        console.error(`Failed to emit user:upsert for ${user.id}:`, error)
+        logger.error(`Failed to emit user:upsert for ${user.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -432,7 +433,7 @@ export async function bulkRestoreUsers(ctx: AuthContext, ids: string[]): Promise
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = users.map((user) => 
       emitUserUpsert(user.id, "deleted").catch((error) => {
-        console.error(`Failed to emit user:upsert for ${user.id}:`, error)
+        logger.error(`Failed to emit user:upsert for ${user.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )

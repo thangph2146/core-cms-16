@@ -73,8 +73,9 @@ export function buildWhereClause(params: ListTagsInput): Prisma.TagWhereInput {
 
 /**
  * Serialize tag data for DataTable format
+ * Handles both Date objects and date strings (from cache serialization)
  */
-export function serializeTagForTable(tag: ListedTag): TagRow {
+export function serializeTagForTable(tag: ListedTag | { id: string; name: string; slug: string; createdAt: Date | string; deletedAt: Date | string | null }): TagRow {
   return {
     id: tag.id,
     name: tag.name,

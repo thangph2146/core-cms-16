@@ -1,8 +1,10 @@
 "use server"
 
 import type { Prisma } from "@prisma/client"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapTagRecord, type TagWithRelations } from "./helpers"
 import type { ListedTag } from "../types"
 import { generateSlug } from "../utils"
@@ -68,6 +70,14 @@ export async function createTag(ctx: AuthContext, input: CreateTagInput): Promis
   })
 
   const sanitized = sanitizeTag(tag)
+
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
 
   // Emit socket event for real-time updates
   await emitTagUpsert(sanitized.id, null)
@@ -157,6 +167,16 @@ export async function updateTag(ctx: AuthContext, id: string, input: UpdateTagIn
 
   const sanitized = sanitizeTag(tag)
 
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  revalidatePath(`/admin/tags/${id}`, "page")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag(`tag-${id}`, {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
   // Determine previous status for socket event
   const previousStatus: "active" | "deleted" | null = existing.deletedAt ? "deleted" : "active"
 
@@ -193,6 +213,14 @@ export async function softDeleteTag(ctx: AuthContext, id: string): Promise<void>
     },
   })
 
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
   // Emit socket event for real-time updates
   await emitTagUpsert(id, "active")
 
@@ -216,6 +244,7 @@ export async function bulkSoftDeleteTags(ctx: AuthContext, ids: string[]): Promi
   }
 
   // Lấy thông tin tags trước khi delete để tạo notifications
+  // Chỉ tìm các tags đang hoạt động (chưa bị xóa)
   const tags = await prisma.tag.findMany({
     where: {
       id: { in: ids },
@@ -224,9 +253,41 @@ export async function bulkSoftDeleteTags(ctx: AuthContext, ids: string[]): Promi
     select: { id: true, name: true, slug: true },
   })
 
+  // Nếu không tìm thấy tag nào, có thể chúng đã bị xóa rồi hoặc không tồn tại
+  if (tags.length === 0) {
+    // Kiểm tra xem có tags nào đã bị soft delete không
+    const deletedTags = await prisma.tag.findMany({
+      where: {
+        id: { in: ids },
+        deletedAt: { not: null },
+      },
+      select: { id: true },
+    })
+
+    if (deletedTags.length > 0) {
+      return { 
+        success: true, 
+        message: `Không có thẻ tag nào để xóa (${deletedTags.length} tag đã bị xóa, ${ids.length - deletedTags.length} tag không tồn tại)`, 
+        affected: 0 
+      }
+    }
+
+    return { 
+      success: true, 
+      message: `Không tìm thấy thẻ tag nào để xóa (có thể đã bị xóa vĩnh viễn)`, 
+      affected: 0 
+    }
+  }
+
+  // Log để debug
+  logger.debug("bulkSoftDeleteTags: Found tags to delete", {
+    found: tags.length,
+    requested: ids.length,
+  })
+
   const result = await prisma.tag.updateMany({
     where: {
-      id: { in: ids },
+      id: { in: tags.map((tag) => tag.id) }, // Chỉ xóa những tags thực sự tồn tại và đang hoạt động
       deletedAt: null,
     },
     data: {
@@ -234,13 +295,27 @@ export async function bulkSoftDeleteTags(ctx: AuthContext, ids: string[]): Promi
     },
   })
 
+  // Log để debug
+  logger.debug("bulkSoftDeleteTags: Deleted tags", {
+    deleted: result.count,
+    found: tags.length,
+  })
+
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
   if (result.count > 0) {
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = tags.map((tag) => 
       emitTagUpsert(tag.id, "active").catch((error) => {
-        console.error(`Failed to emit tag:upsert for ${tag.id}:`, error)
+        logger.error(`Failed to emit tag:upsert for ${tag.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -275,6 +350,14 @@ export async function restoreTag(ctx: AuthContext, id: string): Promise<void> {
     },
   })
 
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
   // Emit socket event for real-time updates
   await emitTagUpsert(id, "deleted")
 
@@ -297,40 +380,125 @@ export async function bulkRestoreTags(ctx: AuthContext, ids: string[]): Promise<
     throw new ApplicationError("Danh sách thẻ tag trống", 400)
   }
 
-  // Lấy thông tin tags trước khi restore để tạo notifications
-  const tags = await prisma.tag.findMany({
+  // Tìm tất cả tags được request để phân loại trạng thái
+  // Prisma findMany mặc định KHÔNG filter theo deletedAt, nên sẽ tìm thấy cả soft-deleted và active tags
+  // Nhưng KHÔNG tìm thấy hard-deleted tags (đã bị xóa vĩnh viễn khỏi database)
+  // Sử dụng findMany mà KHÔNG filter theo deletedAt để tìm được tất cả tags (kể cả đã bị soft delete)
+  const allRequestedTags = await prisma.tag.findMany({
     where: {
       id: { in: ids },
-      deletedAt: { not: null },
+      // KHÔNG filter theo deletedAt ở đây để tìm được cả soft-deleted và active tags
+      // Nếu chỉ muốn tìm soft-deleted, dùng: deletedAt: { not: null }
+      // Nếu chỉ muốn tìm active, dùng: deletedAt: null
+      // Ở đây KHÔNG filter để tìm được tất cả
     },
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, deletedAt: true, createdAt: true },
+  })
+  
+  // Log để debug nếu không tìm thấy tags
+  if (allRequestedTags.length === 0) {
+    logger.warn("bulkRestoreTags: No tags found in database", {
+      requestedIds: ids,
+      totalRequested: ids.length,
+    })
+  }
+
+  // Phân loại tags
+  const softDeletedTags = allRequestedTags.filter((tag) => tag.deletedAt !== null)
+  const activeTags = allRequestedTags.filter((tag) => tag.deletedAt === null)
+  const notFoundCount = ids.length - allRequestedTags.length
+
+  // Log chi tiết để debug
+  logger.debug("bulkRestoreTags: Tag status analysis", {
+    requested: ids.length,
+    found: allRequestedTags.length,
+    softDeleted: softDeletedTags.length,
+    active: activeTags.length,
+    notFound: notFoundCount,
+    requestedIds: ids,
+    foundIds: allRequestedTags.map((t) => t.id),
+    softDeletedIds: softDeletedTags.map((t) => t.id),
+    activeIds: activeTags.map((t) => t.id),
+    softDeletedDetails: softDeletedTags.map((t) => ({
+      id: t.id,
+      name: t.name,
+      deletedAt: t.deletedAt,
+      createdAt: t.createdAt,
+    })),
   })
 
+  // Nếu không có tag nào đã bị soft delete, trả về message chi tiết
+  if (softDeletedTags.length === 0) {
+    const parts: string[] = []
+    if (activeTags.length > 0) {
+      parts.push(`${activeTags.length} tag đang hoạt động`)
+    }
+    if (notFoundCount > 0) {
+      parts.push(`${notFoundCount} tag không tồn tại (đã bị xóa vĩnh viễn)`)
+    }
+
+    const message = parts.length > 0
+      ? `Không có thẻ tag nào để khôi phục (${parts.join(", ")})`
+      : `Không tìm thấy thẻ tag nào để khôi phục`
+
+    return { 
+      success: true, 
+      message, 
+      affected: 0 
+    }
+  }
+
+  // Chỉ restore những tags đã bị soft delete
+  const tagsToRestore = softDeletedTags
+
+  // Log để debug
+  logger.debug("bulkRestoreTags: Restoring tags", {
+    toRestore: tagsToRestore.length,
+    requested: ids.length,
+    tagsToRestoreIds: tagsToRestore.map((t) => t.id),
+  })
+
+  // Chỉ update những tags có ID trong danh sách tags đã bị soft delete
   const result = await prisma.tag.updateMany({
     where: {
-      id: { in: ids },
-      deletedAt: { not: null },
+      id: { in: tagsToRestore.map((tag) => tag.id) }, // Chỉ restore những tags đã bị soft delete
+      deletedAt: { not: null }, // Đảm bảo chỉ restore những tags đã bị soft delete
     },
     data: {
       deletedAt: null,
     },
   })
 
+  // Log để debug
+  logger.debug("bulkRestoreTags: Restore completed", {
+    restored: result.count,
+    expected: tagsToRestore.length,
+    tagsToRestoreIds: tagsToRestore.map((t) => t.id),
+  })
+
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
   // Emit socket events để update UI - await song song để đảm bảo tất cả events được emit
   // Sử dụng Promise.allSettled để không bị fail nếu một event lỗi
   if (result.count > 0) {
     // Emit events song song và await tất cả để đảm bảo hoàn thành
-    const emitPromises = tags.map((tag) => 
+    const emitPromises = tagsToRestore.map((tag) => 
       emitTagUpsert(tag.id, "deleted").catch((error) => {
-        console.error(`Failed to emit tag:upsert for ${tag.id}:`, error)
+        logger.error(`Failed to emit tag:upsert for ${tag.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
     // Await tất cả events nhưng không fail nếu một số lỗi
     await Promise.allSettled(emitPromises)
 
-    // Tạo system notifications cho từng tag
-    for (const tag of tags) {
+    // Tạo system notifications cho từng tag đã được restore
+    for (const tag of tagsToRestore) {
       await notifySuperAdminsOfTagAction(
         "restore",
         ctx.actorId,
@@ -339,7 +507,23 @@ export async function bulkRestoreTags(ctx: AuthContext, ids: string[]): Promise<
     }
   }
 
-  return { success: true, message: `Đã khôi phục ${result.count} thẻ tag`, affected: result.count }
+  // Tạo message chi tiết nếu có tags không thể restore
+  let message = `Đã khôi phục ${result.count} thẻ tag`
+  if (result.count < ids.length) {
+    const skippedCount = ids.length - result.count
+    const skippedParts: string[] = []
+    if (activeTags.length > 0) {
+      skippedParts.push(`${activeTags.length} tag đang hoạt động`)
+    }
+    if (notFoundCount > 0) {
+      skippedParts.push(`${notFoundCount} tag đã bị xóa vĩnh viễn`)
+    }
+    if (skippedParts.length > 0) {
+      message += ` (${skippedCount} tag không thể khôi phục: ${skippedParts.join(", ")})`
+    }
+  }
+
+  return { success: true, message, affected: result.count }
 }
 
 export async function hardDeleteTag(ctx: AuthContext, id: string): Promise<void> {
@@ -362,6 +546,13 @@ export async function hardDeleteTag(ctx: AuthContext, id: string): Promise<void>
   await prisma.tag.delete({
     where: { id },
   })
+
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tag 'tags' và tag cụ thể
+  await revalidateTag("tags", {})
+  await revalidateTag(`tag-${id}`, {})
 
   // Emit socket event for real-time updates
   emitTagRemove(id, previousStatus)
@@ -391,13 +582,43 @@ export async function bulkHardDeleteTags(ctx: AuthContext, ids: string[]): Promi
     select: { id: true, name: true, slug: true, deletedAt: true },
   })
 
+  // Nếu không tìm thấy tag nào, có thể chúng đã bị xóa rồi
+  if (tags.length === 0) {
+    return { 
+      success: true, 
+      message: `Không tìm thấy thẻ tag nào để xóa (có thể đã bị xóa trước đó)`, 
+      affected: 0 
+    }
+  }
+
+  // Log để debug
+  logger.debug("bulkHardDeleteTags: Found tags to delete", {
+    found: tags.length,
+    requested: ids.length,
+  })
+
+  // Xóa tất cả tags (hard delete - xóa cả những tags đã bị soft delete)
   const result = await prisma.tag.deleteMany({
     where: {
-      id: { in: ids },
+      id: { in: tags.map((tag) => tag.id) }, // Chỉ xóa những tags thực sự tồn tại
     },
   })
 
-  // Emit socket events và notifications realtime cho từng tag
+  // Log để debug
+  logger.debug("bulkHardDeleteTags: Deleted tags", {
+    deleted: result.count,
+    found: tags.length,
+  })
+
+  // Revalidate cache để cập nhật danh sách tags
+  revalidatePath("/admin/tags", "page")
+  revalidatePath("/admin/tags", "layout")
+  // Invalidate unstable_cache với tất cả tags liên quan
+  await revalidateTag("tags", {})
+  await revalidateTag("tag-options", {})
+  await revalidateTag("active-tags", {})
+
+  // Emit socket events và notifications realtime cho từng tag đã được xóa
   // Emit socket events để update UI - fire and forget để tránh timeout
   // Emit song song cho tất cả tags đã bị hard delete
   if (result.count > 0) {
@@ -407,7 +628,7 @@ export async function bulkHardDeleteTags(ctx: AuthContext, ids: string[]): Promi
       try {
         emitTagRemove(tag.id, previousStatus)
       } catch (error) {
-        console.error(`Failed to emit tag:remove for ${tag.id}:`, error)
+        logger.error(`Failed to emit tag:remove for ${tag.id}`, error as Error)
       }
     })
 
@@ -421,6 +642,11 @@ export async function bulkHardDeleteTags(ctx: AuthContext, ids: string[]): Promi
     }
   }
 
-  return { success: true, message: `Đã xóa vĩnh viễn ${result.count} thẻ tag`, affected: result.count }
+  // Trả về số lượng tags thực sự đã được xóa
+  return { 
+    success: true, 
+    message: `Đã xóa vĩnh viễn ${result.count} thẻ tag${result.count < tags.length ? ` (${tags.length - result.count} tag không tồn tại)` : ""}`, 
+    affected: result.count 
+  }
 }
 

@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapSessionRecord, type SessionWithRelations } from "./helpers"
 import type { ListedSession } from "../types"
 import type { BulkActionResult } from "../types"
@@ -287,7 +288,7 @@ export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): P
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = ids.map((id) => 
       emitSessionUpsert(id, "active").catch((error) => {
-        console.error(`Failed to emit session:upsert for ${id}:`, error)
+        logger.error(`Failed to emit session:upsert for ${id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -362,7 +363,7 @@ export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Prom
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = ids.map((id) => 
       emitSessionUpsert(id, "deleted").catch((error) => {
-        console.error(`Failed to emit session:upsert for ${id}:`, error)
+        logger.error(`Failed to emit session:upsert for ${id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -470,7 +471,7 @@ export async function bulkHardDeleteSessions(ctx: AuthContext, ids: string[]): P
       try {
         emitSessionRemove(id, previousStatus)
       } catch (error) {
-        console.error(`Failed to emit session:remove for ${id}:`, error)
+        logger.error(`Failed to emit session:remove for ${id}`, error as Error)
       }
     })
 

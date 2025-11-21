@@ -3,7 +3,7 @@
  * POST /api/admin/tags - Create tag
  */
 import { NextRequest, NextResponse } from "next/server"
-import { listTagsCached } from "@/features/admin/tags/server/cache"
+import { listTags } from "@/features/admin/tags/server/queries"
 import { serializeTagsList } from "@/features/admin/tags/server/helpers"
 import {
   createTag,
@@ -43,7 +43,9 @@ async function getTagsHandler(req: NextRequest, _context: ApiRouteContext) {
     }
   })
 
-  const result = await listTagsCached({
+  // Sử dụng listTags (non-cached) thay vì listTagsCached để đảm bảo data luôn fresh
+  // API routes cần fresh data, không nên sử dụng cache để tránh trả về dữ liệu cũ
+  const result = await listTags({
     page: paginationValidation.page,
     limit: paginationValidation.limit,
     search: searchValidation.value || undefined,

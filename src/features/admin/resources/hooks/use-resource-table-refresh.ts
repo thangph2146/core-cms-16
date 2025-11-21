@@ -21,7 +21,7 @@ interface UseResourceTableRefreshResult {
   /**
    * Trigger refresh đầy đủ (invalidate + reload)
    */
-  refresh: () => void
+  refresh: () => Promise<void>
   /**
    * Trigger soft refresh (không invalidate cache)
    */
@@ -43,8 +43,8 @@ export function useResourceTableRefresh({
   const softRefreshRef = useRef<(() => void) | null>(null)
   const pendingRealtimeRefreshRef = useRef(false)
 
-  const refresh = useCallback(() => {
-    refreshRef.current?.()
+  const refresh = useCallback(async () => {
+    await refreshRef.current?.()
   }, [])
 
   const softRefresh = useCallback(() => {
@@ -54,11 +54,16 @@ export function useResourceTableRefresh({
   const onRefreshReady = useCallback(
     (refreshFn: () => void) => {
       softRefreshRef.current = refreshFn
-      refreshRef.current = () => {
+      refreshRef.current = async () => {
         const invalidateKey = getInvalidateQueryKey?.()
         if (invalidateKey) {
-          queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "none" })
+          // Invalidate và refetch tất cả queries (kể cả inactive) để đảm bảo data mới nhất
+          // Sử dụng refetchType: "all" để refetch cả active và inactive queries
+          await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "all" })
+          // Đảm bảo refetch được thực hiện ngay lập tức
+          await queryClient.refetchQueries({ queryKey: invalidateKey, type: "all" })
         }
+        // Gọi refreshFn để trigger reload trong table
         refreshFn()
       }
 

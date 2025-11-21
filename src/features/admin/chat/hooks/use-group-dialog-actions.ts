@@ -11,6 +11,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { Group } from "@/components/chat/types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { GROUP_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UseGroupActionsOptions {
   canDelete: boolean
@@ -94,7 +95,7 @@ export function useGroupDialogActions({
         const errorMessage = error instanceof Error ? error.message : GROUP_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} group`, error)
+          logger.error(`Failed to ${action} group`, error as Error)
         } else {
           throw error
         }

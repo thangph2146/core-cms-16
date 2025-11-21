@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/command"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader2, User } from "lucide-react"
+import { logger } from "@/lib/config"
 import { requestJson } from "@/lib/api/client"
 import { withApiBase } from "@/lib/config/api-paths"
 import type { Contact } from "@/components/chat/types"
@@ -58,7 +59,7 @@ export function NewConversationDialog({ onSelectUser, existingContactIds = [] }:
       )
       setUsers(filtered)
     } catch (error) {
-      console.error("Error searching users:", error)
+      logger.error("Error searching users", error as Error)
       setUsers([])
     } finally {
       setIsLoading(false)

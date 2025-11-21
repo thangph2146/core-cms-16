@@ -99,7 +99,7 @@ export function PostsTableClient({
           refresh()
         }
       } catch (error) {
-        console.error("Error toggling post publish status:", error)
+        logger.error("Error toggling post publish status", error as Error)
         showFeedback(
           "error",
           "Lỗi cập nhật",

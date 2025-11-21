@@ -6,6 +6,7 @@
 import { useCallback, useRef, useState } from "react"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { logger } from "@/lib/config"
 import type { TagRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { TAG_MESSAGES } from "../constants/messages"
@@ -14,7 +15,6 @@ interface UseTagActionsOptions {
   canDelete: boolean
   canRestore: boolean
   canManage: boolean
-  isSocketConnected: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
 }
 
@@ -27,7 +27,6 @@ export function useTagActions({
   canDelete,
   canRestore,
   canManage,
-  isSocketConnected,
   showFeedback,
 }: UseTagActionsOptions) {
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
@@ -107,14 +106,15 @@ export function useTagActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
+        // Thêm delay để đảm bảo server đã xử lý xong cache invalidation và database transaction
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        await refresh()
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : TAG_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} tag`, error)
+          logger.error(`Failed to ${action} tag`, error as Error)
         } else {
           throw error
         }
@@ -126,14 +126,14 @@ export function useTagActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback],
   )
 
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       ids: string[],
-      refresh: () => void,
+      refresh: () => Promise<void>,
       clearSelection: () => void
     ) => {
       if (ids.length === 0) return
@@ -141,21 +141,40 @@ export function useTagActions({
       if (!startBulkProcessing()) return
 
       try {
-        await apiClient.post(apiRoutes.tags.bulk, { action, ids })
+        const response = await apiClient.post<{ data: { success: boolean; message: string; affected: number } }>(
+          apiRoutes.tags.bulk,
+          { action, ids }
+        )
 
+        const result = response.data?.data
+        const affected = result?.affected ?? 0
+
+        // Nếu không có tag nào được xử lý (affected === 0), hiển thị thông báo
+        if (affected === 0) {
+          const actionText = action === "restore" ? "khôi phục" : action === "delete" ? "xóa" : "xóa vĩnh viễn"
+          showFeedback("error", "Không có thay đổi", result?.message || `Không có thẻ tag nào được ${actionText}`)
+          clearSelection()
+          // Vẫn refresh để đảm bảo UI được cập nhật với data mới nhất
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          await refresh()
+          return
+        }
+
+        // Hiển thị success message với số lượng thực tế đã xử lý
         const messages = {
-          restore: { title: TAG_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} thẻ tag` },
-          delete: { title: TAG_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${ids.length} thẻ tag` },
-          "hard-delete": { title: TAG_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} thẻ tag` },
+          restore: { title: TAG_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${affected} thẻ tag` },
+          delete: { title: TAG_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${affected} thẻ tag` },
+          "hard-delete": { title: TAG_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${affected} thẻ tag` },
         }
 
         const message = messages[action]
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        if (!isSocketConnected) {
-          refresh()
-        }
+        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
+        // Thêm delay để đảm bảo server đã xử lý xong cache invalidation và database transaction
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        await refresh()
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : TAG_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
@@ -171,7 +190,7 @@ export function useTagActions({
         stopBulkProcessing()
       }
     },
-    [isSocketConnected, showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing],
   )
 
   return {

@@ -19,7 +19,7 @@ export function useResourceTableLoader<T extends object, P>({
   fetcher,
   buildParams,
   buildQueryKey,
-  staleTime = Infinity,
+  staleTime = 0, // Set staleTime = 0 để data luôn được coi là stale và có thể refetch
 }: UseResourceTableLoaderOptions<T, P>): ResourceTableLoader<T> {
   return useCallback<ResourceTableLoader<T>>(
     async (query, view) => {

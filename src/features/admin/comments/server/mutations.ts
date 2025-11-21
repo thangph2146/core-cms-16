@@ -8,6 +8,7 @@
 
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapCommentRecord, type CommentWithRelations } from "./helpers"
 import type { ListedComment } from "../types"
 import type { BulkActionResult } from "../types"
@@ -329,7 +330,7 @@ export async function bulkSoftDeleteComments(ctx: AuthContext, ids: string[]): P
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = comments.map((comment) => 
       emitCommentUpsert(comment.id, "active").catch((error) => {
-        console.error(`Failed to emit comment:upsert for ${comment.id}:`, error)
+        logger.error(`Failed to emit comment:upsert for ${comment.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -450,7 +451,7 @@ export async function bulkRestoreComments(ctx: AuthContext, ids: string[]): Prom
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = comments.map((comment) => 
       emitCommentUpsert(comment.id, "deleted").catch((error) => {
-        console.error(`Failed to emit comment:upsert for ${comment.id}:`, error)
+        logger.error(`Failed to emit comment:upsert for ${comment.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -577,7 +578,7 @@ export async function bulkHardDeleteComments(ctx: AuthContext, ids: string[]): P
       try {
         emitCommentRemove(comment.id, "deleted")
       } catch (error) {
-        console.error(`Failed to emit comment:remove for ${comment.id}:`, error)
+        logger.error(`Failed to emit comment:remove for ${comment.id}`, error as Error)
       }
     })
 

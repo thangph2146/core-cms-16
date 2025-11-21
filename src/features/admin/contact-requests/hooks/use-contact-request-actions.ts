@@ -12,6 +12,7 @@ import type { ContactRequestRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { CONTACT_REQUEST_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UseContactRequestActionsOptions {
   canDelete: boolean
@@ -190,7 +191,7 @@ export function useContactRequestActions({
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} contact request`, error)
+          logger.error(`Failed to ${action} contact request`, error as Error)
         } else {
           throw error
         }

@@ -3,6 +3,7 @@
  */
 
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
@@ -181,7 +182,7 @@ export async function notifySuperAdminsOfContactRequestAction(
     }
   } catch (error) {
     // Log error nhưng không throw để không ảnh hưởng đến main operation
-    console.error("[notifications] Failed to notify super admins of contact request action:", error)
+    logger.error("[notifications] Failed to notify super admins of contact request action", error as Error)
   }
 }
 
@@ -225,7 +226,7 @@ export async function notifyUserOfContactRequestAssignment(
       io.to(`user:${userId}`).emit("notification:new", socketNotification)
     }
   } catch (error) {
-    console.error("[notifications] Failed to notify user of contact request assignment:", error)
+    logger.error("[notifications] Failed to notify user of contact request assignment", error as Error)
   }
 }
 

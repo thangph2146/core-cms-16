@@ -51,6 +51,10 @@ async function TagDetailContent({ tagId }: { tagId: string }) {
 export default async function TagDetailPage({ params }: TagDetailPageProps) {
   const { id } = await params
   
+  // Fetch tag data từ cache để hiển thị tên trong breadcrumb
+  const tag = await getTagDetailById(id)
+  const tagName = tag?.name || "Chi tiết"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Thẻ tag")
   if (!validatedId) {
@@ -59,7 +63,7 @@ export default async function TagDetailPage({ params }: TagDetailPageProps) {
         <AdminHeader
           breadcrumbs={[
             { label: "Thẻ tag", href: "/admin/tags" },
-            { label: "Chi tiết", href: `/admin/tags/${id}` },
+            { label: tagName, href: `/admin/tags/${id}` },
           ]}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
@@ -81,7 +85,7 @@ export default async function TagDetailPage({ params }: TagDetailPageProps) {
       <AdminHeader
         breadcrumbs={[
           { label: "Thẻ tag", href: "/admin/tags" },
-          { label: "Chi tiết", isActive: true },
+          { label: tagName, isActive: true },
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">

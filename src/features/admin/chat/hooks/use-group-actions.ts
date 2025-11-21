@@ -5,6 +5,7 @@
 
 import { useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { logger } from "@/lib/config"
 import type { Contact } from "@/components/chat/types"
 import { refreshGroupData, updateContactWithGroupData } from "../components/chat-template-helpers"
 
@@ -40,7 +41,7 @@ export function useGroupActions({
 
       setContactsState((prev) => updateContactWithGroupData(prev, currentChat.id, groupData))
     } catch (error) {
-      console.error("Failed to refresh group data", error)
+      logger.error("Failed to refresh group data", error as Error)
       toast({
         variant: "destructive",
         title: "Lỗi cập nhật nhóm",

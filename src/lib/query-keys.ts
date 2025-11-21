@@ -340,6 +340,10 @@ export const queryKeys = {
     list: (params: AdminPostsListParams): readonly unknown[] => {
       return ["adminPosts", normalizeListParams(params)]
     },
+    /**
+     * Post detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["adminPosts", "detail", id],
   },
 } as const
 

@@ -3,6 +3,7 @@
  */
 
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
@@ -32,7 +33,7 @@ export async function notifySuperAdminsOfCategoryAction(
   }
 ) {
   try {
-    console.log("[notifySuperAdmins] Starting notification:", {
+    logger.debug("[notifySuperAdmins] Starting notification", {
       action,
       actorId,
       categoryId: category.id,
@@ -86,7 +87,7 @@ export async function notifySuperAdminsOfCategoryAction(
     }
 
     // Tạo notifications trong DB cho tất cả super admins
-    console.log("[notifySuperAdmins] Creating notifications in DB:", {
+    logger.debug("[notifySuperAdmins] Creating notifications in DB", {
       title,
       description,
       actionUrl,
@@ -109,14 +110,14 @@ export async function notifySuperAdminsOfCategoryAction(
         timestamp: new Date().toISOString(),
       }
     )
-    console.log("[notifySuperAdmins] Notifications created:", {
+    logger.debug("[notifySuperAdmins] Notifications created", {
       count: result.count,
       action,
     })
 
     // Emit socket event nếu có socket server
     const io = getSocketServer()
-    console.log("[notifySuperAdmins] Socket server status:", {
+    logger.debug("[notifySuperAdmins] Socket server status", {
       hasSocketServer: !!io,
       notificationCount: result.count,
     })
@@ -139,7 +140,7 @@ export async function notifySuperAdminsOfCategoryAction(
         select: { id: true },
       })
 
-      console.log("[notifySuperAdmins] Found super admins:", {
+      logger.debug("[notifySuperAdmins] Found super admins", {
         count: superAdmins.length,
         adminIds: superAdmins.map((a) => a.id),
       })
@@ -174,7 +175,7 @@ export async function notifySuperAdminsOfCategoryAction(
           const socketNotification = mapNotificationToPayload(dbNotification)
           storeNotificationInCache(admin.id, socketNotification)
           io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
-          console.log("[notifySuperAdmins] Emitted to user room:", {
+          logger.debug("[notifySuperAdmins] Emitted to user room", {
             adminId: admin.id,
             room: `user:${admin.id}`,
             notificationId: dbNotification.id,
@@ -200,7 +201,7 @@ export async function notifySuperAdminsOfCategoryAction(
           }
           storeNotificationInCache(admin.id, fallbackNotification)
           io.to(`user:${admin.id}`).emit("notification:new", fallbackNotification)
-          console.log("[notifySuperAdmins] Emitted fallback notification to user room:", {
+          logger.debug("[notifySuperAdmins] Emitted fallback notification to user room", {
             adminId: admin.id,
             room: `user:${admin.id}`,
           })
@@ -211,12 +212,12 @@ export async function notifySuperAdminsOfCategoryAction(
       if (createdNotifications.length > 0) {
         const roleNotification = mapNotificationToPayload(createdNotifications[0])
         io.to("role:super_admin").emit("notification:new", roleNotification)
-        console.log("[notifySuperAdmins] Emitted to role room: role:super_admin")
+        logger.debug("[notifySuperAdmins] Emitted to role room: role:super_admin")
       }
     }
   } catch (error) {
     // Log error nhưng không throw để không ảnh hưởng đến main operation
-    console.error("[notifications] Failed to notify super admins of category action:", error)
+    logger.error("[notifications] Failed to notify super admins of category action", error as Error)
   }
 }
 

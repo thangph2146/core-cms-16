@@ -65,7 +65,6 @@ export function TagsTableClient({
     canDelete,
     canRestore,
     canManage,
-    isSocketConnected,
     showFeedback,
   })
 

@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapRoleRecord, type ListedRole, type RoleWithRelations } from "./queries"
 import {
   CreateRoleSchema,
@@ -241,7 +242,7 @@ export async function bulkSoftDeleteRoles(ctx: AuthContext, ids: string[]): Prom
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = roles.map((role) => 
       emitRoleUpsert(role.id, "active").catch((error) => {
-        console.error(`Failed to emit role:upsert for ${role.id}:`, error)
+        logger.error(`Failed to emit role:upsert for ${role.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -327,7 +328,7 @@ export async function bulkRestoreRoles(ctx: AuthContext, ids: string[]): Promise
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = roles.map((role) => 
       emitRoleUpsert(role.id, "deleted").catch((error) => {
-        console.error(`Failed to emit role:upsert for ${role.id}:`, error)
+        logger.error(`Failed to emit role:upsert for ${role.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -420,7 +421,7 @@ export async function bulkHardDeleteRoles(ctx: AuthContext, ids: string[]): Prom
       try {
         emitRoleRemove(role.id, previousStatus)
       } catch (error) {
-        console.error(`Failed to emit role:remove for ${role.id}:`, error)
+        logger.error(`Failed to emit role:remove for ${role.id}`, error as Error)
       }
     })
 

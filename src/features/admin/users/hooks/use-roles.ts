@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { logger } from "@/lib/config"
 import type { Role } from "../utils"
 
 export interface UseRolesOptions {
@@ -51,7 +52,7 @@ export function useRoles(options: UseRolesOptions = {}) {
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Failed to fetch roles")
-        console.error("Error fetching roles:", error)
+        logger.error("Error fetching roles", error as Error)
         if (!isCancelled) {
           setError(error)
         }

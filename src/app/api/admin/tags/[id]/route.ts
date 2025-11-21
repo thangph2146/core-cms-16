@@ -4,7 +4,7 @@
  * DELETE /api/admin/tags/[id] - Soft delete tag
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getTagDetailById } from "@/features/admin/tags/server/cache"
+import { getTagById } from "@/features/admin/tags/server/queries"
 import { serializeTagDetail } from "@/features/admin/tags/server/helpers"
 import {
   updateTag,
@@ -24,7 +24,9 @@ async function getTagHandler(_req: NextRequest, _context: ApiRouteContext, ...ar
     return NextResponse.json({ error: "Tag ID is required" }, { status: 400 })
   }
 
-  const tag = await getTagDetailById(tagId)
+  // Sử dụng getTagById (non-cached) thay vì getTagDetailById để đảm bảo data luôn fresh
+  // API routes cần fresh data, không nên sử dụng cache để tránh trả về dữ liệu cũ
+  const tag = await getTagById(tagId)
 
   if (!tag) {
     return NextResponse.json({ error: "Tag not found" }, { status: 404 })

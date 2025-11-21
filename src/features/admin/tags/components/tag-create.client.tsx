@@ -7,9 +7,11 @@
 
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { getBaseTagFields, type TagFormData } from "../form-fields"
 
 export interface TagCreateClientProps {
@@ -17,6 +19,15 @@ export interface TagCreateClientProps {
 }
 
 export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProps) {
+  const queryClient = useQueryClient()
+  
+  const handleBack = async () => {
+    // Invalidate React Query cache để đảm bảo list page có data mới nhất
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
+    // Refetch ngay lập tức để đảm bảo data được cập nhật
+    await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
+  }
+  
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: apiRoutes.tags.create,
     method: "POST",
@@ -29,6 +40,10 @@ export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProp
       toDetail: (response) =>
         response.data?.data?.id ? `/admin/tags/${response.data.data.id}` : backUrl,
       fallback: backUrl,
+    },
+    onSuccess: async () => {
+      // Invalidate React Query cache để cập nhật danh sách tags
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all() })
     },
   })
 
@@ -45,6 +60,7 @@ export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProp
       cancelLabel="Hủy"
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
+      onBack={handleBack}
       variant="page"
       showCard={false}
       className="max-w-[100%]"

@@ -9,6 +9,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { SessionRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { SESSION_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UseSessionActionsOptions {
   canDelete: boolean
@@ -156,7 +157,7 @@ export function useSessionActions({
         const errorMessage = error instanceof Error ? error.message : SESSION_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} session`, error)
+          logger.error(`Failed to ${action} session`, error as Error)
         } else {
           throw error
         }

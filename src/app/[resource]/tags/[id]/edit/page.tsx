@@ -51,6 +51,10 @@ async function TagEditContent({ tagId }: { tagId: string }) {
 export default async function TagEditPage({ params }: TagEditPageProps) {
   const { id } = await params
   
+  // Fetch tag data từ cache để hiển thị tên trong breadcrumb
+  const tag = await getTagDetailById(id)
+  const tagName = tag?.name || "Chỉnh sửa"
+  
   // Validate route ID
   const validatedId = validateRouteId(id, "Thẻ tag")
   if (!validatedId) {
@@ -59,6 +63,7 @@ export default async function TagEditPage({ params }: TagEditPageProps) {
         <AdminHeader
           breadcrumbs={[
             { label: "Thẻ tag", href: "/admin/tags" },
+            { label: tagName, href: `/admin/tags/${id}` },
             { label: "Chỉnh sửa", href: `/admin/tags/${id}/edit` },
           ]}
         />
@@ -81,6 +86,7 @@ export default async function TagEditPage({ params }: TagEditPageProps) {
       <AdminHeader
         breadcrumbs={[
           { label: "Thẻ tag", href: "/admin/tags" },
+          { label: tagName, href: `/admin/tags/${id}` },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />

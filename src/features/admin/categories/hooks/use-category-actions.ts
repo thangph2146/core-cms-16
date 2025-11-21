@@ -9,6 +9,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { CategoryRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { CATEGORY_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 interface UseCategoryActionsOptions {
   canDelete: boolean
@@ -114,7 +115,7 @@ export function useCategoryActions({
         const errorMessage = error instanceof Error ? error.message : CATEGORY_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} category`, error)
+          logger.error(`Failed to ${action} category`, error as Error)
         } else {
           throw error
         }

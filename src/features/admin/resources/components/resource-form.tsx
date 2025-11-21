@@ -80,6 +80,7 @@ export interface ResourceFormProps<T extends Record<string, unknown>> {
   onSubmit: (data: Partial<T>) => Promise<{ success: boolean; error?: string }>
   onCancel?: () => void
   onSuccess?: () => void
+  onBack?: () => void | Promise<void> // Callback khi click button quay lại
   
   // UI
   className?: string
@@ -106,6 +107,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
   onSubmit,
   onCancel,
   onSuccess,
+  onBack,
   className,
   formClassName,
   contentClassName,
@@ -117,6 +119,27 @@ export function ResourceForm<T extends Record<string, unknown>>({
   const router = useResourceRouter()
   const resourceSegment = useResourceSegment()
   const resolvedBackUrl = backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined
+  
+  const handleBack = async () => {
+    // Gọi custom onBack callback nếu có (để invalidate React Query cache)
+    if (onBack) {
+      await onBack()
+    }
+    // Navigate về backUrl
+    if (resolvedBackUrl) {
+      // Refresh router TRƯỚC để invalidate Router Cache cho current route
+      router.refresh()
+      // Thêm delay nhỏ để đảm bảo refresh hoàn thành
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Navigate với cache-busting parameter để force Server Component refetch
+      const url = new URL(resolvedBackUrl, window.location.origin)
+      url.searchParams.set("_t", Date.now().toString())
+      await router.push(url.pathname + url.search)
+      // Refresh router SAU KHI navigate để invalidate Router Cache cho route mới
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      router.refresh()
+    }
+  }
   const [isPending, setIsPending] = useState(false)
   const [formData, setFormData] = useState<Partial<T>>(() => {
     const initial: Partial<T> = {}
@@ -485,12 +508,12 @@ export function ResourceForm<T extends Record<string, unknown>>({
           <div className="space-y-1.5 flex-1 min-w-0">
             {resolvedBackUrl && (
               <Button
-                variant="default"
+                variant="ghost"
                 size="sm"
-                onClick={() => router.push(resolvedBackUrl)}
+                onClick={handleBack}
                 className="-ml-2"
               >
-                <ArrowLeft className="mr-2 h-5 w-5" />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 {backLabel}
               </Button>
             )}

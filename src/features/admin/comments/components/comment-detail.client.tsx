@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { formatDateVi } from "../utils"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { logger } from "@/lib/config"
 
 export interface CommentDetailData {
   id: string
@@ -90,7 +91,7 @@ export function CommentDetailClient({ comment, backUrl = "/admin/comments", canA
         }
         setApproved(newStatus)
       } catch (error) {
-        console.error("Error toggling approve status:", error)
+        logger.error("Error toggling approve status", error as Error)
         // Revert state on error
         setApproved(!newStatus)
       } finally {

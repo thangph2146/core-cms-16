@@ -1,6 +1,7 @@
 "use client"
 
 import { ChatTemplate } from "./chat-template.client"
+import { logger } from "@/lib/config"
 import type { ChatFilterType, Contact, Message } from "@/components/chat/types"
 import { requestJson } from "@/lib/api/client"
 import { withApiBase } from "@/lib/config/api-paths"
@@ -33,7 +34,7 @@ function MessagesPageClient({
       await requestJson(withApiBase(apiRoutes.adminConversations.list({ otherUserId: contact.id })))
       // Messages will be handled by the chat hook
     } catch (error) {
-      console.error("Error fetching messages for new conversation:", error)
+      logger.error("Error fetching messages for new conversation", error as Error)
     }
   }
 

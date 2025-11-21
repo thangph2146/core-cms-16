@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Label } from "@/components/ui/label"
 import { Loader2, UserPlus, UserMinus, ShieldCheck } from "lucide-react"
+import { logger } from "@/lib/config"
 import type { Group, GroupRole } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
 import { requestJson, toJsonBody } from "@/lib/api/client"
@@ -74,7 +75,7 @@ export function ManageMembersDialog({
       )
       setUsers(filtered)
     } catch (error) {
-      console.error("Error searching users:", error)
+      logger.error("Error searching users", error as Error)
       setUsers([])
     } finally {
       setIsLoading(false)
@@ -108,7 +109,7 @@ export function ManageMembersDialog({
       setSearchValue("")
       setUsers([])
     } catch (error) {
-      console.error("Error adding member:", error)
+      logger.error("Error adding member", error as Error)
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi thêm thành viên",
@@ -132,7 +133,7 @@ export function ManageMembersDialog({
 
       onSuccess?.()
     } catch (error) {
-      console.error("Error removing member:", error)
+      logger.error("Error removing member", error as Error)
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa thành viên",
@@ -157,7 +158,7 @@ export function ManageMembersDialog({
 
       onSuccess?.()
     } catch (error) {
-      console.error("Error updating role:", error)
+      logger.error("Error updating role", error as Error)
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật vai trò",

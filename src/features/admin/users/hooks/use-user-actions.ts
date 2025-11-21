@@ -9,6 +9,7 @@ import { apiRoutes } from "@/lib/api/routes"
 import type { UserRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { USER_MESSAGES } from "../constants/messages"
+import { logger } from "@/lib/config"
 
 // Email của super admin không được phép xóa
 const PROTECTED_SUPER_ADMIN_EMAIL = "superadmin@hub.edu.vn"
@@ -124,7 +125,7 @@ export function useUserActions({
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
-          console.error(`Failed to ${action} user`, error)
+          logger.error(`Failed to ${action} user`, error as Error)
         } else {
           throw error
         }

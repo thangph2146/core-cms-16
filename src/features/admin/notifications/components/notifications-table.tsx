@@ -5,6 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 import type { DataTableResult } from "@/components/tables"
+import { logger } from "@/lib/config"
 import { listNotificationsCached } from "../server/cache"
 import { serializeNotificationsList } from "../server/helpers"
 import type { NotificationRow } from "../types"
@@ -36,7 +37,7 @@ export async function NotificationsTable({ canManage, userId, isSuperAdmin }: No
     })
     initialData = serializeNotificationsList(initial)
   } catch (error) {
-    console.error("Error in NotificationsTable Server Component:", error)
+    logger.error("Error in NotificationsTable Server Component", error as Error)
     // initialData đã được set với empty data mặc định
   }
 

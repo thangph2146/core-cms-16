@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction, isSuperAdmin } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { mapStudentRecord, type StudentWithRelations } from "./helpers"
 import type { ListedStudent } from "../types"
 import type { BulkActionResult } from "../types"
@@ -307,7 +308,7 @@ export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): P
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = students.map((student) => 
       emitStudentUpsert(student.id, "active").catch((error) => {
-        console.error(`Failed to emit student:upsert for ${student.id}:`, error)
+        logger.error(`Failed to emit student:upsert for ${student.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -391,7 +392,7 @@ export async function bulkRestoreStudents(ctx: AuthContext, ids: string[]): Prom
     // Emit events song song và await tất cả để đảm bảo hoàn thành
     const emitPromises = students.map((student) => 
       emitStudentUpsert(student.id, "deleted").catch((error) => {
-        console.error(`Failed to emit student:upsert for ${student.id}:`, error)
+        logger.error(`Failed to emit student:upsert for ${student.id}`, error as Error)
         return null // Return null để Promise.allSettled không throw
       })
     )
@@ -482,7 +483,7 @@ export async function bulkHardDeleteStudents(ctx: AuthContext, ids: string[]): P
       try {
         emitStudentRemove(student.id, previousStatus)
       } catch (error) {
-        console.error(`Failed to emit student:remove for ${student.id}:`, error)
+        logger.error(`Failed to emit student:remove for ${student.id}`, error as Error)
       }
     })
 

@@ -23,6 +23,7 @@ import { useGroupActions } from "../hooks/use-group-actions"
 import { filterContacts } from "@/components/chat/utils/contact-helpers"
 import { mapGroupListItemToContact, type GroupListItemLike, type MessageDetailLike } from "../utils/contact-transformers"
 import type { ChatWindowProps } from "@/components/chat/components/chat-window"
+import { logger } from "@/lib/config"
 
 export function ChatTemplate({
   contacts,
@@ -98,7 +99,7 @@ export function ChatTemplate({
         })
       }
     } catch (error) {
-      console.error("Error fetching deleted groups:", error)
+      logger.error("Error fetching deleted groups", error as Error)
     }
   }, [setContactsState, currentUserId])
 
@@ -234,7 +235,7 @@ export function ChatTemplate({
 
       setSearchedContacts(results)
     } catch (err) {
-      console.error("Search contacts failed", err)
+      logger.error("Search contacts failed", err as Error)
       setSearchedContacts([])
     }
   }, 300)
@@ -389,7 +390,7 @@ export function ChatTemplate({
           return
         }
       } catch (e) {
-        console.error("Failed to fetch conversation messages", e)
+        logger.error("Failed to fetch conversation messages", e as Error)
       }
     }
     setCurrentChat(contact)

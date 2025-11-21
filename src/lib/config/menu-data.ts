@@ -2,7 +2,7 @@
  * Menu data được build từ feature registry
  */
 import * as React from "react"
-import { Home } from "lucide-react"
+import { Home, FileText } from "lucide-react"
 
 import type { Permission } from "@/lib/permissions"
 import { buildNavigationMenu } from "./app-features"
@@ -27,6 +27,11 @@ export function getMenuData(
       name: "Trang chính",
       url: "/",
       icon: React.createElement(Home, { className: "h-4 w-4" }),
+    },
+    {
+      name: "Bài viết",
+      url: "/bai-viet",
+      icon: React.createElement(FileText, { className: "h-4 w-4" }),
     },
   ]
 

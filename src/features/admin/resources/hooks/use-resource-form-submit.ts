@@ -163,12 +163,8 @@ export function useResourceFormSubmit({
           description: messages.successDescription,
         })
 
-        // Call custom success handler
-        if (onSuccess) {
-          await onSuccess(response)
-        }
-
-        // Handle navigation
+        // Handle navigation trước khi gọi onSuccess để đảm bảo navigation hoàn thành
+        // và trạng thái rendering được tắt trước khi refresh cache
         if (navigation?.toDetail) {
           let detailPath: string | undefined
 
@@ -189,12 +185,27 @@ export function useResourceFormSubmit({
           }
 
           if (detailPath) {
-            router.push(detailPath)
+            // Sử dụng router.replace để force reload và invalidate Router Cache
+            router.replace(detailPath)
+            // Thêm delay nhỏ để đảm bảo navigation hoàn thành trước khi refresh
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            // Refresh router để invalidate Router Cache và Data Cache cho route mới
+            router.refresh()
           } else if (navigation.fallback) {
-            router.push(navigation.fallback)
+            router.replace(navigation.fallback)
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            router.refresh()
           }
         } else if (navigation?.fallback) {
-          router.push(navigation.fallback)
+          router.replace(navigation.fallback)
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          router.refresh()
+        }
+
+        // Call custom success handler sau khi navigation hoàn thành
+        // Điều này đảm bảo navigation không bị block bởi các async operations trong onSuccess
+        if (onSuccess) {
+          await onSuccess(response)
         }
 
         return { success: true }

@@ -468,15 +468,15 @@ export function NavUser({ className }: { className?: string }) {
   if (!isMounted) {
     if (!isInSidebar) {
       return (
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
+        <div className="flex items-center gap-2" suppressHydrationWarning>
+          <Avatar className="h-8 w-8" suppressHydrationWarning>
             <AvatarImage
               src={user.image || "/avatars/default.jpg"}
               alt={user.name || ""}
             />
             <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
           </Avatar>
-          <span className="inline-block text-sm font-medium truncate max-w-[120px]">
+          <span className="inline-block text-sm font-medium truncate max-w-[120px]" suppressHydrationWarning>
             {user.name || user.email}
           </span>
         </div>
@@ -486,7 +486,7 @@ export function NavUser({ className }: { className?: string }) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" disabled>
-            <Avatar className="h-8 w-8 rounded-lg">
+            <Avatar className="h-8 w-8 rounded-lg" suppressHydrationWarning>
               <AvatarImage
                 src={user.image || "/avatars/default.jpg"}
                 alt={user.name || ""}
@@ -495,11 +495,11 @@ export function NavUser({ className }: { className?: string }) {
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">
+            <div className="grid flex-1 text-left text-sm leading-tight" suppressHydrationWarning>
+              <span className="truncate font-medium" suppressHydrationWarning>
                 {user.name || user.email}
               </span>
-              <span className="truncate text-xs">
+              <span className="truncate text-xs" suppressHydrationWarning>
                 {primaryRole?.displayName || primaryRole?.name || user.email}
               </span>
             </div>
@@ -517,15 +517,16 @@ export function NavUser({ className }: { className?: string }) {
           <Button
             variant="ghost"
             className={cn("flex items-center gap-2 px-2", className)}
+            suppressHydrationWarning
           >
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-8 w-8" suppressHydrationWarning>
               <AvatarImage
                 src={user.image || "/avatars/default.jpg"}
                 alt={user.name || ""}
               />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
-            <span className="inline-block text-sm font-medium truncate max-w-[120px]">
+            <span className="inline-block text-sm font-medium truncate max-w-[120px]" suppressHydrationWarning>
               {user.name || user.email}
             </span>
             <ChevronsUpDown className="h-5 w-5 opacity-50" />

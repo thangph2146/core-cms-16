@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
+import { logger } from "@/lib/config"
 import type { Group } from "@/components/chat/types"
 import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
@@ -65,7 +66,7 @@ export function EditGroupDialog({ open, onOpenChange, group, onSuccess }: EditGr
       onSuccess?.()
       onOpenChange(false)
     } catch (error) {
-      console.error("Error updating group:", error)
+      logger.error("Error updating group", error as Error)
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật nhóm",

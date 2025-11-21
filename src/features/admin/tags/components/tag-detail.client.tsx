@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Tag, Hash, Calendar, Clock, Edit } from "lucide-react"
 import { 
   ResourceDetailPage, 
@@ -11,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
+import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 
 export interface TagDetailData {
@@ -31,6 +33,14 @@ export interface TagDetailClientProps {
 
 export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDetailClientProps) {
   const router = useResourceRouter()
+  const queryClient = useQueryClient()
+  
+  const handleBack = async () => {
+    // Invalidate React Query cache để đảm bảo list page có data mới nhất
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
+    // Refetch ngay lập tức để đảm bảo data được cập nhật
+    await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
+  }
 
   const detailFields: ResourceDetailField<TagDetailData>[] = []
 
@@ -90,6 +100,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       description={`Chi tiết thẻ tag ${tag.slug}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
+      onBack={handleBack}
       actions={
         <Button
           variant="outline"

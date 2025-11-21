@@ -7,8 +7,25 @@ export const createPostSchema = z.object({
   slug: z.string().min(1, "Slug là bắt buộc"),
   image: z.string().optional().nullable(),
   published: z.boolean().optional(),
-  publishedAt: z.date().optional().nullable(),
+  publishedAt: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined || val === "") return null
+      if (typeof val === "string") return new Date(val)
+      return val
+    },
+    z.date().nullable()
+  ).optional(),
   authorId: z.string().min(1, "Tác giả là bắt buộc"),
+  categoryIds: z.union([z.array(z.string()), z.string()]).optional().transform((val) => {
+    if (!val) return []
+    if (typeof val === "string") return [val]
+    return val
+  }),
+  tagIds: z.union([z.array(z.string()), z.string()]).optional().transform((val) => {
+    if (!val) return []
+    if (typeof val === "string") return [val]
+    return val
+  }),
 })
 
 export const updatePostSchema = z.object({
@@ -18,8 +35,25 @@ export const updatePostSchema = z.object({
   slug: z.string().optional(),
   image: z.string().optional().nullable(),
   published: z.boolean().optional(),
-  publishedAt: z.date().optional().nullable(),
+  publishedAt: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined || val === "") return null
+      if (typeof val === "string") return new Date(val)
+      return val
+    },
+    z.date().nullable()
+  ).optional(),
   authorId: z.string().optional(),
+  categoryIds: z.union([z.array(z.string()), z.string()]).optional().transform((val) => {
+    if (!val) return []
+    if (typeof val === "string") return [val]
+    return val
+  }),
+  tagIds: z.union([z.array(z.string()), z.string()]).optional().transform((val) => {
+    if (!val) return []
+    if (typeof val === "string") return [val]
+    return val
+  }),
 })
 
 export type CreatePostSchema = z.infer<typeof createPostSchema>

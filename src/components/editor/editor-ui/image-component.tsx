@@ -659,8 +659,25 @@ function ImagePlaceholder({
   width: DimensionValue
   height: DimensionValue
 }): JSX.Element {
-  const containerWidth = typeof width === "number" ? width : 200
-  const containerHeight = typeof height === "number" ? height : 200
+  // Giới hạn kích thước container để tránh quá lớn
+  const MAX_CONTAINER_WIDTH = 800
+  const MAX_CONTAINER_HEIGHT = 600
+  
+  let containerWidth = typeof width === "number" ? width : 200
+  let containerHeight = typeof height === "number" ? height : 200
+  
+  // Giới hạn kích thước tối đa và giữ tỷ lệ
+  if (containerWidth > MAX_CONTAINER_WIDTH) {
+    const scale = MAX_CONTAINER_WIDTH / containerWidth
+    containerWidth = MAX_CONTAINER_WIDTH
+    containerHeight = Math.max(200, containerHeight * scale)
+  }
+  
+  if (containerHeight > MAX_CONTAINER_HEIGHT) {
+    const scale = MAX_CONTAINER_HEIGHT / containerHeight
+    containerHeight = MAX_CONTAINER_HEIGHT
+    containerWidth = Math.max(200, containerWidth * scale)
+  }
   
   // Tính kích thước Logo dựa trên container
   // Sử dụng minDimension để đảm bảo Logo không vượt quá container
@@ -678,6 +695,8 @@ function ImagePlaceholder({
         height: containerHeight,
         minWidth: 200,
         minHeight: 200,
+        maxWidth: MAX_CONTAINER_WIDTH,
+        maxHeight: MAX_CONTAINER_HEIGHT,
       }}
     >
       <div className="relative">

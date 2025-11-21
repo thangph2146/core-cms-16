@@ -3,6 +3,7 @@
  */
 
 import { prisma } from "@/lib/database"
+import { logger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
@@ -34,7 +35,7 @@ export async function notifySuperAdminsOfSessionAction(
   }
 ) {
   try {
-    console.log("[notifySuperAdmins] Starting session notification:", {
+    logger.debug("[notifySuperAdmins] Starting session notification", {
       action,
       actorId,
       sessionId: session.id,
@@ -98,7 +99,7 @@ export async function notifySuperAdminsOfSessionAction(
         break
     }
 
-    console.log("[notifySuperAdmins] Creating notifications in DB:", {
+    logger.debug("[notifySuperAdmins] Creating notifications in DB", {
       title,
       description,
       actionUrl,
@@ -121,13 +122,13 @@ export async function notifySuperAdminsOfSessionAction(
         timestamp: new Date().toISOString(),
       }
     )
-    console.log("[notifySuperAdmins] Notifications created:", {
+    logger.debug("[notifySuperAdmins] Notifications created", {
       count: result.count,
       action,
     })
 
     const io = getSocketServer()
-    console.log("[notifySuperAdmins] Socket server status:", {
+    logger.debug("[notifySuperAdmins] Socket server status", {
       hasSocketServer: !!io,
       notificationCount: result.count,
     })
@@ -149,7 +150,7 @@ export async function notifySuperAdminsOfSessionAction(
         select: { id: true },
       })
 
-      console.log("[notifySuperAdmins] Found super admins:", {
+      logger.debug("[notifySuperAdmins] Found super admins", {
         count: superAdmins.length,
         adminIds: superAdmins.map((a) => a.id),
       })
@@ -181,7 +182,7 @@ export async function notifySuperAdminsOfSessionAction(
           const socketNotification = mapNotificationToPayload(dbNotification)
           storeNotificationInCache(admin.id, socketNotification)
           io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
-          console.log("[notifySuperAdmins] Emitted to user room:", {
+          logger.debug("[notifySuperAdmins] Emitted to user room", {
             adminId: admin.id,
             room: `user:${admin.id}`,
             notificationId: dbNotification.id,
@@ -207,7 +208,7 @@ export async function notifySuperAdminsOfSessionAction(
           }
           storeNotificationInCache(admin.id, fallbackNotification)
           io.to(`user:${admin.id}`).emit("notification:new", fallbackNotification)
-          console.log("[notifySuperAdmins] Emitted fallback notification to user room:", {
+          logger.debug("[notifySuperAdmins] Emitted fallback notification to user room", {
             adminId: admin.id,
             room: `user:${admin.id}`,
           })
@@ -217,11 +218,11 @@ export async function notifySuperAdminsOfSessionAction(
       if (createdNotifications.length > 0) {
         const roleNotification = mapNotificationToPayload(createdNotifications[0])
         io.to("role:super_admin").emit("notification:new", roleNotification)
-        console.log("[notifySuperAdmins] Emitted to role room: role:super_admin")
+        logger.debug("[notifySuperAdmins] Emitted to role room: role:super_admin")
       }
     }
   } catch (error) {
-    console.error("[notifications] Failed to notify super admins of session action:", error)
+    logger.error("[notifications] Failed to notify super admins of session action", error as Error)
   }
 }
 
@@ -326,7 +327,7 @@ export async function notifySuperAdminsOfBulkSessionAction(
       }
     }
   } catch (error) {
-    console.error("[notifications] Failed to notify super admins of bulk session action:", error)
+    logger.error("[notifications] Failed to notify super admins of bulk session action", error as Error)
   }
 }
 

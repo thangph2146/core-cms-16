@@ -1,10 +1,11 @@
 "use client"
 
-import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useSession } from "next-auth/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField, type ResourceFormSection } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import type { Prisma } from "@prisma/client"
 import { isSuperAdmin } from "@/lib/permissions"
 
@@ -52,8 +53,8 @@ export function PostEditClient({
     tags = [],
     isSuperAdmin: isSuperAdminProp = false,
 }: PostEditClientProps) {
-    const router = useResourceRouter()
     const { data: session } = useSession()
+    const queryClient = useQueryClient()
     const userRoles = session?.roles || []
     const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)
 
@@ -67,7 +68,8 @@ export function PostEditClient({
             errorTitle: "Lỗi cập nhật",
         },
         navigation: {
-            toDetail: variant === "page" && postId ? `/admin/posts/${postId}` : undefined,
+            // Luôn navigate về detail page khi variant === "page"
+            toDetail: variant === "page" ? (postId || post?.id ? `/admin/posts/${postId || post?.id}` : undefined) : undefined,
             fallback: backUrl,
         },
         transformData: (data) => {
@@ -87,10 +89,15 @@ export function PostEditClient({
             return submitData
         },
         onSuccess: async () => {
-            onSuccess?.()
-            if (variant === "page" && postId) {
-                router.refresh()
+            // Invalidate React Query cache để cập nhật danh sách bài viết
+            await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all() })
+            // Invalidate detail query nếu có postId
+            const targetPostId = postId || post?.id
+            if (targetPostId) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.detail(targetPostId) })
             }
+            onSuccess?.()
+            // Navigation sẽ được xử lý bởi useResourceFormSubmit thông qua navigation.toDetail
         },
     })
 
@@ -172,18 +179,18 @@ export function PostEditClient({
               ]
             : []),
         {
-            name: "content",
-            label: "",
-            type: "editor",
-            section: "content",
-        },
-        {
             name: "image",
             label: "Hình ảnh",
             type: "image",
             placeholder: "https://example.com/image.jpg",
             description: "URL hình ảnh đại diện cho bài viết",
             section: "basic",
+        },
+        {
+            name: "content",
+            label: "",
+            type: "editor",
+            section: "content",
         }
     ]
 

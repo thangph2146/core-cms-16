@@ -28,6 +28,7 @@ import type { Group, GroupMember } from "@/components/chat/types"
 import { useToast } from "@/hooks/use-toast"
 import { requestJson, toJsonBody } from "@/lib/api/client"
 import { withApiBase } from "@/lib/config/api-paths"
+import { logger } from "@/lib/config"
 
 interface UserOption {
   id: string
@@ -62,7 +63,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
       const filtered = data.filter((u: UserOption) => u.id !== currentUser?.id)
       setUsers(filtered)
     } catch (error) {
-      console.error("Error searching users:", error)
+      logger.error("Error searching users", error as Error)
       setUsers([])
     } finally {
       setIsLoading(false)
@@ -182,7 +183,7 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
       setUsers([])
       setSearchValue("")
     } catch (error) {
-      console.error("Error creating group:", error)
+      logger.error("Error creating group", error as Error)
       toast({ title: "Lỗi", description: error instanceof Error ? error.message : "Không thể tạo nhóm", variant: "destructive" })
     } finally {
       setIsCreating(false)

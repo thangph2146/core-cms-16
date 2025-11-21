@@ -73,6 +73,9 @@ export interface ResourceDetailPageProps<T extends Record<string, unknown>> {
   
   // Custom node render sau tất cả sections
   afterSections?: React.ReactNode
+  
+  // Callback khi click button quay lại
+  onBack?: () => void | Promise<void>
 }
 
 export function ResourceDetailPage<T extends Record<string, unknown>>({
@@ -87,6 +90,7 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
   sections,
   detailSections,
   afterSections,
+  onBack,
 }: ResourceDetailPageProps<T>) {
   const router = useResourceRouter()
   const resourceSegment = useResourceSegment()
@@ -94,6 +98,27 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
     () => (backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined),
     [backUrl, resourceSegment],
   )
+  
+  const handleBack = async () => {
+    // Gọi custom onBack callback nếu có (để invalidate React Query cache)
+    if (onBack) {
+      await onBack()
+    }
+    // Navigate về backUrl
+    if (resolvedBackUrl) {
+      // Refresh router TRƯỚC để invalidate Router Cache cho current route
+      router.refresh()
+      // Thêm delay nhỏ để đảm bảo refresh hoàn thành
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      // Navigate với cache-busting parameter để force Server Component refetch
+      const url = new URL(resolvedBackUrl, window.location.origin)
+      url.searchParams.set("_t", Date.now().toString())
+      await router.push(url.pathname + url.search)
+      // Refresh router SAU KHI navigate để invalidate Router Cache cho route mới
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      router.refresh()
+    }
+  }
 
   const allFields = React.useMemo(
     () => Array.isArray(fields) ? fields : fields.fields,
@@ -316,8 +341,13 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-border/50">
           <div className="space-y-1.5 flex-1 min-w-0">
             {resolvedBackUrl && (
-              <Button size="sm" onClick={() => router.push(resolvedBackUrl)} className="-ml-2">
-                <ArrowLeft className="mr-2 h-5 w-5" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="-ml-2"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 {backLabel}
               </Button>
             )}

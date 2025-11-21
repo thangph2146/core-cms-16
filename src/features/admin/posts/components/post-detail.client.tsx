@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Hash, User, Calendar, Clock, Edit, Eye, EyeOff, CheckCircle2, Tag, Tags } from "lucide-react"
+import { logger } from "@/lib/config"
 import { 
   ResourceDetailPage, 
   FieldItem,
@@ -246,7 +247,7 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
             editorState = postData.content as unknown as SerializedEditorState
           }
         } catch (error) {
-          console.error("Failed to parse editor state:", error)
+          logger.error("Failed to parse editor state", error as Error)
         }
 
         return (

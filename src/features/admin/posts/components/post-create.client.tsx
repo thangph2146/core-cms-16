@@ -8,10 +8,12 @@
 "use client"
 
 import { useSession } from "next-auth/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField, type ResourceFormSection } from "@/features/admin/resources/components"
 import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
 import { isSuperAdmin } from "@/lib/permissions"
+import { queryKeys } from "@/lib/query-keys"
 import type { Prisma } from "@prisma/client"
 
 export interface PostCreateData {
@@ -44,6 +46,7 @@ export function PostCreateClient({
   isSuperAdmin: isSuperAdminProp = false,
 }: PostCreateClientProps) {
   const { data: session } = useSession()
+  const queryClient = useQueryClient()
   const userRoles = session?.roles || []
   const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)
   const currentUserId = session?.user?.id
@@ -77,6 +80,10 @@ export function PostCreateClient({
         submitData.authorId = currentUserId
       }
       return submitData
+    },
+    onSuccess: async () => {
+      // Invalidate React Query cache để cập nhật danh sách bài viết
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all() })
     },
   })
 
