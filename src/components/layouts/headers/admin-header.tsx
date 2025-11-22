@@ -5,7 +5,6 @@
 
 import * as React from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -18,7 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { NotificationBell } from "@/components/layouts/notifications"
 import { ModeToggle } from "@/components/layouts/shared"
-import { useResourceSegment } from "@/hooks/use-resource-segment"
+import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
 import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
@@ -34,7 +33,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
   const { data: session } = useSession()
-  const router = useRouter()
+  const router = useResourceRouter()
   const resourceSegment = useResourceSegment()
   const dashboardHref = applyResourceSegmentToPath("/admin/dashboard", resourceSegment)
   

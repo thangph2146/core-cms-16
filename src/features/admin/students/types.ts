@@ -11,9 +11,7 @@ export interface StudentRow {
   deletedAt: string | null
 }
 
-export interface StudentsTableClientProps extends BaseResourceTableClientProps<StudentRow> {
-  initialUsersOptions?: Array<{ label: string; value: string }>
-}
+export interface StudentsTableClientProps extends BaseResourceTableClientProps<StudentRow> {}
 
 export type StudentsResponse = ResourceResponse<StudentRow>
 

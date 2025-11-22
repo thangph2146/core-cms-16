@@ -69,18 +69,8 @@ async function putStudentHandler(req: NextRequest, context: ApiRouteContext, ...
 
   try {
     const student = await updateStudent(ctx, studentId, validationResult.data)
-    // Serialize student to client format (dates to strings)
-    const serialized = {
-      id: student.id,
-      userId: student.userId,
-      name: student.name,
-      email: student.email,
-      studentCode: student.studentCode,
-      isActive: student.isActive,
-      createdAt: student.createdAt,
-      deletedAt: student.deletedAt,
-    }
-    return NextResponse.json({ data: serialized })
+    // mapStudentRecord đã serialize dates to ISO strings, sử dụng trực tiếp
+    return NextResponse.json({ data: student })
   } catch (error) {
     if (error instanceof ApplicationError) {
       return NextResponse.json({ error: error.message || "Không thể cập nhật học sinh" }, { status: error.status || 400 })

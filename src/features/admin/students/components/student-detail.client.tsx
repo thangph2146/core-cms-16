@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useRef } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { User, Mail, Hash, Calendar, Clock, CheckCircle2, XCircle, Edit } from "lucide-react"
 import { 
   ResourceDetailPage, 
@@ -12,10 +12,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
+import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
-import { logger } from "@/lib/config"
+import { resourceLogger } from "@/lib/config"
 
 export interface StudentDetailData {
   id: string
@@ -38,32 +40,64 @@ export interface StudentDetailClientProps {
   backUrl?: string
 }
 
-export function StudentDetailClient({ studentId, student, backUrl = "/admin/students" }: StudentDetailClientProps) {
-  const router = useResourceRouter()
-  const hasLoggedRef = useRef(false)
+// Module-level Set để track các studentId đã log (tránh duplicate trong React Strict Mode)
+const loggedStudentIds = new Set<string>()
 
-  useEffect(() => {
-    // Chỉ log một lần để tránh duplicate logs trong React strict mode
-    if (hasLoggedRef.current) return
-    
-    hasLoggedRef.current = true
-    logger.debug("[StudentDetailClient] Student detail loaded", {
+export function StudentDetailClient({ studentId, student, backUrl = "/admin/students" }: StudentDetailClientProps) {
+  const queryClient = useQueryClient()
+  const router = useResourceRouter()
+  const { navigateBack } = useResourceNavigation({
+    queryClient,
+    invalidateQueryKey: queryKeys.adminStudents.all(),
+  })
+
+  // Ưu tiên sử dụng React Query cache nếu có (dữ liệu mới nhất sau khi edit), fallback về props
+  const detailData = useResourceDetailData({
+    initialData: student,
+    resourceId: studentId,
+    detailQueryKey: queryKeys.adminStudents.detail,
+    resourceName: "students",
+  })
+
+  // Log detail action và data structure khi component mount
+  React.useEffect(() => {
+    const logKey = `students-detail-${studentId}`
+    if (loggedStudentIds.has(logKey)) return
+    loggedStudentIds.add(logKey)
+
+    resourceLogger.detailAction({
+      resource: "students",
       action: "load-detail",
-      studentId,
-      studentData: {
-        studentCode: student.studentCode,
-        name: student.name,
-        email: student.email,
-        isActive: student.isActive,
-        userId: student.userId,
-        userName: student.userName,
-        userEmail: student.userEmail,
-        createdAt: student.createdAt,
-        updatedAt: student.updatedAt,
-        deletedAt: student.deletedAt,
+      resourceId: studentId,
+      studentCode: detailData.studentCode,
+      studentName: detailData.name,
+    })
+
+    resourceLogger.dataStructure({
+      resource: "students",
+      dataType: "detail",
+      structure: {
+        id: detailData.id,
+        studentCode: detailData.studentCode,
+        name: detailData.name,
+        email: detailData.email,
+        isActive: detailData.isActive,
+        userId: detailData.userId,
+        userName: detailData.userName,
+        userEmail: detailData.userEmail,
+        createdAt: detailData.createdAt,
+        updatedAt: detailData.updatedAt,
+        deletedAt: detailData.deletedAt,
       },
     })
-  }, [studentId, student])
+
+    // Cleanup khi component unmount hoặc studentId thay đổi
+    return () => {
+      setTimeout(() => {
+        loggedStudentIds.delete(logKey)
+      }, 1000)
+    }
+  }, [studentId, detailData.id, detailData.studentCode, detailData.name, detailData.createdAt, detailData.updatedAt, detailData.deletedAt])
 
   const detailFields: ResourceDetailField<StudentDetailData>[] = []
 
@@ -73,7 +107,7 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
       title: "Thông tin cơ bản",
       description: "Thông tin chính về học sinh",
       fieldsContent: (_fields, data) => {
-        const studentData = data as StudentDetailData
+        const studentData = (data || detailData) as StudentDetailData
         
         return (
           <div className="space-y-6">
@@ -133,7 +167,7 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
       title: "Trạng thái và thời gian",
       description: "Trạng thái hoạt động và thông tin thời gian",
       fieldsContent: (_fields, data) => {
-        const studentData = data as StudentDetailData
+        const studentData = (data || detailData) as StudentDetailData
         
         return (
           <div className="space-y-6">
@@ -196,13 +230,13 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
 
   return (
     <ResourceDetailPage<StudentDetailData>
-      data={student}
+      data={detailData}
       fields={detailFields}
       detailSections={detailSections}
-      title={student.name || student.studentCode}
-      description={`Chi tiết học sinh ${student.studentCode}`}
+      title={detailData.name || detailData.studentCode}
+      description={`Chi tiết học sinh ${detailData.studentCode}`}
       backUrl={backUrl}
-      backLabel="Quay lại danh sách"
+      onBack={() => navigateBack(backUrl)}
       actions={
         <Button
           variant="outline"

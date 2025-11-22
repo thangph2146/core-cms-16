@@ -8,7 +8,6 @@
 import { listStudentsCached } from "../server/cache"
 import { serializeStudentsList } from "../server/helpers"
 import { StudentsTableClient } from "./students-table.client"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
 
 export interface StudentsTableProps {
   canDelete?: boolean
@@ -27,16 +26,13 @@ export async function StudentsTable({
   actorId,
   isSuperAdmin: isSuperAdminUser = false,
 }: StudentsTableProps) {
-  const [studentsData, usersOptions] = await Promise.all([
-    listStudentsCached({
-      page: 1,
-      limit: 10,
-      status: "active",
-      actorId,
-      isSuperAdmin: isSuperAdminUser,
-    }),
-    getActiveUsersForSelectCached(100),
-  ])
+  const studentsData = await listStudentsCached({
+    page: 1,
+    limit: 10,
+    status: "active",
+    actorId,
+    isSuperAdmin: isSuperAdminUser,
+  })
 
   return (
     <StudentsTableClient
@@ -45,7 +41,6 @@ export async function StudentsTable({
       canManage={canManage}
       canCreate={canCreate}
       initialData={serializeStudentsList(studentsData)}
-      initialUsersOptions={usersOptions}
     />
   )
 }

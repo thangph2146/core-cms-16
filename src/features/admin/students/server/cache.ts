@@ -19,11 +19,14 @@ import type { ListStudentsInput, ListStudentsResult, StudentDetail } from "../ty
  */
 export const listStudentsCached = cache(async (params: ListStudentsInput = {}): Promise<ListStudentsResult> => {
   const cacheKey = JSON.stringify(params)
+  const status = params.status || "active"
+  const statusTag = status === "deleted" ? "deleted-students" : "active-students"
+  
   return unstable_cache(
     async () => listStudents(params),
     ['students-list', cacheKey],
     { 
-      tags: ['students'], 
+      tags: ['students', statusTag], 
       revalidate: 3600 
     }
   )()
@@ -35,10 +38,9 @@ export const listStudentsCached = cache(async (params: ListStudentsInput = {}): 
  */
 export const getStudentDetailById = cache(
   async (id: string, actorId?: string, isSuperAdmin?: boolean): Promise<StudentDetail | null> => {
-    const cacheKey = `student-${id}-${actorId || ''}-${isSuperAdmin ? 'admin' : 'user'}`
     return unstable_cache(
       async () => getStudentById(id, actorId, isSuperAdmin),
-      [cacheKey],
+      [`student-detail-${id}`],
       { 
         tags: ['students', `student-${id}`],
         revalidate: 3600 

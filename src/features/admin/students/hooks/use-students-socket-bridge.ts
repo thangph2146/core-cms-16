@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { logger } from "@/lib/config"
+import { resourceLogger } from "@/lib/config"
 import type { StudentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminStudentsListParams } from "@/lib/query-keys"
@@ -56,21 +56,26 @@ function updateStudentQueries(
     if (next) {
       queryClient.setQueryData(key, next)
       updated = true
-      logger.debug("[useStudentsSocketBridge] Data table updated", {
-        queryKey: key.slice(0, 2),
-        params: {
-          status: params.status,
-          page: params.page,
-          limit: params.limit,
-          search: params.search,
-          filtersCount: Object.keys(params.filters ?? {}).length,
-        },
-        dataTable: {
-          rowsCount: next.rows.length,
-          total: next.total,
-          totalPages: next.totalPages,
-          page: next.page,
-          limit: next.limit,
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "cache-update",
+        payload: {
+          queryKey: key.slice(0, 2),
+          params: {
+            status: params.status,
+            page: params.page,
+            limit: params.limit,
+            search: params.search,
+            filtersCount: Object.keys(params.filters ?? {}).length,
+          },
+          dataTable: {
+            rowsCount: next.rows.length,
+            total: next.total,
+            totalPages: next.totalPages,
+            page: next.page,
+            limit: next.limit,
+          },
         },
       })
     }
@@ -128,23 +133,28 @@ function handleStudentUpsert(
     return null
   }
 
-  logger.debug("[useStudentsSocketBridge] Student upsert processed", {
-    action,
-    studentId: student.id,
-    studentCode: student.studentCode,
-    rowStatus,
-    matches,
-    includesByStatus,
-    params: {
-      status: params.status,
-      page: params.page,
-      search: params.search,
-    },
-    dataTable: {
-      beforeTotal: data.total,
-      afterTotal: total,
-      beforeRowsCount: data.rows.length,
-      afterRowsCount: rows.length,
+  resourceLogger.socket({
+    resource: "students",
+    action: "socket-update",
+    event: "upsert-processed",
+    payload: {
+      action,
+      studentId: student.id,
+      studentCode: student.studentCode,
+      rowStatus,
+      matches,
+      includesByStatus,
+      params: {
+        status: params.status,
+        page: params.page,
+        search: params.search,
+      },
+      dataTable: {
+        beforeTotal: data.total,
+        afterTotal: total,
+        beforeRowsCount: data.rows.length,
+        afterRowsCount: rows.length,
+      },
     },
   })
 
@@ -194,20 +204,25 @@ function handleBatchUpsert(
     }
   }
 
-  logger.debug("[useStudentsSocketBridge] Batch upsert processed", {
-    action: "batch-upsert",
-    studentsCount: students.length,
-    actions,
-    params: {
-      status: params.status,
-      page: params.page,
-      search: params.search,
-    },
-    dataTable: {
-      beforeTotal: data.total,
-      afterTotal: total,
-      beforeRowsCount: data.rows.length,
-      afterRowsCount: rows.length,
+  resourceLogger.socket({
+    resource: "students",
+    action: "socket-update",
+    event: "batch-upsert-processed",
+    payload: {
+      action: "batch-upsert",
+      studentsCount: students.length,
+      actions,
+      params: {
+        status: params.status,
+        page: params.page,
+        search: params.search,
+      },
+      dataTable: {
+        beforeTotal: data.total,
+        afterTotal: total,
+        beforeRowsCount: data.rows.length,
+        afterRowsCount: rows.length,
+      },
     },
   })
 
@@ -250,7 +265,12 @@ export function useStudentsSocketBridge() {
     cacheVersionTimeoutRef.current = setTimeout(() => {
       setCacheVersion((prev) => {
         const next = prev + 1
-        logger.debug("[useStudentsSocketBridge] Cache version updated", { version: next })
+        resourceLogger.socket({
+          resource: "students",
+          action: "cache-refresh",
+          event: "cache-version-updated",
+          payload: { version: next },
+        })
         return next
       })
       cacheVersionTimeoutRef.current = null
@@ -265,24 +285,54 @@ export function useStudentsSocketBridge() {
     if (setupKeyRef.current === currentSetupKey) return
     
     setupKeyRef.current = currentSetupKey
-    logger.debug("[useStudentsSocketBridge] Setting up socket bridge", { userId: session.user.id, role: primaryRole })
+    resourceLogger.socket({
+      resource: "students",
+      action: "socket-update",
+      event: "setup-bridge",
+      payload: { userId: session.user.id, role: primaryRole },
+    })
 
     const detachUpsert = on<[StudentUpsertPayload]>("student:upsert", (payload) => {
       const { student, previousStatus, newStatus } = payload as StudentUpsertPayload
-      logger.debug("[useStudentsSocketBridge] student:upsert event received", {
-        studentId: student.id,
-        studentCode: student.studentCode,
-        name: student.name,
-        email: student.email,
-        isActive: student.isActive,
-        previousStatus,
-        newStatus,
-        deletedAt: student.deletedAt,
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "student:upsert",
+        payload: {
+          studentId: student.id,
+          studentCode: student.studentCode,
+          name: student.name,
+          email: student.email,
+          isActive: student.isActive,
+          previousStatus,
+          newStatus,
+          deletedAt: student.deletedAt,
+        },
       })
 
       const updated = updateStudentQueries(queryClient, ({ params, data }) => {
         return handleStudentUpsert(student, params, data)
       })
+
+      // Update detail query
+      queryClient.setQueryData<{ data: StudentRow } | undefined>(
+        queryKeys.adminStudents.detail(student.id),
+        (oldData) => {
+          if (!oldData) return undefined
+          // Thay thế hoàn toàn với dữ liệu từ server (server là source of truth)
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "update-detail-cache",
+        payload: {
+          studentId: student.id,
+          oldData: oldData.data,
+          newData: student,
+        },
+      })
+          return { data: student }
+        }
+      )
       
       if (updated) {
         updateCacheVersion()
@@ -291,15 +341,20 @@ export function useStudentsSocketBridge() {
 
     const detachBatchUpsert = on<[StudentBatchUpsertPayload]>("student:batch-upsert", (payload) => {
       const { students } = payload as StudentBatchUpsertPayload
-      logger.debug("[useStudentsSocketBridge] student:batch-upsert event received", {
-        count: students.length,
-        studentIds: students.map((s) => s.student.id),
-        studentCodes: students.map((s) => s.student.studentCode),
-        statuses: students.map((s) => ({
-          id: s.student.id,
-          previousStatus: s.previousStatus,
-          newStatus: s.newStatus,
-        })),
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "student:batch-upsert",
+        payload: {
+          count: students.length,
+          studentIds: students.map((s) => s.student.id),
+          studentCodes: students.map((s) => s.student.studentCode),
+          statuses: students.map((s) => ({
+            id: s.student.id,
+            previousStatus: s.previousStatus,
+            newStatus: s.newStatus,
+          })),
+        },
       })
 
       const updated = updateStudentQueries(queryClient, ({ params, data }) => {
@@ -317,9 +372,14 @@ export function useStudentsSocketBridge() {
 
     const detachRemove = on<[StudentRemovePayload]>("student:remove", (payload) => {
       const { id, previousStatus } = payload as StudentRemovePayload
-      logger.debug("[useStudentsSocketBridge] student:remove event received", {
-        studentId: id,
-        previousStatus,
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "student:remove",
+        payload: {
+          studentId: id,
+          previousStatus,
+        },
       })
       
       const updated = updateStudentQueries(queryClient, ({ data }) => {
@@ -330,17 +390,6 @@ export function useStudentsSocketBridge() {
         
         const total = Math.max(0, data.total - 1)
         
-        logger.debug("[useStudentsSocketBridge] Student removed from data table", {
-          action: "remove",
-          studentId: id,
-          dataTable: {
-            beforeTotal: data.total,
-            afterTotal: total,
-            beforeRowsCount: data.rows.length,
-            afterRowsCount: result.rows.length,
-          },
-        })
-        
         return {
           ...data,
           rows: result.rows,
@@ -348,6 +397,9 @@ export function useStudentsSocketBridge() {
           totalPages: calculateTotalPages(total, data.limit),
         }
       })
+
+      // Invalidate detail query for the removed student
+      queryClient.setQueryData(queryKeys.adminStudents.detail(id), undefined)
       
       if (updated) {
         updateCacheVersion()
@@ -365,7 +417,12 @@ export function useStudentsSocketBridge() {
         detachUpsert?.()
         detachBatchUpsert?.()
         detachRemove?.()
-        logger.debug("[useStudentsSocketBridge] Cleaned up socket bridge", { userId: session.user.id, role: primaryRole })
+        resourceLogger.socket({
+          resource: "students",
+          action: "socket-update",
+          event: "cleanup-bridge",
+          payload: { userId: session.user.id, role: primaryRole },
+        })
       }
     }
   }, [session?.user?.id, on, queryClient, primaryRole, updateCacheVersion])
@@ -375,12 +432,22 @@ export function useStudentsSocketBridge() {
 
     const handleConnect = () => {
       setIsConnected(true)
-      logger.debug("[useStudentsSocketBridge] Socket connected")
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "socket-connected",
+        payload: {},
+      })
     }
     
     const handleDisconnect = () => {
       setIsConnected(false)
-      logger.debug("[useStudentsSocketBridge] Socket disconnected")
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "socket-disconnected",
+        payload: {},
+      })
     }
 
     socket.on("connect", handleConnect)

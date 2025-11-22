@@ -5,7 +5,7 @@
  * @module socket-helpers
  */
 
-import { logger } from "@/lib/config"
+import { resourceLogger } from "@/lib/config"
 import type { StudentRow } from "../types"
 import type { AdminStudentsListParams } from "@/lib/query-keys"
 
@@ -53,7 +53,12 @@ export function matchesFilters(
     
     const matcher = FILTER_MATCHERS[key as FilterKey]
     if (!matcher) {
-      logger.warn("[socket-helpers] Unknown filter key", { key, availableKeys: Object.keys(FILTER_MATCHERS) })
+      resourceLogger.socket({
+        resource: "students",
+        action: "socket-update",
+        event: "unknown-filter-key",
+        payload: { key, availableKeys: Object.keys(FILTER_MATCHERS) },
+      })
       return true
     }
     
@@ -91,13 +96,18 @@ export function insertRowIntoPage(
     // Update existing row
     const next = [...rows]
     next[existingIndex] = row
-    logger.debug("[socket-helpers] Updated row in page", {
-      action: "update",
-      studentId: row.id,
-      studentCode: row.studentCode,
-      index: existingIndex,
-      beforeLength: rows.length,
-      afterLength: next.length,
+    resourceLogger.socket({
+      resource: "students",
+      action: "socket-update",
+      event: "update-row-in-page",
+      payload: {
+        action: "update",
+        studentId: row.id,
+        studentCode: row.studentCode,
+        index: existingIndex,
+        beforeLength: rows.length,
+        afterLength: next.length,
+      },
     })
     return next
   }
@@ -105,13 +115,18 @@ export function insertRowIntoPage(
   // Insert new row at the beginning
   const next = [row, ...rows]
   const result = next.length > limit ? next.slice(0, limit) : next
-  logger.debug("[socket-helpers] Inserted row into page", {
-    action: "insert",
-    studentId: row.id,
-    studentCode: row.studentCode,
-    beforeLength: rows.length,
-    afterLength: result.length,
-    wasTruncated: next.length > limit,
+  resourceLogger.socket({
+    resource: "students",
+    action: "socket-update",
+    event: "insert-row-in-page",
+    payload: {
+      action: "insert",
+      studentId: row.id,
+      studentCode: row.studentCode,
+      beforeLength: rows.length,
+      afterLength: result.length,
+      wasTruncated: next.length > limit,
+    },
   })
   return result
 }
@@ -130,10 +145,15 @@ export function removeRowFromPage(
   const index = rows.findIndex((item) => item.id === id)
   
   if (index === -1) {
-    logger.debug("[socket-helpers] Row not found for removal", {
-      action: "remove",
-      studentId: id,
-      currentRowsCount: rows.length,
+    resourceLogger.socket({
+      resource: "students",
+      action: "socket-update",
+      event: "row-not-found-for-removal",
+      payload: {
+        action: "remove",
+        studentId: id,
+        currentRowsCount: rows.length,
+      },
     })
     return { rows, removed: false }
   }
@@ -141,13 +161,18 @@ export function removeRowFromPage(
   const next = [...rows]
   const removedRow = next[index]
   next.splice(index, 1)
-  logger.debug("[socket-helpers] Removed row from page", {
-    action: "remove",
-    studentId: id,
-    studentCode: removedRow?.studentCode,
-    index,
-    beforeLength: rows.length,
-    afterLength: next.length,
+  resourceLogger.socket({
+    resource: "students",
+    action: "socket-update",
+    event: "remove-row-from-page",
+    payload: {
+      action: "remove",
+      studentId: id,
+      studentCode: removedRow?.studentCode,
+      index,
+      beforeLength: rows.length,
+      afterLength: next.length,
+    },
   })
   return { rows: next, removed: true }
 }

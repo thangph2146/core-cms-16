@@ -30,7 +30,7 @@ import { useResourceRouter } from "@/hooks/use-resource-segment"
 import type { AdminStudentsListParams } from "@/lib/query-keys"
 import type { StudentRow, StudentsResponse, StudentsTableClientProps } from "../types"
 import { STUDENT_CONFIRM_MESSAGES, STUDENT_LABELS } from "../constants"
-import { logger } from "@/lib/config"
+import { resourceLogger } from "@/lib/config"
 
 export function StudentsTableClient({
   canDelete = false,
@@ -39,7 +39,6 @@ export function StudentsTableClient({
   canCreate = false,
   canUpdate = false,
   initialData,
-  initialUsersOptions: _initialUsersOptions = [],
 }: StudentsTableClientProps) {
   const router = useResourceRouter()
   const queryClient = useQueryClient()
@@ -163,18 +162,6 @@ export function StudentsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      logger.debug("[StudentsTableClient] Fetching students", {
-        action: "fetch",
-        params: {
-          status: params.status,
-          page: params.page,
-          limit: params.limit,
-          search: params.search,
-          filtersCount: Object.keys(params.filters ?? {}).length,
-        },
-        url,
-      })
-
       const response = await apiClient.get<{
         success: boolean
         data?: StudentsResponse
@@ -184,7 +171,6 @@ export function StudentsTableClient({
 
       const payload = response.data.data
       if (!payload) {
-        logger.error("[StudentsTableClient] fetchStudents - No payload", { response: response.data })
         throw new Error(response.data.error || response.data.message || "Không thể tải danh sách học sinh")
       }
 
@@ -198,21 +184,29 @@ export function StudentsTableClient({
         totalPages: payload.pagination?.totalPages ?? 0,
       }
 
-      logger.debug("[StudentsTableClient] Students fetched successfully", {
-        action: "fetch",
-        dataTable: {
-          rowsCount: result.rows.length,
-          total: result.total,
-          totalPages: result.totalPages,
-          page: result.page,
-          limit: result.limit,
+      // Log table action và data structure
+      resourceLogger.tableAction({
+        resource: "students",
+        action: "load-table",
+        view: params.status ?? "active",
+        page: result.page,
+        total: result.total,
+      })
+
+      resourceLogger.dataStructure({
+        resource: "students",
+        dataType: "table",
+        structure: {
+          columns: result.rows.length > 0 ? Object.keys(result.rows[0]) : [],
+          pagination: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            totalPages: result.totalPages,
+          },
+          rows: result.rows,
         },
-        students: rows.slice(0, 5).map((r) => ({
-          id: r.id,
-          studentCode: r.studentCode,
-          name: r.name,
-          email: r.email,
-        })),
+        rowCount: result.rows.length,
       })
 
       return result

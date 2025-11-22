@@ -8,13 +8,13 @@ import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
-import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
+import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import type { ResourceRefreshHandler, BulkActionResult } from "@/features/admin/resources/types"
 import type { StudentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { STUDENT_MESSAGES } from "../constants/messages"
-import { logger } from "@/lib/config"
+import { resourceLogger } from "@/lib/config"
 
 interface UseStudentActionsOptions {
   canDelete: boolean
@@ -42,52 +42,22 @@ export function useStudentActions({
   const handleToggleStatus = useCallback(
     async (row: StudentRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
       if (!canManage) {
-        logger.warn("[useStudentActions] Toggle status denied - no permission", {
-          action: "toggle-status",
-          studentId: row.id,
-          studentCode: row.studentCode,
-        })
         showFeedback("error", STUDENT_MESSAGES.NO_PERMISSION, STUDENT_MESSAGES.NO_MANAGE_PERMISSION)
         return
       }
 
-      logger.debug("[useStudentActions] Toggle status START", {
-        action: "toggle-status",
+      resourceLogger.tableAction({
+        resource: "students",
+        action: newStatus ? "restore" : "delete",
         studentId: row.id,
         studentCode: row.studentCode,
-        name: row.name,
-        email: row.email,
-        currentStatus: row.isActive,
-        newStatus,
-        socketConnected: isSocketConnected,
       })
 
       setTogglingStudents((prev) => new Set(prev).add(row.id))
 
-      // Optimistic update chỉ khi không có socket (fallback)
-      if (!isSocketConnected) {
-        queryClient.setQueriesData<DataTableResult<StudentRow>>(
-          { queryKey: queryKeys.adminStudents.all() as unknown[] },
-          (oldData) => {
-            if (!oldData) return oldData
-            const updatedRows = oldData.rows.map((r) =>
-              r.id === row.id ? { ...r, isActive: newStatus } : r
-            )
-            return { ...oldData, rows: updatedRows }
-          },
-        )
-      }
-
       try {
         await apiClient.put(apiRoutes.students.update(row.id), {
           isActive: newStatus,
-        })
-        
-        logger.debug("[useStudentActions] Toggle status SUCCESS", {
-          action: "toggle-status",
-          studentId: row.id,
-          studentCode: row.studentCode,
-          newStatus,
         })
 
         showFeedback(
@@ -95,30 +65,15 @@ export function useStudentActions({
           STUDENT_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh ${row.studentCode}`
         )
-        // Socket events đã update cache, chỉ refresh nếu socket không connected
-        if (!isSocketConnected) {
-          await runResourceRefresh({ refresh, resource: "students" })
-        }
+        // Socket events đã update cache, không cần manual refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
-        logger.error("[useStudentActions] Toggle status ERROR", {
-          action: "toggle-status",
-          studentId: row.id,
-          studentCode: row.studentCode,
-          newStatus,
-          error: error instanceof Error ? error.message : String(error),
-        })
         showFeedback(
           "error",
           STUDENT_MESSAGES.TOGGLE_ACTIVE_ERROR,
           `Không thể ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh`,
           errorMessage
         )
-        
-        // Rollback optimistic update nếu có lỗi
-        if (!isSocketConnected) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all() })
-        }
       } finally {
         setTogglingStudents((prev) => {
           const next = new Set(prev)
@@ -167,23 +122,14 @@ export function useStudentActions({
       }[action]
 
       if (!actionConfig.permission) {
-        logger.warn("[useStudentActions] Action denied - no permission", {
-          action,
-          studentId: row.id,
-          studentCode: row.studentCode,
-        })
         return
       }
 
-      logger.debug("[useStudentActions] Single action START", {
+      resourceLogger.tableAction({
+        resource: "students",
         action,
         studentId: row.id,
         studentCode: row.studentCode,
-        name: row.name,
-        email: row.email,
-        isActive: row.isActive,
-        deletedAt: row.deletedAt,
-        socketConnected: isSocketConnected,
       })
 
       // Track loading state
@@ -202,25 +148,10 @@ export function useStudentActions({
           await apiClient.post(actionConfig.endpoint)
         }
         
-        logger.debug("[useStudentActions] Single action SUCCESS", {
-          action,
-          studentId: row.id,
-          studentCode: row.studentCode,
-        })
-
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // Chỉ refresh nếu socket không connected (socket đã update cache rồi)
-        if (!isSocketConnected) {
-          await runResourceRefresh({ refresh, resource: "students" })
-        }
+        // Socket events đã update cache, không cần manual refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
-        logger.error("[useStudentActions] Single action ERROR", {
-          action,
-          studentId: row.id,
-          studentCode: row.studentCode,
-          error: error instanceof Error ? error.message : String(error),
-        })
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
           // Don't throw for restore to allow UI to continue
@@ -248,43 +179,36 @@ export function useStudentActions({
       if (ids.length === 0) return
       if (!startBulkProcessing()) return
 
-      logger.debug("[useStudentActions] Bulk action START", {
-        action,
-        count: ids.length,
-        studentIds: ids,
-        socketConnected: isSocketConnected,
-      })
-
       try {
-        await apiClient.post(apiRoutes.students.bulk, { action, ids })
-
-        logger.debug("[useStudentActions] Bulk action SUCCESS", {
-          action,
+        resourceLogger.tableAction({
+          resource: "students",
+          action: `bulk-${action}`,
           count: ids.length,
           studentIds: ids,
         })
 
-        const messages = {
-          restore: { title: STUDENT_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} học sinh` },
-          delete: { title: STUDENT_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${ids.length} học sinh` },
-          "hard-delete": { title: STUDENT_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} học sinh` },
-        }
+        const response = await apiClient.post<BulkActionResult>(apiRoutes.students.bulk, { action, ids })
 
-        showFeedback("success", messages[action].title, messages[action].description)
+        // Hiển thị feedback với title và description
+        const successTitles = {
+          restore: STUDENT_MESSAGES.BULK_RESTORE_SUCCESS,
+          delete: STUDENT_MESSAGES.BULK_DELETE_SUCCESS,
+          "hard-delete": STUDENT_MESSAGES.BULK_HARD_DELETE_SUCCESS,
+        }
+        const title = successTitles[action]
+        const description = response.data.message || `Đã thực hiện thao tác cho ${ids.length} học sinh`
+        
+        showFeedback("success", title, description)
         clearSelection()
 
-        // Socket events đã update cache, chỉ refresh nếu socket không connected
-        if (!isSocketConnected) {
-          await runResourceRefresh({ refresh, resource: "students" })
-        }
+        // Socket events đã update cache, không cần manual refresh
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
-        logger.error("[useStudentActions] Bulk action ERROR", {
-          action,
-          count: ids.length,
-          studentIds: ids,
-          error: error instanceof Error ? error.message : String(error),
-        })
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
+              (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.message ||
+              STUDENT_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {
           restore: STUDENT_MESSAGES.BULK_RESTORE_ERROR,
           delete: STUDENT_MESSAGES.BULK_DELETE_ERROR,
