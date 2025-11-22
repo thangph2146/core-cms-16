@@ -9,6 +9,7 @@ export interface PostRow {
   published: boolean
   publishedAt: string | null
   createdAt: string
+  updatedAt?: string // Optional để hỗ trợ cache comparison
   deletedAt: string | null
   author: {
     id: string

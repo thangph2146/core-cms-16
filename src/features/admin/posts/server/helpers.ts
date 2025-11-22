@@ -136,6 +136,7 @@ export function serializePostForTable(post: ListedPost): PostRow {
     published: post.published,
     publishedAt: serializeDate(post.publishedAt),
     createdAt: serializeDate(post.createdAt)!,
+    updatedAt: serializeDate(post.updatedAt) ?? undefined, // Thêm updatedAt để so sánh cache chính xác (convert null to undefined)
     deletedAt: serializeDate(post.deletedAt),
     author: post.author,
     categories: post.categories,

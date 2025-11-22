@@ -86,7 +86,17 @@ export function usePostActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        await runResourceRefresh({ refresh, resource: "posts" })
+        
+        // Log success với metadata chi tiết
+        resourceLogger.actionFlow({
+          resource: "posts",
+          action: action === "delete" ? "delete" : action === "restore" ? "restore" : "hard-delete",
+          step: "success",
+          metadata: { postId: row.id, postTitle: row.title },
+        })
+        
+        // Socket events đã update cache và trigger refresh qua cacheVersion
+        // Không cần manual refresh nữa để tránh duplicate refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -141,7 +151,6 @@ export function usePostActions({
           const errorMessage = result?.message || `Không có bài viết nào được ${actionText}`
           showFeedback("error", "Không có thay đổi", errorMessage)
           clearSelection()
-          await runResourceRefresh({ refresh, resource: "posts" })
           resourceLogger.actionFlow({
             resource: "posts",
             action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
@@ -151,18 +160,18 @@ export function usePostActions({
           return
         }
 
-        // Hiển thị success message với số lượng thực tế đã xử lý
+        // Hiển thị success message với số lượng thực tế đã xử lý và message từ server
         const messages = {
-          restore: { title: POST_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${affected} bài viết` },
-          delete: { title: POST_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${affected} bài viết` },
-          "hard-delete": { title: POST_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${affected} bài viết` },
+          restore: { title: POST_MESSAGES.BULK_RESTORE_SUCCESS, description: result?.message || `Đã khôi phục ${affected} bài viết` },
+          delete: { title: POST_MESSAGES.BULK_DELETE_SUCCESS, description: result?.message || `Đã xóa ${affected} bài viết` },
+          "hard-delete": { title: POST_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: result?.message || `Đã xóa vĩnh viễn ${affected} bài viết` },
         }
 
         const message = messages[action]
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        // Log success
+        // Log success với metadata chi tiết
         resourceLogger.actionFlow({
           resource: "posts",
           action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
@@ -170,8 +179,8 @@ export function usePostActions({
           metadata: { requestedCount: ids.length, affectedCount: affected },
         })
 
-        // Luôn refresh để đảm bảo UI được cập nhật (socket có thể không kết nối hoặc chậm)
-        await runResourceRefresh({ refresh, resource: "posts" })
+        // Socket events đã update cache và trigger refresh qua cacheVersion
+        // Không cần manual refresh nữa để tránh duplicate refresh
       } catch (error: unknown) {
         // Extract error message từ response nếu có
         let errorMessage: string = POST_MESSAGES.UNKNOWN_ERROR

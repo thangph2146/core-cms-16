@@ -354,6 +354,11 @@ export async function updatePost(
     return updatedPost
   })
 
+  // Đảm bảo post không null sau transaction
+  if (!post) {
+    throw new NotFoundError("Bài viết không tồn tại")
+  }
+
   const sanitized = sanitizePost(post as PostWithAuthor)
 
   // Invalidate admin cache - QUAN TRỌNG: phải invalidate detail page để cập nhật ngay
@@ -695,11 +700,12 @@ export async function bulkPostsAction(
 ): Promise<BulkActionResult> {
   const actionType = action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete"
   
+  // Log action start một lần duy nhất
   resourceLogger.actionFlow({
     resource: "posts",
     action: actionType,
     step: "start",
-    metadata: { count: postIds.length, postIds, actorId: ctx.actorId },
+    metadata: { requestedCount: postIds.length, requestedIds: postIds, actorId: ctx.actorId },
   })
 
   if (action === "hard-delete") {
@@ -735,21 +741,6 @@ export async function bulkPostsAction(
 
     const foundIds = posts.map(p => p.id)
     const notFoundIds = postIds.filter(id => !foundIds.includes(id))
-    
-    // Log để debug với đầy đủ thông tin
-    resourceLogger.actionFlow({
-      resource: "posts",
-      action: "bulk-delete",
-      step: "start",
-      metadata: {
-        requestedCount: postIds.length,
-        foundCount: posts.length,
-        notFoundCount: notFoundIds.length,
-        requestedIds: postIds,
-        foundIds,
-        notFoundIds,
-      },
-    })
 
     if (posts.length === 0) {
       let errorMessage = "Không có bài viết nào có thể xóa"
@@ -782,8 +773,8 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Batch emit thay vì từng record
-    if (count > 0) {
+    // Batch emit và tạo bulk notification
+    if (count > 0 && posts.length > 0) {
       await handleBulkOperation(
         () => emitBatchPostUpsert(posts.map(p => p.id), "active"),
         "bulk-delete",
@@ -797,6 +788,13 @@ export async function bulkPostsAction(
         { count },
         "notification"
       )
+
+      resourceLogger.actionFlow({
+        resource: "posts",
+        action: "bulk-delete",
+        step: "success",
+        metadata: { requestedCount: postIds.length, affectedCount: count },
+      })
     }
   } else if (action === "restore") {
     // Lấy thông tin posts trước khi restore để tạo notifications
@@ -810,21 +808,6 @@ export async function bulkPostsAction(
 
     const foundIds = posts.map(p => p.id)
     const notFoundIds = postIds.filter(id => !foundIds.includes(id))
-    
-    // Log để debug với đầy đủ thông tin
-    resourceLogger.actionFlow({
-      resource: "posts",
-      action: "bulk-restore",
-      step: "start",
-      metadata: {
-        requestedCount: postIds.length,
-        foundCount: posts.length,
-        notFoundCount: notFoundIds.length,
-        requestedIds: postIds,
-        foundIds,
-        notFoundIds,
-      },
-    })
 
     // Kiểm tra nếu không có post nào để restore
     if (posts.length === 0) {
@@ -873,8 +856,8 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Batch emit thay vì từng record
-    if (count > 0) {
+    // Batch emit và tạo bulk notification
+    if (count > 0 && posts.length > 0) {
       await handleBulkOperation(
         () => emitBatchPostUpsert(posts.map(p => p.id), "deleted"),
         "bulk-restore",
@@ -888,6 +871,13 @@ export async function bulkPostsAction(
         { count },
         "notification"
       )
+
+      resourceLogger.actionFlow({
+        resource: "posts",
+        action: "bulk-restore",
+        step: "success",
+        metadata: { requestedCount: postIds.length, affectedCount: count },
+      })
     }
   } else if (action === "hard-delete") {
     // Lấy thông tin posts trước khi delete để emit socket events và revalidate cache
@@ -900,21 +890,6 @@ export async function bulkPostsAction(
 
     const foundIds = posts.map(p => p.id)
     const notFoundIds = postIds.filter(id => !foundIds.includes(id))
-    
-    // Log để debug với đầy đủ thông tin
-    resourceLogger.actionFlow({
-      resource: "posts",
-      action: "bulk-hard-delete",
-      step: "start",
-      metadata: {
-        requestedCount: postIds.length,
-        foundCount: posts.length,
-        notFoundCount: notFoundIds.length,
-        requestedIds: postIds,
-        foundIds,
-        notFoundIds,
-      },
-    })
 
     if (posts.length === 0) {
       let errorMessage = "Không có bài viết nào có thể xóa vĩnh viễn"
@@ -946,7 +921,7 @@ export async function bulkPostsAction(
       })
     ).count
 
-    // Emit batch remove events
+    // Emit batch remove events và tạo bulk notification
     if (count > 0) {
       const { getSocketServer } = await import("@/lib/socket/state")
       const io = getSocketServer()
@@ -965,6 +940,13 @@ export async function bulkPostsAction(
         { count },
         "notification"
       )
+
+      resourceLogger.actionFlow({
+        resource: "posts",
+        action: "bulk-hard-delete",
+        step: "success",
+        metadata: { requestedCount: postIds.length, affectedCount: count },
+      })
     }
   }
 
@@ -1016,12 +998,15 @@ export async function bulkPostsAction(
     successMessage = `Đã xóa vĩnh viễn ${count} bài viết`
   }
 
-  resourceLogger.actionFlow({
-    resource: "posts",
-    action: actionType,
-    step: "success",
-    metadata: { count, affected: count },
-  })
+  // Log success chỉ một lần ở cuối (không log trong các if blocks ở trên)
+  if (count > 0) {
+    resourceLogger.actionFlow({
+      resource: "posts",
+      action: actionType,
+      step: "success",
+      metadata: { requestedCount: postIds.length, affectedCount: count },
+    })
+  }
 
   return { success: true, message: successMessage, affected: count }
 }
