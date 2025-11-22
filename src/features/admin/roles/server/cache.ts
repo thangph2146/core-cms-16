@@ -16,15 +16,19 @@ import { prisma } from "@/lib/database"
 
 /**
  * Cache function: List roles with pagination
- * Caching strategy: Cache by params string
+ * Caching strategy: Cache by params string với tags theo status
+ * Theo chuẩn Next.js 16: sử dụng tags để invalidate cache chính xác
  */
 export const listRolesCached = cache(async (params: ListRolesInput = {}): Promise<ListRolesResult> => {
   const cacheKey = JSON.stringify(params)
+  const status = params.status || "active"
+  const statusTag = status === "deleted" ? "deleted-roles" : "active-roles"
+  
   return unstable_cache(
     async () => listRoles(params),
     ['roles-list', cacheKey],
     { 
-      tags: ['roles'], 
+      tags: ['roles', statusTag], 
       revalidate: 3600 
     }
   )()

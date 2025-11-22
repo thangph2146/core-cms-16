@@ -33,6 +33,7 @@ export function mapRoleRecord(role: RoleWithRelations): ListedRole {
     permissions: role.permissions,
     isActive: role.isActive,
     createdAt: role.createdAt,
+    updatedAt: role.updatedAt,
     deletedAt: role.deletedAt,
   }
 }
@@ -80,8 +81,9 @@ export function buildWhereClause(params: ListRolesInput): Prisma.RoleWhereInput 
 
 /**
  * Serialize role data for DataTable format
+ * Handles both Date objects and date strings (from cache serialization)
  */
-export function serializeRoleForTable(role: ListedRole): RoleRow {
+export function serializeRoleForTable(role: ListedRole | { id: string; name: string; displayName: string; description: string | null; permissions: string[]; isActive: boolean; createdAt: Date | string; updatedAt?: Date | string; deletedAt: Date | string | null }): RoleRow {
   return {
     id: role.id,
     name: role.name,
@@ -90,6 +92,7 @@ export function serializeRoleForTable(role: ListedRole): RoleRow {
     permissions: role.permissions,
     isActive: role.isActive,
     createdAt: serializeDate(role.createdAt)!,
+    updatedAt: role.updatedAt ? (serializeDate(role.updatedAt) ?? undefined) : undefined, // Thêm updatedAt để so sánh cache chính xác (convert null to undefined)
     deletedAt: serializeDate(role.deletedAt),
   }
 }

@@ -10,6 +10,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
+import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
 import { getBaseRoleFields, getRoleFormSections, type RoleFormData } from "../form-fields"
@@ -80,21 +81,15 @@ export function RoleEditClient({
       }
       return submitData
     },
-    onSuccess: async (_response) => {
-      // Invalidate React Query cache để cập nhật danh sách vai trò
-      await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
-      // Invalidate detail query nếu có roleId
-      const targetRoleId = role?.id
-      if (targetRoleId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.detail(targetRoleId) })
-      }
-      // Refetch để đảm bảo data mới nhất
-      await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
-      
-      if (onSuccess) {
-        onSuccess()
-      }
-    },
+    onSuccess: createResourceEditOnSuccess({
+      queryClient,
+      resourceId: role?.id,
+      allQueryKey: queryKeys.adminRoles.all(),
+      detailQueryKey: queryKeys.adminRoles.detail,
+      resourceName: "roles",
+      getRecordName: (data) => data.displayName as string | undefined,
+      onSuccess,
+    }),
   })
 
   if (!role?.id) {

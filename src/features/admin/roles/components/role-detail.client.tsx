@@ -13,10 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { useResourceNavigation } from "@/features/admin/resources/hooks"
+import { useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { getAllPermissionsOptionGroups } from "../form-fields"
+import { resourceLogger } from "@/lib/config"
 import {
   Popover,
   PopoverContent,
@@ -51,6 +52,9 @@ export interface RoleDetailClientProps {
   backUrl?: string
 }
 
+// Module-level Set để track các roleId đã log (tránh duplicate trong React Strict Mode)
+const loggedRoleIds = new Set<string>()
+
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
   const queryClient = useQueryClient()
   const { navigateBack, router } = useResourceNavigation({
@@ -58,6 +62,52 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
     invalidateQueryKey: queryKeys.adminRoles.all(),
   })
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
+
+  // Ưu tiên sử dụng React Query cache nếu có (dữ liệu mới nhất sau khi edit), fallback về props
+  const detailData = useResourceDetailData({
+    initialData: role,
+    resourceId: roleId,
+    detailQueryKey: queryKeys.adminRoles.detail,
+    resourceName: "roles",
+  })
+
+  // Log detail load một lần cho mỗi roleId (tránh duplicate trong React Strict Mode)
+  React.useEffect(() => {
+    const logKey = `roles-detail-${roleId}`
+    if (loggedRoleIds.has(logKey)) return
+    loggedRoleIds.add(logKey)
+    
+    resourceLogger.detailAction({
+      resource: "roles",
+      action: "load-detail",
+      resourceId: roleId,
+      roleName: detailData.name,
+      roleDisplayName: detailData.displayName,
+    })
+
+    resourceLogger.dataStructure({
+      resource: "roles",
+      dataType: "detail",
+      structure: {
+        id: detailData.id,
+        name: detailData.name,
+        displayName: detailData.displayName,
+        description: detailData.description,
+        permissions: detailData.permissions,
+        isActive: detailData.isActive,
+        createdAt: detailData.createdAt,
+        updatedAt: detailData.updatedAt,
+        deletedAt: detailData.deletedAt,
+      },
+    })
+
+    // Cleanup khi component unmount hoặc roleId thay đổi
+    return () => {
+      setTimeout(() => {
+        loggedRoleIds.delete(logKey)
+      }, 1000)
+    }
+  }, [roleId, detailData.id, detailData.name, detailData.displayName, detailData.createdAt, detailData.updatedAt, detailData.deletedAt])
 
   // Get grouped permissions
   const permissionsGroups = getAllPermissionsOptionGroups()
@@ -74,8 +124,8 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       id: "basic",
       title: "Thông tin cơ bản",
       description: "Thông tin chính về vai trò",
-      fieldsContent: (_fields, data) => {
-        const roleData = data as RoleDetailData
+              fieldsContent: (_fields, data) => {
+                const roleData = (data || detailData) as RoleDetailData
         
         return (
           <div className="space-y-6">
@@ -121,8 +171,8 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       id: "permissions",
       title: "Quyền truy cập",
       description: "Danh sách quyền được gán cho vai trò",
-      fieldsContent: (_fields, data) => {
-        const roleData = data as RoleDetailData
+              fieldsContent: (_fields, data) => {
+                const roleData = (data || detailData) as RoleDetailData
         
         if (!roleData.permissions || !Array.isArray(roleData.permissions) || roleData.permissions.length === 0) {
           return (
@@ -233,8 +283,8 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       id: "status",
       title: "Trạng thái và thời gian",
       description: "Trạng thái hoạt động và thông tin thời gian",
-      fieldsContent: (_fields, data) => {
-        const roleData = data as RoleDetailData
+              fieldsContent: (_fields, data) => {
+                const roleData = (data || detailData) as RoleDetailData
         
         return (
           <div className="space-y-6">
@@ -300,11 +350,12 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       data={role}
       fields={detailFields}
       detailSections={detailSections}
-      title={role.displayName}
-      description={`Chi tiết vai trò ${role.name}`}
+      title={detailData.displayName}
+      description={`Chi tiết vai trò ${detailData.name}`}
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
       onBack={() => navigateBack(backUrl)}
+      data={detailData}
       actions={
         <Button
           variant="outline"

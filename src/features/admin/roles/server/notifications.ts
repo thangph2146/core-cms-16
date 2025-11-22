@@ -3,7 +3,7 @@
  */
 
 import { prisma } from "@/lib/database"
-import { logger } from "@/lib/config"
+import { logger, resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
@@ -217,6 +217,168 @@ export async function notifySuperAdminsOfRoleAction(
     }
   } catch (error) {
     logger.error("[notifications] Failed to notify super admins of role action", error as Error)
+  }
+}
+
+/**
+ * Format role names cho notification description
+ * Hiển thị tối đa 3 tên đầu tiên, nếu nhiều hơn sẽ hiển thị "... và X vai trò khác"
+ */
+function formatRoleNames(roles: Array<{ displayName: string }>, maxNames = 3): string {
+  if (!roles || roles.length === 0) return ""
+  
+  const displayNames = roles.slice(0, maxNames).map(r => `"${r.displayName}"`)
+  const remainingCount = roles.length > maxNames ? roles.length - maxNames : 0
+  
+  if (remainingCount > 0) {
+    return `${displayNames.join(", ")} và ${remainingCount} vai trò khác`
+  }
+  return displayNames.join(", ")
+}
+
+/**
+ * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
+ * Tối ưu để tránh timeout khi xử lý nhiều roles và rút gọn thông báo
+ * Đảm bảo hiển thị được tên records bị xóa/khôi phục
+ */
+export async function notifySuperAdminsOfBulkRoleAction(
+  action: "delete" | "restore" | "hard-delete",
+  actorId: string,
+  count: number,
+  roles?: Array<{ displayName: string }>
+) {
+  const startTime = Date.now()
+  
+  resourceLogger.actionFlow({
+    resource: "roles",
+    action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
+    step: "start",
+    metadata: { count, roleCount: roles?.length || 0, actorId },
+  })
+
+  try {
+    const actor = await getActorInfo(actorId)
+    const actorName = actor?.name || actor?.email || "Hệ thống"
+
+    let title = ""
+    let description = ""
+
+    // Format role names - hiển thị tối đa 3 tên đầu tiên
+    const namesText = roles && roles.length > 0 ? formatRoleNames(roles, 3) : ""
+
+    switch (action) {
+      case "delete":
+        title = `🗑️ ${count} Vai trò bị xóa`
+        description = namesText 
+          ? `${actorName} đã xóa ${count} vai trò: ${namesText}`
+          : `${actorName} đã xóa ${count} vai trò`
+        break
+      case "restore":
+        title = `♻️ ${count} Vai trò được khôi phục`
+        description = namesText
+          ? `${actorName} đã khôi phục ${count} vai trò: ${namesText}`
+          : `${actorName} đã khôi phục ${count} vai trò`
+        break
+      case "hard-delete":
+        title = `⚠️ ${count} Vai trò bị xóa vĩnh viễn`
+        description = namesText
+          ? `${actorName} đã xóa vĩnh viễn ${count} vai trò: ${namesText}`
+          : `${actorName} đã xóa vĩnh viễn ${count} vai trò`
+        break
+    }
+
+    const actionUrl = `/admin/roles`
+
+    const result = await createNotificationForSuperAdmins(
+      title,
+      description,
+      actionUrl,
+      NotificationKind.SYSTEM,
+      {
+        type: `role_bulk_${action}`,
+        actorId,
+        actorName: actor?.name || actor?.email,
+        actorEmail: actor?.email,
+        count,
+        roleNames: roles?.map(r => r.displayName) || [],
+        timestamp: new Date().toISOString(),
+      }
+    )
+
+    const io = getSocketServer()
+    if (io && result.count > 0) {
+      const superAdmins = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          userRoles: {
+            some: {
+              role: {
+                name: "super_admin",
+                isActive: true,
+                deletedAt: null,
+              },
+            },
+          },
+        },
+        select: { id: true },
+      })
+
+      const createdNotifications = await prisma.notification.findMany({
+        where: {
+          title,
+          description,
+          actionUrl,
+          kind: NotificationKind.SYSTEM,
+          userId: {
+            in: superAdmins.map((a) => a.id),
+          },
+          createdAt: {
+            gte: new Date(Date.now() - 5000),
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: superAdmins.length,
+      })
+
+      for (const admin of superAdmins) {
+        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
+        if (dbNotification) {
+          const socketNotification = mapNotificationToPayload(dbNotification)
+          storeNotificationInCache(admin.id, socketNotification)
+          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+        }
+      }
+
+      if (createdNotifications.length > 0) {
+        const roleNotification = mapNotificationToPayload(createdNotifications[0])
+        io.to("role:super_admin").emit("notification:new", roleNotification)
+      }
+    }
+
+    resourceLogger.actionFlow({
+      resource: "roles",
+      action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
+      step: "success",
+      duration: Date.now() - startTime,
+      metadata: { count, roleCount: roles?.length || 0 },
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    resourceLogger.actionFlow({
+      resource: "roles",
+      action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
+      step: "error",
+      duration: Date.now() - startTime,
+      metadata: { 
+        count, 
+        roleCount: roles?.length || 0,
+        error: errorMessage,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    })
   }
 }
 

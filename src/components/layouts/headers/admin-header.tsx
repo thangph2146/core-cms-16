@@ -6,7 +6,6 @@
 import * as React from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -21,7 +20,6 @@ import { NotificationBell } from "@/components/layouts/notifications"
 import { ModeToggle } from "@/components/layouts/shared"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
-import { queryKeys } from "@/lib/query-keys"
 import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 export interface AdminBreadcrumbItem {
@@ -37,31 +35,23 @@ interface AdminHeaderProps {
 export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
   const { data: session } = useSession()
   const router = useRouter()
-  const queryClient = useQueryClient()
   const resourceSegment = useResourceSegment()
   const dashboardHref = applyResourceSegmentToPath("/admin/dashboard", resourceSegment)
   
   // Handle breadcrumb navigation với cache invalidation
-  const handleBreadcrumbClick = React.useCallback(async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  // Sử dụng cache-busting parameter và router.refresh() để đảm bảo data mới nhất
+  const handleBreadcrumbClick = React.useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault()
     
-    // Invalidate React Query cache cho các resources phổ biến
-    // Điều này đảm bảo khi quay lại list page, data được refetch
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "all" }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" }),
-    ]).catch((error) => {
-      // Log error nhưng không block navigation
-      console.error("Error invalidating queries:", error)
-    })
-    
     // Navigate với cache-busting parameter để force Server Component refetch
-    // Next.js sẽ tự động revalidate khi navigate, không cần gọi router.refresh() ngay
     const url = new URL(href, window.location.origin)
     url.searchParams.set("_t", Date.now().toString())
     router.replace(url.pathname + url.search)
-  }, [router, queryClient])
+    
+    // Refresh router để đảm bảo Server Components được re-render với data mới
+    // Next.js sẽ tự động revalidate khi navigate
+    router.refresh()
+  }, [router])
 
   return (
     <header

@@ -8,9 +8,9 @@ import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
-import { logger } from "@/lib/config"
+import { logger, resourceLogger } from "@/lib/config"
 import type { RoleRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
@@ -69,6 +69,14 @@ export function useRoleActions({
       }
 
       try {
+        resourceLogger.tableAction({
+          resource: "roles",
+          action: "toggle-status",
+          roleId: row.id,
+          roleName: row.displayName,
+          newStatus,
+        })
+
         await apiClient.put(apiRoutes.roles.update(row.id), {
           isActive: newStatus,
         })
@@ -78,7 +86,7 @@ export function useRoleActions({
           ROLE_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} vai trò ${row.displayName}`
         )
-        await runResourceRefresh({ refresh, resource: "roles" })
+        // Socket events sẽ tự động update cache, không cần manual refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -160,15 +168,56 @@ export function useRoleActions({
       setLoadingState((prev) => new Set(prev).add(row.id))
 
       try {
+        resourceLogger.actionFlow({
+          resource: "roles",
+          action,
+          step: "start",
+          metadata: {
+            roleId: row.id,
+            roleName: row.displayName,
+            socketConnected: isSocketConnected,
+          },
+        })
+
+        resourceLogger.tableAction({
+          resource: "roles",
+          action,
+          roleId: row.id,
+          roleName: row.displayName,
+        })
+
         if (actionConfig.method === "delete") {
           await apiClient.delete(actionConfig.endpoint)
         } else {
           await apiClient.post(actionConfig.endpoint)
         }
+
+        resourceLogger.actionFlow({
+          resource: "roles",
+          action,
+          step: "success",
+          metadata: {
+            roleId: row.id,
+            roleName: row.displayName,
+          },
+        })
+
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        await runResourceRefresh({ refresh, resource: "roles" })
+        // Socket events sẽ tự động update cache, không cần manual refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
+        
+        resourceLogger.actionFlow({
+          resource: "roles",
+          action,
+          step: "error",
+          metadata: {
+            roleId: row.id,
+            roleName: row.displayName,
+            error: errorMessage,
+          },
+        })
+
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
         if (action === "restore") {
           logger.error(`Failed to ${action} role`, error as Error)
@@ -198,33 +247,57 @@ export function useRoleActions({
       if (!startBulkProcessing()) return
 
       try {
-        await apiClient.post(apiRoutes.roles.bulk, { action, ids })
+        resourceLogger.tableAction({
+          resource: "roles",
+          action: `bulk-${action}`,
+          count: ids.length,
+          roleIds: ids,
+        })
+
+        const response = await apiClient.post<{ success: boolean; message: string; data?: { affected: number; message?: string } }>(apiRoutes.roles.bulk, { action, ids })
+
+        // Xử lý response structure từ API
+        const affected = response.data?.data?.affected ?? 0
+        const apiMessage = response.data?.data?.message || response.data?.message
+
+        // Nếu không có record nào được xử lý, hiển thị error feedback
+        if (affected === 0) {
+          const errorMessage = apiMessage || `Không có vai trò nào được ${action === "delete" ? "xóa" : action === "restore" ? "khôi phục" : "xóa vĩnh viễn"}`
+          showFeedback("error", `Không thể ${action === "delete" ? "xóa" : action === "restore" ? "khôi phục" : "xóa vĩnh viễn"}`, errorMessage)
+          return
+        }
 
         const messages = {
-          restore: { title: ROLE_MESSAGES.BULK_RESTORE_SUCCESS, description: `Đã khôi phục ${ids.length} vai trò` },
-          delete: { title: ROLE_MESSAGES.BULK_DELETE_SUCCESS, description: `Đã xóa ${ids.length} vai trò` },
-          "hard-delete": { title: ROLE_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: `Đã xóa vĩnh viễn ${ids.length} vai trò` },
+          restore: { title: ROLE_MESSAGES.BULK_RESTORE_SUCCESS, description: apiMessage || `Đã khôi phục ${affected} vai trò` },
+          delete: { title: ROLE_MESSAGES.BULK_DELETE_SUCCESS, description: apiMessage || `Đã xóa ${affected} vai trò` },
+          "hard-delete": { title: ROLE_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: apiMessage || `Đã xóa vĩnh viễn ${affected} vai trò` },
         }
 
         const message = messages[action]
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        // Invalidate queries trước để đảm bảo cache được clear
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
-        // Refetch ngay để đảm bảo data mới nhất
-        await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
-        
-        // Gọi refresh để trigger table reload
-        await runResourceRefresh({ refresh, resource: "roles" })
+        // Socket events sẽ tự động update cache, không cần manual refresh
       } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
+        // Extract error message từ axios error response
+        const axiosError = error as { response?: { data?: { message?: string; error?: string; data?: { message?: string } } } }
+        const errorMessage = axiosError.response?.data?.message || axiosError.response?.data?.error || axiosError.response?.data?.data?.message || (error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR)
+        
         const errorTitles = {
           restore: ROLE_MESSAGES.BULK_RESTORE_ERROR,
           delete: ROLE_MESSAGES.BULK_DELETE_ERROR,
           "hard-delete": ROLE_MESSAGES.BULK_HARD_DELETE_ERROR,
         }
         showFeedback("error", errorTitles[action], `Không thể thực hiện thao tác cho ${ids.length} vai trò`, errorMessage)
+        
+        resourceLogger.tableAction({
+          resource: "roles",
+          action: `bulk-${action}`,
+          count: ids.length,
+          roleIds: ids,
+          error: errorMessage,
+        })
+        
         if (action !== "restore") {
           throw error
         }

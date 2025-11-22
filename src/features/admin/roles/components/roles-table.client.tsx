@@ -30,6 +30,7 @@ import { useRoleFeedback } from "@/features/admin/roles/hooks/use-role-feedback"
 import { useRoleDeleteConfirm } from "@/features/admin/roles/hooks/use-role-delete-confirm"
 import { useRoleColumns } from "@/features/admin/roles/utils/columns"
 import { useRoleRowActions } from "@/features/admin/roles/utils/row-actions"
+import { resourceLogger } from "@/lib/config"
 
 import type { AdminRolesListParams } from "@/lib/query-keys"
 import type { RoleRow, RolesResponse, RolesTableClientProps } from "../types"
@@ -210,13 +211,40 @@ export function RolesTableClient({
           throw new Error(response.data.error || response.data.message || "Không thể tải danh sách vai trò")
         }
 
-        return {
+        const result = {
           rows: payload.data ?? [],
           page: payload.pagination?.page ?? page,
           limit: payload.pagination?.limit ?? limit,
           total: payload.pagination?.total ?? payload.data?.length ?? 0,
           totalPages: payload.pagination?.totalPages ?? 0,
         }
+
+        // Log table action và data structure
+        resourceLogger.tableAction({
+          resource: "roles",
+          action: "load-table",
+          view: status,
+          page: result.page,
+          total: result.total,
+        })
+
+        resourceLogger.dataStructure({
+          resource: "roles",
+          dataType: "table",
+          structure: {
+            columns: result.rows.length > 0 ? Object.keys(result.rows[0]) : [],
+            pagination: {
+              page: result.page,
+              limit: result.limit,
+              total: result.total,
+              totalPages: result.totalPages,
+            },
+            rows: result.rows,
+          },
+          rowCount: result.rows.length,
+        })
+
+        return result
       } catch (error: unknown) {
         // Log chi tiết lỗi để debug
         if (error && typeof error === "object" && "response" in error) {

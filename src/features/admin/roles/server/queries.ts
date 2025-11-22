@@ -33,11 +33,12 @@ export interface ListedRole {
   permissions: string[]
   isActive: boolean
   createdAt: Date
+  updatedAt: Date
   deletedAt: Date | null
 }
 
 export interface RoleDetail extends ListedRole {
-  updatedAt: Date
+  // updatedAt đã có trong ListedRole
 }
 
 export interface ListRolesResult {
@@ -116,7 +117,7 @@ export async function getRoleColumnOptions(
   return mapToColumnOptions(results, column)
 }
 
-export async function getRoleById(id: string): Promise<ListedRole | null> {
+export async function getRoleById(id: string): Promise<RoleDetail | null> {
   const role = await prisma.role.findUnique({
     where: { id },
   })
@@ -125,6 +126,7 @@ export async function getRoleById(id: string): Promise<ListedRole | null> {
     return null
   }
 
+  // mapRoleRecord đã include updatedAt
   return mapRoleRecord(role)
 }
 

@@ -170,6 +170,16 @@ export function useRolesSocketBridge() {
         return result
       })
 
+      // Update detail query cache nếu có
+      const detailQueryKey = queryKeys.adminRoles.detail(role.id)
+      const currentDetailData = queryClient.getQueryData<{ data: RoleRow }>(detailQueryKey)
+      if (currentDetailData) {
+        queryClient.setQueryData(detailQueryKey, {
+          data: role,
+        })
+        logger.debug("Updated role detail cache", { roleId: role.id })
+      }
+
       if (updated) {
         setCacheVersion((prev) => prev + 1)
       }
