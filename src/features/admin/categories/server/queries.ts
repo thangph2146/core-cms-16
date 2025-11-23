@@ -96,3 +96,28 @@ export async function getCategoryById(id: string): Promise<CategoryDetail | null
   return mapCategoryRecord(category)
 }
 
+/**
+ * Get active categories for select options (non-cached)
+ * Theo chuẩn Next.js 16: không cache admin data
+ */
+export async function getActiveCategoriesForSelect(limit: number = 100): Promise<Array<{ label: string; value: string }>> {
+  const categories = await prisma.category.findMany({
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    take: limit,
+  })
+
+  return categories.map((category) => ({
+    label: category.name,
+    value: category.id,
+  }))
+}
+

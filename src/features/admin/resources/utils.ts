@@ -214,13 +214,15 @@ export function createResourceEditOnSuccess({
   return async (response: import("axios").AxiosResponse) => {
     const responseData = response?.data?.data
 
-    // Invalidate và refetch queries - Next.js 16 pattern: invalidate + refetch để đảm bảo data fresh
-    // Socket events sẽ trigger refresh tự động nếu có, nhưng refetch ngay để đảm bảo data được cập nhật
+    // Invalidate và refetch queries - Next.js 16 pattern: invalidate để đảm bảo data fresh
+    // Socket events sẽ trigger refresh tự động nếu có
+    // Refetch ngay để đảm bảo table và detail hiển thị data mới ngay sau khi edit
     await queryClient.invalidateQueries({ queryKey: allQueryKey, refetchType: "active" })
+    await queryClient.refetchQueries({ queryKey: allQueryKey, type: "active" })
     if (resourceId) {
-      // Refetch detail query ngay để đảm bảo detail page hiển thị data mới nhất
+      // Invalidate và refetch detail query để đảm bảo detail page hiển thị data mới ngay
       await queryClient.invalidateQueries({ queryKey: detailQueryKey(resourceId), refetchType: "active" })
-      await queryClient.refetchQueries({ queryKey: detailQueryKey(resourceId) })
+      await queryClient.refetchQueries({ queryKey: detailQueryKey(resourceId), type: "active" })
     }
 
     // Log success với đầy đủ thông tin
@@ -237,7 +239,7 @@ export function createResourceEditOnSuccess({
         [resourceIdKey]: resourceId,
         [resourceNameKey]: recordName,
         responseStatus: response?.status,
-        cacheStrategy: "invalidate-only-nextjs16",
+        cacheStrategy: "invalidate-and-refetch-nextjs16",
       }
     )
 

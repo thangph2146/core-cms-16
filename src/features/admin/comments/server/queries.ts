@@ -16,11 +16,18 @@ export async function listComments(params: ListCommentsInput = {}): Promise<List
   const { page, limit } = validatePagination(params.page, params.limit, 100)
   const where = buildWhereClause(params)
 
+  // Server-side logging: Log khi query được gọi (bao gồm khi chuyển view)
+  const status = params.filters?.deleted === true ? "deleted" : "active"
   resourceLogger.actionFlow({
     resource: "comments",
     action: "query",
     step: "start",
-    metadata: { params, where },
+    metadata: { 
+      status,
+      page, 
+      limit,
+      where: Object.keys(where).length > 0 ? "filtered" : "all",
+    },
   })
 
   const [data, total] = await Promise.all([

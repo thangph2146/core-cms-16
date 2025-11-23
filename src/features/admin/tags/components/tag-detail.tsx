@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getTagDetailById } from "../server/cache"
+import { getTagById } from "../server/queries"
 import { serializeTagDetail } from "../server/helpers"
 import { TagDetailClient } from "./tag-detail.client"
 import type { TagDetailData } from "./tag-detail.client"
@@ -17,7 +17,7 @@ export interface TagDetailProps {
 }
 
 export async function TagDetail({ tagId, backUrl = "/admin/tags" }: TagDetailProps) {
-  const tag = await getTagDetailById(tagId)
+  const tag = await getTagById(tagId)
 
   if (!tag) {
     return <NotFoundMessage resourceName="thẻ tag" />

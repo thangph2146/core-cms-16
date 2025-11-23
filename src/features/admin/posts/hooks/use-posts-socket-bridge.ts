@@ -43,20 +43,6 @@ function updatePostQueries(
     if (!params || !data) continue
     const next = updater({ key, params, data })
     if (next) {
-      if (logUpdates) {
-        resourceLogger.socket({
-          resource: "posts",
-          event: "post:query-updated",
-          action: "socket-update",
-          payload: {
-        queryKey: key.slice(0, 2),
-        oldRowsCount: data.rows.length,
-        newRowsCount: next.rows.length,
-        oldTotal: data.total,
-        newTotal: next.total,
-          },
-      })
-      }
       queryClient.setQueryData(key, next)
       updated = true
     }
@@ -85,20 +71,6 @@ export function usePostsSocketBridge() {
       const { post, previousStatus, newStatus } = payload as PostUpsertPayload
       const rowStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
 
-      resourceLogger.socket({
-        resource: "posts",
-        event: "post:upsert",
-        action: "socket-update",
-        resourceId: post.id,
-        payload: {
-        postId: post.id,
-        previousStatus,
-        newStatus,
-        rowStatus,
-        deletedAt: post.deletedAt,
-        },
-      })
-
       const updated = updatePostQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, post) && matchesSearch(params.search, post)
         const includesByStatus = shouldIncludeInStatus(params.status, rowStatus)
@@ -122,17 +94,6 @@ export function usePostsSocketBridge() {
             total = total + 1
           }
         } else if (existingIndex >= 0) {
-          resourceLogger.socket({
-            resource: "posts",
-            event: "post:remove-from-view",
-            action: "socket-update",
-            resourceId: post.id,
-            payload: {
-            postId: post.id,
-            viewStatus: params.status,
-            rowStatus,
-            },
-          })
           const result = removeRowFromPage(rows, post.id)
           rows = result.rows
           if (result.removed) {
@@ -143,19 +104,6 @@ export function usePostsSocketBridge() {
         }
 
         const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
-
-        resourceLogger.socket({
-          resource: "posts",
-          event: "post:cache-updated",
-          action: "socket-update",
-          resourceId: post.id,
-          payload: {
-            postId: post.id,
-            rowsCount: rows.length,
-          total,
-          wasRemoved: existingIndex >= 0 && !shouldInclude,
-          },
-        })
 
         return { ...next, rows, total, totalPages }
       })
@@ -168,13 +116,6 @@ export function usePostsSocketBridge() {
     // Batch upsert handler (tối ưu cho bulk operations)
     const detachBatchUpsert = on<[{ posts: PostUpsertPayload[] }]>("post:batch-upsert", (payload) => {
       const { posts } = payload as { posts: PostUpsertPayload[] }
-      
-      resourceLogger.socket({
-        resource: "posts",
-        event: "post:batch-upsert",
-        action: "socket-update",
-        payload: { count: posts.length },
-      })
 
       let anyUpdated = false
       for (const { post, previousStatus } of posts) {
@@ -228,13 +169,6 @@ export function usePostsSocketBridge() {
 
     const detachRemove = on<[PostRemovePayload]>("post:remove", (payload) => {
       const { id } = payload as PostRemovePayload
-      resourceLogger.socket({
-        resource: "posts",
-        event: "post:remove",
-        action: "socket-update",
-        resourceId: id,
-        payload: { postId: id },
-      })
 
       const updated = updatePostQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
@@ -261,13 +195,6 @@ export function usePostsSocketBridge() {
     // Batch remove handler (tối ưu cho bulk operations)
     const detachBatchRemove = on<[{ posts: PostRemovePayload[] }]>("post:batch-remove", (payload) => {
       const { posts } = payload as { posts: PostRemovePayload[] }
-      
-      resourceLogger.socket({
-        resource: "posts",
-        event: "post:batch-remove",
-        action: "socket-update",
-        payload: { count: posts.length },
-      })
 
       let anyUpdated = false
       for (const { id } of posts) {

@@ -72,14 +72,6 @@ export function useCommentsSocketBridge() {
       const { comment, previousStatus, newStatus } = payload as CommentUpsertPayload
       const rowStatus: "active" | "deleted" = comment.deletedAt ? "deleted" : "active"
 
-      resourceLogger.socket({
-        resource: "comments",
-        action: "socket-update",
-        event: "comment:upsert",
-        resourceId: comment.id,
-        payload: { commentId: comment.id, previousStatus, newStatus, rowStatus },
-      })
-
       // Update detail query cache nếu có
       const detailQueryKey = queryKeys.adminComments.detail(comment.id)
       const detailData = queryClient.getQueryData<{ data: CommentDetailData }>(detailQueryKey)
@@ -95,13 +87,6 @@ export function useCommentsSocketBridge() {
             updatedAt: comment.updatedAt,
             deletedAt: comment.deletedAt,
           },
-        })
-        resourceLogger.socket({
-          resource: "comments",
-          action: "cache-refresh",
-          event: "comment:upsert",
-          resourceId: comment.id,
-          payload: { cacheType: "detail-cache-updated" },
         })
       }
 
@@ -168,13 +153,6 @@ export function useCommentsSocketBridge() {
     // Batch upsert handler (tối ưu cho bulk operations)
     const detachBatchUpsert = on<[{ comments: CommentRow[]; previousStatus: "active" | "deleted" | null }]>("comment:batch-upsert", (payload) => {
       const { comments, previousStatus } = payload as { comments: CommentRow[]; previousStatus: "active" | "deleted" | null }
-      
-      resourceLogger.socket({
-        resource: "comments",
-        action: "socket-update",
-        event: "comment:batch-upsert",
-        payload: { count: comments.length, previousStatus },
-      })
 
       let anyUpdated = false
       for (const comment of comments) {
@@ -245,24 +223,9 @@ export function useCommentsSocketBridge() {
 
     const detachRemove = on<[CommentRemovePayload]>("comment:remove", (payload) => {
       const { id } = payload as CommentRemovePayload
-      
-      resourceLogger.socket({
-        resource: "comments",
-        action: "socket-update",
-        event: "comment:remove",
-        resourceId: id,
-        payload: { commentId: id },
-      })
 
       // Invalidate detail query cache
       queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.detail(id) })
-      resourceLogger.socket({
-        resource: "comments",
-        action: "cache-refresh",
-        event: "comment:remove",
-        resourceId: id,
-        payload: { cacheType: "detail-cache-invalidated" },
-      })
       
       const updated = updateCommentQueries(queryClient, ({ params, data }) => {
         const result = removeRowFromPage(data.rows, id)

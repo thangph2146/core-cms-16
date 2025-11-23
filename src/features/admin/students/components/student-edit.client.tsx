@@ -9,7 +9,7 @@
 
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
@@ -35,13 +35,14 @@ export interface StudentEditClientProps {
 }
 
 export function StudentEditClient({
-  student,
+  student: initialStudent,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
+  studentId,
   users: usersFromServer = [],
   isSuperAdmin = false,
 }: StudentEditClientProps) {
@@ -50,6 +51,20 @@ export function StudentEditClient({
     queryClient,
     invalidateQueryKey: queryKeys.adminStudents.all(),
   })
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = studentId || initialStudent?.id
+  const { data: studentData } = useResourceDetailData({
+    initialData: initialStudent || ({} as StudentEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminStudents.detail,
+    resourceName: "students",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const student = (studentData as StudentEditData | null) || initialStudent
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.students.update(id),

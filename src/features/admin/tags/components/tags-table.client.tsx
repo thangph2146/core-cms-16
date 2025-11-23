@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useEffect } from "react"
+import { useCallback, useMemo, useEffect, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -14,9 +14,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -35,9 +35,6 @@ import type { AdminTagsListParams } from "@/lib/query-keys"
 import type { TagRow, TagsResponse, TagsTableClientProps } from "../types"
 import { TAG_CONFIRM_MESSAGES, TAG_LABELS } from "../constants/messages"
 
-// Module-level Set để track các table keys đã log (tránh duplicate trong React Strict Mode)
-const loggedTableKeys = new Set<string>()
-
 export function TagsTableClient({
   canDelete = false,
   canRestore = false,
@@ -50,57 +47,31 @@ export function TagsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useTagFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useTagDeleteConfirm()
 
-  // Log table load một lần (tránh duplicate trong React Strict Mode)
-  const tableLogKey = useMemo(
-    () => `tags-table-${initialData?.page ?? 1}-${initialData?.total ?? 0}`,
-    [initialData?.page, initialData?.total]
-  )
-  useEffect(() => {
-    if (loggedTableKeys.has(tableLogKey)) return
-    loggedTableKeys.add(tableLogKey)
-    
-    resourceLogger.tableAction({
-      resource: "tags",
-      action: "load-table",
-      view: "active",
-      total: initialData?.total,
-      page: initialData?.page,
-    })
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
 
-    if (initialData) {
-      // Log tất cả rows để hiển thị đầy đủ thông tin
-      const allRows = initialData.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        createdAt: row.createdAt,
-        deletedAt: row.deletedAt,
-      }))
-      
-      resourceLogger.dataStructure({
-        resource: "tags",
-        dataType: "table",
-        rowCount: initialData.rows.length,
-        structure: {
-          columns: ["id", "name", "slug", "createdAt", "deletedAt"],
-          pagination: {
-            page: initialData.page,
-            limit: initialData.limit,
-            total: initialData.total,
-            totalPages: initialData.totalPages,
-          },
-          rows: allRows,
-        },
-      })
-    }
-
-    // Cleanup sau một khoảng thời gian
-    return () => {
-      setTimeout(() => {
-        loggedTableKeys.delete(tableLogKey)
-      }, 1000)
-    }
-  }, [tableLogKey, initialData])
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<TagRow>({
+    resourceName: "tags",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminTags.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "name", "slug", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
+  })
 
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminTags.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
@@ -328,13 +299,8 @@ export function TagsTableClient({
     [],
   )
 
-  useResourceInitialDataCache<TagRow, AdminTagsListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminTags.list,
-    resourceName: "tags",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   // Helper function for active view selection actions
   const createActiveSelectionActions = useCallback(
@@ -553,6 +519,7 @@ export function TagsTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

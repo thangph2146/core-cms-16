@@ -69,17 +69,26 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
     resourceId: postId,
     detailQueryKey: queryKeys.adminPosts.detail,
     resourceName: "posts",
+    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
+
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = React.useRef<string | null>(null)
 
   // Log detail load and data structure (only once per postId sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
-  const loggedPostIdsRef = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
-    const logKey = `posts-detail-${postId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedPostIdsRef.current.has(logKey) || !fetchedData) return
-    loggedPostIdsRef.current.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${postId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
     
     resourceLogger.detailAction({
       resource: "posts",
@@ -100,14 +109,7 @@ export function PostDetailClient({ postId, post, backUrl = "/admin/posts" }: Pos
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc postId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedPostIdsRef.current.delete(logKey)
-      }, 1000)
-    }
-  }, [postId, isFetched, isFromApi, fetchedData])
+  }, [postId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   const detailFields: ResourceDetailField<PostDetailData>[] = []
 

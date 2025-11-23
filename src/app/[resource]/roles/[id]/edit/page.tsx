@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { RoleEdit } from "@/features/admin/roles/components/role-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getRoleDetailById } from "@/features/admin/roles/server/cache"
+import { getRoleById } from "@/features/admin/roles/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Role Edit Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const role = await getRoleDetailById(id)
+  const role = await getRoleById(id)
 
   if (!role) {
     return {
@@ -51,9 +52,10 @@ export default async function RoleEditPage({
 }) {
   const { id } = await params
   
-  // Fetch role data từ cache để hiển thị tên trong breadcrumb
-  const role = await getRoleDetailById(id)
-  const roleName = role?.displayName || role?.name || "Chi tiết"
+  // Fetch role data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const role = await getRoleById(id)
+  const roleName = truncateBreadcrumbLabel(role?.displayName || role?.name || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Vai trò")

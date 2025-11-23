@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField, type ResourceFormSection } from "@/features/admin/resources/components"
-import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
@@ -41,7 +41,7 @@ export interface PostEditClientProps {
 }
 
 export function PostEditClient({
-    post,
+    post: initialPost,
     open = true,
     onOpenChange,
     onSuccess,
@@ -58,6 +58,20 @@ export function PostEditClient({
     const queryClient = useQueryClient()
     const userRoles = session?.roles || []
     const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)
+
+    // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+    // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+    const resourceId = postId || initialPost?.id
+    const { data: postData } = useResourceDetailData({
+      initialData: initialPost || ({} as PostEditData),
+      resourceId: resourceId || "",
+      detailQueryKey: queryKeys.adminPosts.detail,
+      resourceName: "posts",
+      fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    })
+
+    // Sử dụng fresh data từ API nếu có, fallback về initial data
+    const post = (postData as PostEditData | null) || initialPost
 
     const handleBack = async () => {
         // Invalidate React Query cache để đảm bảo list page có data mới nhất

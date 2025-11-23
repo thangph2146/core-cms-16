@@ -99,20 +99,6 @@ export function useUsersSocketBridge() {
       const { user, previousStatus, newStatus } = payload as UserUpsertPayload
       const rowStatus: "active" | "deleted" = user.deletedAt ? "deleted" : "active"
 
-      resourceLogger.socket({
-        resource: "users",
-        event: "user:upsert",
-        action: "socket-update",
-        resourceId: user.id,
-        payload: {
-          userId: user.id,
-          previousStatus,
-          newStatus,
-          rowStatus,
-          deletedAt: user.deletedAt,
-        },
-      })
-
       const updated = updateUserQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, user) && matchesSearch(params.search, user)
         const includesByStatus = shouldIncludeInStatus(params.status, rowStatus)
@@ -150,17 +136,6 @@ export function useUsersSocketBridge() {
         } else if (existingIndex >= 0) {
           // User đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
           // Remove khỏi page này
-          resourceLogger.socket({
-            resource: "users",
-            event: "user:remove-from-view",
-            action: "socket-update",
-            resourceId: user.id,
-            payload: {
-              userId: user.id,
-              viewStatus: params.status,
-              rowStatus,
-            },
-          })
           const result = removeRowFromPage(rows, user.id)
           rows = result.rows
           if (result.removed) {
@@ -180,19 +155,6 @@ export function useUsersSocketBridge() {
           totalPages,
         }
 
-        resourceLogger.socket({
-          resource: "users",
-          event: "user:cache-updated",
-          action: "socket-update",
-          resourceId: user.id,
-          payload: {
-            userId: user.id,
-            rowsCount: result.rows.length,
-            total: result.total,
-            wasRemoved: existingIndex >= 0 && !shouldInclude,
-          },
-        })
-
         return result
       })
 
@@ -205,13 +167,6 @@ export function useUsersSocketBridge() {
     // Batch upsert handler (tối ưu cho bulk operations - giảm log dư thừa)
     const detachBatchUpsert = on<[{ users: UserUpsertPayload[] }]>("user:batch-upsert", (payload) => {
       const { users } = payload as { users: UserUpsertPayload[] }
-      
-      resourceLogger.socket({
-        resource: "users",
-        event: "user:batch-upsert",
-        action: "socket-update",
-        payload: { count: users.length },
-      })
 
       let anyUpdated = false
       for (const { user, previousStatus } of users) {
@@ -266,13 +221,6 @@ export function useUsersSocketBridge() {
 
     const detachRemove = on<[UserRemovePayload]>("user:remove", (payload) => {
       const { id } = payload as UserRemovePayload
-      resourceLogger.socket({
-        resource: "users",
-        event: "user:remove",
-        action: "socket-update",
-        resourceId: id,
-        payload: { userId: id },
-      })
 
       const updated = updateUserQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
@@ -300,13 +248,6 @@ export function useUsersSocketBridge() {
     // Batch remove handler (tối ưu cho bulk operations)
     const detachBatchRemove = on<[{ users: UserRemovePayload[] }]>("user:batch-remove", (payload) => {
       const { users } = payload as { users: UserRemovePayload[] }
-      
-      resourceLogger.socket({
-        resource: "users",
-        event: "user:batch-remove",
-        action: "socket-update",
-        payload: { count: users.length },
-      })
 
       let anyUpdated = false
       for (const { id } of users) {

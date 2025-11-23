@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { RotateCcw, Trash2, AlertTriangle, Plus } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
@@ -11,8 +11,8 @@ import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/r
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
   useResourceTableRefresh,
-  useResourceInitialDataCache,
   useResourceTableLoader,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { sanitizeFilters, normalizeSearch } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -61,6 +61,34 @@ export function StudentsTableClient({
     canManage,
     isSocketConnected,
     showFeedback,
+  })
+
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<StudentRow>({
+    resourceName: "students",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminStudents.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "studentCode", "name", "email", "isActive", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      studentCode: row.studentCode,
+      name: row.name,
+      email: row.email,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion: bulkState.isProcessing ? undefined : cacheVersion, // Skip logging khi đang bulk
   })
 
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminStudents.all(), [])
@@ -204,7 +232,7 @@ export function StudentsTableClient({
             total: result.total,
             totalPages: result.totalPages,
           },
-          rows: result.rows,
+          sampleRows: result.rows.map((row) => row as unknown as Record<string, unknown>), // Hiển thị đầy đủ rows hiện tại
         },
         rowCount: result.rows.length,
       })
@@ -237,19 +265,8 @@ export function StudentsTableClient({
     buildQueryKey,
   })
 
-  useResourceInitialDataCache({
-    initialData,
-    queryClient,
-    buildParams: (data) => ({
-      status: "active" as const,
-      page: data.page,
-      limit: data.limit,
-      search: undefined,
-      filters: undefined,
-    }),
-    buildQueryKey,
-    resourceName: "students",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {
@@ -500,6 +517,7 @@ export function StudentsTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -7,7 +7,7 @@
  * Pattern: Server Component (data fetching) -> Client Component (UI/interactions)
  */
 
-import { getNotificationByIdCached } from "../server/cache"
+import { getNotificationById } from "../server/queries"
 import { serializeNotificationDetail } from "../server/helpers"
 import { NotificationDetailClient } from "./notification-detail.client"
 import type { NotificationDetailData } from "./notification-detail.client"
@@ -21,15 +21,12 @@ export interface NotificationDetailProps {
 /**
  * NotificationDetail Server Component
  * 
- * Fetches notification data on the server using cached query and passes it to client component.
- * This ensures:
- * - Data is fetched on server (better SEO, faster initial load)
- * - Automatic request deduplication via React cache()
- * - Server-side caching for better performance
+ * Fetches notification data on the server using non-cached query and passes it to client component.
+ * Theo chuẩn Next.js 16: không cache admin data để đảm bảo data luôn fresh
  */
 export async function NotificationDetail({ notificationId, backUrl = "/admin/notifications" }: NotificationDetailProps) {
-  // Fetch notification data using cached server query
-  const notification = await getNotificationByIdCached(notificationId)
+  // Fetch notification data using non-cached query (theo chuẩn Next.js 16)
+  const notification = await getNotificationById(notificationId)
 
   if (!notification) {
     return <NotFoundMessage resourceName="thông báo" />

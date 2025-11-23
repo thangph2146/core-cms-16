@@ -5,11 +5,11 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getSessionDetailById } from "../server/cache"
+import { getSessionById } from "../server/queries"
 import { serializeSessionDetail } from "../server/helpers"
 import { SessionEditClient } from "./session-edit.client"
 import type { SessionEditClientProps } from "./session-edit.client"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
+import { getActiveUsersForSelect } from "@/features/admin/users/server/queries"
 import { NotFoundMessage } from "@/features/admin/resources/components"
 
 export interface SessionEditProps {
@@ -32,8 +32,8 @@ export async function SessionEdit({
   backLabel = "Quay lại",
 }: SessionEditProps) {
   const [session, usersOptions] = await Promise.all([
-    getSessionDetailById(sessionId),
-    getActiveUsersForSelectCached(100),
+    getSessionById(sessionId),
+    getActiveUsersForSelect(100),
   ])
 
   if (!session) {

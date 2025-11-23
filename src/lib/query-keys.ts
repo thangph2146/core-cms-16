@@ -330,6 +330,10 @@ export const queryKeys = {
     list: (params: AdminSessionsListParams): readonly unknown[] => {
       return ["adminSessions", normalizeListParams(params)]
     },
+    /**
+     * Session detail by ID
+     */
+    detail: (id: string): readonly unknown[] => ["adminSessions", "detail", id],
   },
 
   /**

@@ -6,7 +6,7 @@
  */
 
 import { SessionCreateClient } from "./session-create.client"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
+import { getActiveUsersForSelect } from "@/features/admin/users/server/queries"
 
 export interface SessionCreateProps {
   backUrl?: string
@@ -14,7 +14,7 @@ export interface SessionCreateProps {
 
 export async function SessionCreate({ backUrl = "/admin/sessions" }: SessionCreateProps) {
   // Fetch users for userId select field using cached query
-  const usersOptions = await getActiveUsersForSelectCached(100)
+  const usersOptions = await getActiveUsersForSelect(100)
 
   return <SessionCreateClient backUrl={backUrl} users={usersOptions} />
 }

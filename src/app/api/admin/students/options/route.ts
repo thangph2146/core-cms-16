@@ -1,13 +1,10 @@
 /**
  * API Route: GET /api/admin/students/options - Get filter options for a column
  * 
- * Theo chuẩn Next.js 16:
- * - Sử dụng server-side caching với React cache()
- * - Response caching với short-term cache (30s) để optimize performance
- * - Dynamic route vì có search query parameter
+ * Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data
  */
 import { NextRequest } from "next/server"
-import { getStudentColumnOptionsCached } from "@/features/admin/students/server/cache"
+import { getStudentColumnOptions } from "@/features/admin/students/server/queries"
 import { createGetRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { createOptionsHandler } from "@/lib/api/options-route-helper"
@@ -21,7 +18,7 @@ async function getStudentOptionsHandler(req: NextRequest, context: ApiRouteConte
   return createOptionsHandler(req, {
     allowedColumns: ["studentCode", "name", "email"],
     getOptions: (column, search, limit) => 
-      getStudentColumnOptionsCached(column, search, limit, actorId, isSuperAdminUser),
+      getStudentColumnOptions(column, search, limit, actorId, isSuperAdminUser),
   })
 }
 

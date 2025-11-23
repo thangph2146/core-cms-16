@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -14,9 +14,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -47,6 +47,34 @@ export function RolesTableClient({
   const { isSocketConnected, cacheVersion } = useRolesSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useRoleFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useRoleDeleteConfirm()
+
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<RoleRow>({
+    resourceName: "roles",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminRoles.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "name", "displayName", "description", "isActive", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      name: row.name,
+      displayName: row.displayName,
+      description: row.description,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
+  })
 
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminRoles.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
@@ -239,7 +267,7 @@ export function RolesTableClient({
               total: result.total,
               totalPages: result.totalPages,
             },
-            rows: result.rows,
+            sampleRows: result.rows.map((row) => row as unknown as Record<string, unknown>), // Hiển thị đầy đủ rows hiện tại
           },
           rowCount: result.rows.length,
         })
@@ -333,13 +361,8 @@ export function RolesTableClient({
     [],
   )
 
-  useResourceInitialDataCache<RoleRow, AdminRolesListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminRoles.list,
-    resourceName: "roles",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   const createActiveSelectionActions = useCallback(
     ({
@@ -607,6 +630,7 @@ export function RolesTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -60,15 +60,23 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
     fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
 
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = React.useRef<string | null>(null)
+
   // Log detail action và data structure (chỉ log một lần sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
-  const loggedUserIds = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
-    const logKey = `users-detail-${userId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedUserIds.current.has(logKey) || !fetchedData) return
-    loggedUserIds.current.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${userId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
     
     resourceLogger.detailAction({
       resource: "users",
@@ -84,14 +92,7 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc userId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedUserIds.current.delete(logKey)
-      }, 1000)
-    }
-  }, [userId, isFetched, isFromApi, fetchedData])
+  }, [userId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   const detailFields: ResourceDetailField<UserDetailData>[] = []
 

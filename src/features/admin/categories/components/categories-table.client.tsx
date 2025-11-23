@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useEffect, useRef } from "react"
+import { useCallback, useMemo, useEffect, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -14,9 +14,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -42,53 +42,37 @@ export function CategoriesTableClient({
 }: CategoriesTableClientProps) {
   const router = useResourceRouter()
   const queryClient = useQueryClient()
-  const hasLoggedRef = useRef(false)
   const { feedback, showFeedback, handleFeedbackOpenChange } = useCategoryFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useCategoryDeleteConfirm()
 
-  // Log table load một lần
-  useEffect(() => {
-    if (hasLoggedRef.current) return
-    hasLoggedRef.current = true
-    
-    resourceLogger.tableAction({
-      resource: "categories",
-      action: "load-table",
-      view: "active",
-      total: initialData?.total,
-      page: initialData?.page,
-    })
-
-    if (initialData) {
-      // Log tất cả rows để hiển thị đầy đủ thông tin
-      const allRows = initialData.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        description: row.description,
-        createdAt: row.createdAt,
-        deletedAt: row.deletedAt,
-      }))
-      
-      resourceLogger.dataStructure({
-        resource: "categories",
-        dataType: "table",
-        rowCount: initialData.rows.length,
-        structure: {
-          columns: ["id", "name", "slug", "description", "createdAt", "deletedAt"],
-          pagination: {
-            page: initialData.page,
-            limit: initialData.limit,
-            total: initialData.total,
-            totalPages: initialData.totalPages,
-          },
-          rows: allRows,
-        },
-      })
-    }
-  }, [initialData])
-
   const { cacheVersion, isSocketConnected } = useCategoriesSocketBridge()
+
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<CategoryRow>({
+    resourceName: "categories",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminCategories.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "name", "slug", "description", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      description: row.description,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
+  })
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminCategories.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
     queryClient,
@@ -315,13 +299,8 @@ export function CategoriesTableClient({
     [],
   )
 
-  useResourceInitialDataCache<CategoryRow, AdminCategoriesListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminCategories.list,
-    resourceName: "categories",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   // Helper function for active view selection actions
   const createActiveSelectionActions = useCallback(
@@ -550,6 +529,7 @@ export function CategoriesTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

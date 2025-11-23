@@ -4,7 +4,7 @@
  * DELETE /api/admin/contact-requests/[id] - Soft delete contact request
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getContactRequestDetailById } from "@/features/admin/contact-requests/server/cache"
+import { getContactRequestById } from "@/features/admin/contact-requests/server/queries"
 import { serializeContactRequestDetail } from "@/features/admin/contact-requests/server/helpers"
 import {
   updateContactRequest,
@@ -25,7 +25,9 @@ async function getContactRequestHandler(_req: NextRequest, _context: ApiRouteCon
     return NextResponse.json({ error: "Contact Request ID is required" }, { status: 400 })
   }
 
-  const contactRequest = await getContactRequestDetailById(contactRequestId)
+  // Sử dụng getContactRequestById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data trong API routes
+  const contactRequest = await getContactRequestById(contactRequestId)
 
   if (!contactRequest) {
     return NextResponse.json({ error: "Contact Request not found" }, { status: 404 })

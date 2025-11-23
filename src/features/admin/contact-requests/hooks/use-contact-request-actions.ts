@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { ContactRequestRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
@@ -67,7 +67,10 @@ export function useContactRequestActions({
             ? `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là đã đọc.`
             : `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là chưa đọc.`
         )
-        await runResourceRefresh({ refresh, resource: "contact-requests" })
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminContactRequests.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -77,8 +80,9 @@ export function useContactRequestActions({
           errorMessage
         )
         
-        // Invalidate queries để refresh data từ server
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all() })
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminContactRequests.all(), type: "active" })
       } finally {
         setTogglingRequests((prev) => {
           const next = new Set(prev)
@@ -149,7 +153,11 @@ export function useContactRequestActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        await runResourceRefresh({ refresh, resource: "contact-requests" })
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminContactRequests.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -193,7 +201,10 @@ export function useContactRequestActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        await runResourceRefresh({ refresh, resource: "contact-requests" })
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminContactRequests.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : CONTACT_REQUEST_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {

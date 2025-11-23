@@ -114,12 +114,7 @@ export function useNotificationsSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[NotificationUpsertPayload]>("notification:new", (payload) => {
-      logger.debug("Received notification:new", {
-        notificationId: payload.id,
-        toUserId: payload.toUserId,
-        kind: payload.kind,
-      })
-
+      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       const row = convertSocketPayloadToRow(payload, payload.userEmail, payload.userName)
 
       const updated = updateNotificationQueries(queryClient, ({ data }) => {
@@ -339,8 +334,7 @@ export function useNotificationsSocketBridge() {
     })
 
     const detachSync = on<[NotificationUpsertPayload[]]>("notifications:sync", (payloads) => {
-      logger.debug("Received notifications:sync", { count: payloads.length })
-      
+      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       const updated = updateNotificationQueries(queryClient, ({ data }) => {
         const rows = payloads
           .map((p) => convertSocketPayloadToRow(p, p.userEmail, p.userName))

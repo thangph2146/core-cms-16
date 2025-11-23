@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { RotateCcw, Trash2, AlertTriangle, Check, X } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/dialogs"
@@ -13,9 +13,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -46,6 +46,35 @@ export function CommentsTableClient({
   const { feedback, showFeedback, handleFeedbackOpenChange } = useCommentFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useCommentDeleteConfirm()
 
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<CommentRow>({
+    resourceName: "comments",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminComments.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "content", "approved", "authorName", "authorEmail", "postTitle", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      content: row.content,
+      approved: row.approved,
+      authorName: row.authorName,
+      authorEmail: row.authorEmail,
+      postTitle: row.postTitle,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
+  })
+
   const getInvalidateQueryKey = useCallback(() => queryKeys.adminComments.all(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
     queryClient,
@@ -71,6 +100,7 @@ export function CommentsTableClient({
     canManage,
     isSocketConnected,
     showFeedback,
+    refreshTable, // Pass refresh function để gọi sau actions
   })
 
   const handleToggleApproveWithRefresh = useCallback(
@@ -194,29 +224,7 @@ export function CommentsTableClient({
         totalPages: payload.pagination?.totalPages ?? 0,
       }
 
-      resourceLogger.tableAction({
-        resource: "comments",
-        action: "load-table",
-        view: params.status ?? "active",
-        page: result.page,
-        total: result.total,
-      })
-
-      resourceLogger.dataStructure({
-        resource: "comments",
-        dataType: "table",
-        structure: {
-          columns: result.rows.length > 0 ? Object.keys(result.rows[0]) : [],
-          pagination: {
-            page: result.page,
-            limit: result.limit,
-            total: result.total,
-            totalPages: result.totalPages,
-          },
-          rows: result.rows,
-        },
-        rowCount: result.rows.length,
-      })
+      // Log được xử lý bởi useResourceTableLogger, không cần log duplicate ở đây
 
       return result
     },
@@ -246,19 +254,8 @@ export function CommentsTableClient({
     buildQueryKey,
   })
 
-  useResourceInitialDataCache({
-    initialData,
-    queryClient,
-    buildParams: (data) => ({
-      status: "active" as const,
-      page: data.page,
-      limit: data.limit,
-      search: undefined,
-      filters: undefined,
-    }),
-    buildQueryKey,
-    resourceName: "comments",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove", ids: string[], clearSelection: () => void) => {
@@ -483,57 +480,32 @@ export function CommentsTableClient({
     [initialData],
   )
 
-  const getDeleteConfirmTitle = () => {
+  // Helper để lấy title và description cho confirm dialog - Tối ưu: sử dụng mapping
+  const deleteConfirmTitle = useMemo(() => {
     if (!deleteConfirm) return ""
-    if (deleteConfirm.type === "hard") {
-      return COMMENT_CONFIRM_MESSAGES.HARD_DELETE_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
+    const count = deleteConfirm.bulkIds?.length ?? 1
+    const messages: Record<string, (count: number) => string> = {
+      hard: COMMENT_CONFIRM_MESSAGES.HARD_DELETE_TITLE,
+      restore: COMMENT_CONFIRM_MESSAGES.RESTORE_TITLE,
+      approve: COMMENT_CONFIRM_MESSAGES.APPROVE_TITLE,
+      unapprove: COMMENT_CONFIRM_MESSAGES.UNAPPROVE_TITLE,
+      soft: COMMENT_CONFIRM_MESSAGES.DELETE_TITLE,
     }
-    if (deleteConfirm.type === "restore") {
-      return COMMENT_CONFIRM_MESSAGES.RESTORE_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    if (deleteConfirm.type === "approve") {
-      return COMMENT_CONFIRM_MESSAGES.APPROVE_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    if (deleteConfirm.type === "unapprove") {
-      return COMMENT_CONFIRM_MESSAGES.UNAPPROVE_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    return COMMENT_CONFIRM_MESSAGES.DELETE_TITLE(deleteConfirm.bulkIds?.length)
-  }
+    return messages[deleteConfirm.type]?.(count) ?? COMMENT_CONFIRM_MESSAGES.DELETE_TITLE(count)
+  }, [deleteConfirm])
 
-  const getDeleteConfirmDescription = () => {
+  const deleteConfirmDescription = useMemo(() => {
     if (!deleteConfirm) return ""
-    if (deleteConfirm.type === "hard") {
-      return COMMENT_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
+    const count = deleteConfirm.bulkIds?.length ?? 1
+    const messages: Record<string, (count: number) => string> = {
+      hard: COMMENT_CONFIRM_MESSAGES.HARD_DELETE_DESCRIPTION,
+      restore: COMMENT_CONFIRM_MESSAGES.RESTORE_DESCRIPTION,
+      approve: COMMENT_CONFIRM_MESSAGES.APPROVE_DESCRIPTION,
+      unapprove: COMMENT_CONFIRM_MESSAGES.UNAPPROVE_DESCRIPTION,
+      soft: COMMENT_CONFIRM_MESSAGES.DELETE_DESCRIPTION,
     }
-    if (deleteConfirm.type === "restore") {
-      return COMMENT_CONFIRM_MESSAGES.RESTORE_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    if (deleteConfirm.type === "approve") {
-      return COMMENT_CONFIRM_MESSAGES.APPROVE_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    if (deleteConfirm.type === "unapprove") {
-      return COMMENT_CONFIRM_MESSAGES.UNAPPROVE_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    return COMMENT_CONFIRM_MESSAGES.DELETE_DESCRIPTION(
-      deleteConfirm.bulkIds?.length,
-    )
-  }
+    return messages[deleteConfirm.type]?.(count) ?? COMMENT_CONFIRM_MESSAGES.DELETE_DESCRIPTION(count)
+  }, [deleteConfirm])
 
 
   return (
@@ -547,6 +519,7 @@ export function CommentsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -556,8 +529,8 @@ export function CommentsTableClient({
           onOpenChange={(open) => {
             if (!open) setDeleteConfirm(null)
           }}
-          title={getDeleteConfirmTitle()}
-          description={getDeleteConfirmDescription()}
+          title={deleteConfirmTitle}
+          description={deleteConfirmDescription}
           variant={
             deleteConfirm.type === "hard"
               ? "destructive"

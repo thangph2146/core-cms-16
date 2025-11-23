@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getAllPermissionsCached } from "../server/cache"
+import { getAllPermissionsOptions } from "../server/queries"
 import { RoleCreateClient } from "./role-create.client"
 
 export interface RoleCreateProps {
@@ -13,7 +13,7 @@ export interface RoleCreateProps {
 }
 
 export async function RoleCreate({ backUrl = "/admin/roles" }: RoleCreateProps) {
-  const permissions = await getAllPermissionsCached()
+  const permissions = await getAllPermissionsOptions()
 
   return <RoleCreateClient backUrl={backUrl} permissions={permissions} />
 }

@@ -3,7 +3,7 @@
  * PUT /api/admin/accounts - Update current user's account
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getCurrentUserProfileCached } from "@/features/admin/accounts/server/cache"
+import { getCurrentUserProfile } from "@/features/admin/accounts/server/queries"
 import { updateCurrentUserAccount } from "@/features/admin/accounts/server/mutations"
 import {
   ApplicationError,
@@ -21,7 +21,9 @@ async function getAccountHandler(_req: NextRequest, context: ApiRouteContext) {
     return NextResponse.json({ error: "Bạn cần đăng nhập để xem thông tin tài khoản" }, { status: 401 })
   }
 
-  const account = await getCurrentUserProfileCached(userId)
+  // Sử dụng getCurrentUserProfile (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data
+  const account = await getCurrentUserProfile(userId)
   if (!account) {
     return NextResponse.json({ error: "Không tìm thấy tài khoản" }, { status: 404 })
   }

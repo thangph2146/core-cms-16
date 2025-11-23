@@ -13,7 +13,6 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
 } from "@/features/admin/resources/hooks"
@@ -522,14 +521,6 @@ export function ContactRequestsTableClient({
     }),
     [],
   )
-
-  useResourceInitialDataCache<ContactRequestRow, AdminContactRequestsListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminContactRequests.list,
-    resourceName: "contact-requests",
-  })
 
   return (
     <>

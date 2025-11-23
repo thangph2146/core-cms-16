@@ -36,28 +36,16 @@ function updateSessionQueries(
     queryKey: queryKeys.adminSessions.all() as unknown[],
   })
   
-  logger.debug("Found session queries to update", { count: queries.length })
-  
   for (const [key, data] of queries) {
     if (!Array.isArray(key) || key.length < 2) continue
     const params = key[1] as AdminSessionsListParams | undefined
     if (!params || !data) {
-      logger.debug("Skipping query", { hasParams: !!params, hasData: !!data })
       continue
     }
     const next = updater({ key, params, data })
     if (next) {
-      logger.debug("Setting query data", {
-        key: key.slice(0, 2),
-        oldRowsCount: data.rows.length,
-        newRowsCount: next.rows.length,
-        oldTotal: data.total,
-        newTotal: next.total,
-      })
       queryClient.setQueryData(key, next)
       updated = true
-    } else {
-      logger.debug("Updater returned null, skipping update")
     }
   }
   
@@ -86,28 +74,11 @@ export function useSessionsSocketBridge() {
       // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
       const rowStatus: "active" | "deleted" = sessionRow.isActive ? "active" : "deleted"
 
-      logger.debug("Received session:upsert", {
-        sessionId: sessionRow.id,
-        previousStatus,
-        newStatus,
-        rowStatus,
-        isActive: sessionRow.isActive,
-      })
-
       const updated = updateSessionQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, sessionRow) && matchesSearch(params.search, sessionRow)
         const includesByStatus = shouldIncludeInStatus(params.status, rowStatus)
         const existingIndex = data.rows.findIndex((row) => row.id === sessionRow.id)
         const shouldInclude = matches && includesByStatus
-
-        logger.debug("Processing session update", {
-          sessionId: sessionRow.id,
-          viewStatus: params.status,
-          rowStatus,
-          includesByStatus,
-          existingIndex,
-          shouldInclude,
-        })
 
         if (existingIndex === -1 && !shouldInclude) {
           // Nothing to update for this page
@@ -138,11 +109,6 @@ export function useSessionsSocketBridge() {
         } else if (existingIndex >= 0) {
           // Session đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
           // Remove khỏi page này
-          logger.debug("Removing session from view", {
-            sessionId: sessionRow.id,
-            viewStatus: params.status,
-            rowStatus,
-          })
           const result = removeRowFromPage(rows, sessionRow.id)
           rows = result.rows
           if (result.removed) {
@@ -162,13 +128,6 @@ export function useSessionsSocketBridge() {
           totalPages,
         }
 
-        logger.debug("Cache updated for session", {
-          sessionId: sessionRow.id,
-          rowsCount: result.rows.length,
-          total: result.total,
-          wasRemoved: existingIndex >= 0 && !shouldInclude,
-        })
-
         return result
       })
 
@@ -180,25 +139,15 @@ export function useSessionsSocketBridge() {
     // Handle session:remove event (for hard deletes)
     const detachRemove = on<[SessionRemovePayload]>("session:remove", (payload) => {
       const { id } = payload as SessionRemovePayload
-      logger.debug("Received session:remove", { sessionId: id })
 
       const updated = updateSessionQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
         if (!result.removed) {
-          logger.debug("Session not found in current view", { sessionId: id })
           return null
         }
 
         const total = Math.max(0, data.total - 1)
         const totalPages = total === 0 ? 0 : Math.ceil(total / data.limit)
-
-        logger.debug("Removed session from cache", {
-          sessionId: id,
-          oldRowsCount: data.rows.length,
-          newRowsCount: result.rows.length,
-          oldTotal: data.total,
-          newTotal: total,
-        })
 
         return {
           ...data,

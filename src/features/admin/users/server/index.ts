@@ -14,20 +14,15 @@ export {
   listUsers,
   getUserById,
   getUserDetailById,
+  getActiveRoles,
+  getActiveRolesForSelect,
+  getActiveUsersForSelect,
   type ListUsersInput,
   type ListedUser,
   type UserDetail,
   type ListUsersResult,
 } from "./queries"
 
-// Cache functions (deprecated for admin data, kept for backward compatibility)
-export {
-  listUsersCached,
-  getUserDetailById as getUserDetailByIdCached,
-  getRolesCached,
-  getUserColumnOptionsCached,
-  getActiveUsersForSelectCached,
-} from "./cache"
 
 // Mutations
 export {

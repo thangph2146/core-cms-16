@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getTagDetailById } from "../server/cache"
+import { getTagById } from "../server/queries"
 import { serializeTagDetail } from "../server/helpers"
 import { TagEditClient } from "./tag-edit.client"
 import type { TagEditClientProps } from "./tag-edit.client"
@@ -30,7 +30,7 @@ export async function TagEdit({
   backUrl,
   backLabel = "Quay lại",
 }: TagEditProps) {
-  const tag = await getTagDetailById(tagId)
+  const tag = await getTagById(tagId)
 
   if (!tag) {
     return <NotFoundMessage resourceName="thẻ tag" />

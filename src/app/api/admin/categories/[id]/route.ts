@@ -4,7 +4,7 @@
  * DELETE /api/admin/categories/[id] - Soft delete category
  */
 import { NextRequest } from "next/server"
-import { getCategoryDetailById } from "@/features/admin/categories/server/cache"
+import { getCategoryById } from "@/features/admin/categories/server/queries"
 import { serializeCategoryDetail } from "@/features/admin/categories/server/helpers"
 import {
   updateCategory,
@@ -25,7 +25,9 @@ async function getCategoryHandler(_req: NextRequest, _context: ApiRouteContext, 
     return createErrorResponse("Category ID is required", { status: 400 })
   }
 
-  const category = await getCategoryDetailById(categoryId)
+  // Sử dụng getCategoryById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data trong API routes
+  const category = await getCategoryById(categoryId)
 
   if (!category) {
     return createErrorResponse("Category not found", { status: 404 })

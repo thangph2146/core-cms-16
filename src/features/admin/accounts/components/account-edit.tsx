@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getCurrentUserProfileCached } from "../server/cache"
+import { getCurrentUserProfile } from "../server/queries"
 import { AccountEditClient } from "./account-edit.client"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { NotFoundMessage } from "@/features/admin/resources/components"
@@ -38,7 +38,9 @@ export async function AccountEdit({
     )
   }
 
-  const account = await getCurrentUserProfileCached(authInfo.actorId)
+  // Sử dụng getCurrentUserProfile (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data
+  const account = await getCurrentUserProfile(authInfo.actorId)
 
   if (!account) {
     return <NotFoundMessage resourceName="tài khoản" />

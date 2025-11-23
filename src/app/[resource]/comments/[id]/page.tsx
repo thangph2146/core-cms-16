@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { CommentDetail } from "@/features/admin/comments/components/comment-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getCommentDetailById } from "@/features/admin/comments/server/cache"
+import { getCommentById } from "@/features/admin/comments/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Comment Detail Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const comment = await getCommentDetailById(id)
+  const comment = await getCommentById(id)
 
   if (!comment) {
     return {
@@ -55,9 +56,10 @@ export default async function CommentDetailPage({
 }) {
   const { id } = await params
   
-  // Fetch comment data từ cache để hiển thị tên trong breadcrumb
-  const comment = await getCommentDetailById(id)
-  const authorName = comment?.authorName || comment?.authorEmail || "Chi tiết"
+  // Fetch comment data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const comment = await getCommentById(id)
+  const authorName = truncateBreadcrumbLabel(comment?.authorName || comment?.authorEmail || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Bình luận")

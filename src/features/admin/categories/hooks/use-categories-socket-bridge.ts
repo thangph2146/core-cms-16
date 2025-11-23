@@ -36,13 +36,6 @@ function updateCategoryQueries(
     queryKey: queryKeys.adminCategories.all() as unknown[],
   })
 
-  resourceLogger.socket({
-    resource: "categories",
-    action: "socket-update",
-    event: "category:queries-found",
-    payload: { count: queries.length },
-  })
-
   for (const [key, data] of queries) {
     if (!Array.isArray(key) || key.length < 2) continue
     const params = key[1] as AdminCategoriesListParams | undefined
@@ -51,18 +44,6 @@ function updateCategoryQueries(
     }
     const next = updater({ key, params, data })
     if (next) {
-      resourceLogger.socket({
-        resource: "categories",
-        action: "socket-update",
-        event: "category:query-updated",
-        payload: {
-          queryKey: key.slice(0, 2),
-          oldRowsCount: data.rows.length,
-          newRowsCount: next.rows.length,
-          oldTotal: data.total,
-          newTotal: next.total,
-        },
-      })
       queryClient.setQueryData(key, next)
       updated = true
     }
@@ -90,20 +71,6 @@ export function useCategoriesSocketBridge() {
     const detachUpsert = on<[CategoryUpsertPayload]>("category:upsert", (payload) => {
       const { category, previousStatus, newStatus } = payload as CategoryUpsertPayload
       const rowStatus: "active" | "deleted" = category.deletedAt ? "deleted" : "active"
-
-      resourceLogger.socket({
-        resource: "categories",
-        action: "socket-update",
-        event: "category:upsert",
-        resourceId: category.id,
-        payload: {
-          categoryId: category.id,
-          previousStatus,
-          newStatus,
-          rowStatus,
-          deletedAt: category.deletedAt,
-        },
-      })
 
       const updated = updateCategoryQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, category) && matchesSearch(params.search, category)
@@ -140,17 +107,6 @@ export function useCategoriesSocketBridge() {
         } else if (existingIndex >= 0) {
           // Category đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
           // Remove khỏi page này
-          resourceLogger.socket({
-            resource: "categories",
-            action: "socket-update",
-            event: "category:remove-from-view",
-            resourceId: category.id,
-            payload: {
-              categoryId: category.id,
-              viewStatus: params.status,
-              rowStatus,
-            },
-          })
           const result = removeRowFromPage(rows, category.id)
           rows = result.rows
           if (result.removed) {
@@ -170,19 +126,6 @@ export function useCategoriesSocketBridge() {
           totalPages,
         }
 
-        resourceLogger.socket({
-          resource: "categories",
-          action: "socket-update",
-          event: "category:cache-updated",
-          resourceId: category.id,
-          payload: {
-            categoryId: category.id,
-            rowsCount: result.rows.length,
-            total: result.total,
-            wasRemoved: existingIndex >= 0 && !shouldInclude,
-          },
-        })
-
         return result
       })
 
@@ -193,14 +136,6 @@ export function useCategoriesSocketBridge() {
 
     const detachRemove = on<[CategoryRemovePayload]>("category:remove", (payload) => {
       const { id } = payload as CategoryRemovePayload
-      
-      resourceLogger.socket({
-        resource: "categories",
-        action: "socket-update",
-        event: "category:remove",
-        resourceId: id,
-        payload: { categoryId: id },
-      })
 
       const updated = updateCategoryQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
@@ -210,20 +145,6 @@ export function useCategoriesSocketBridge() {
 
         const total = Math.max(0, data.total - 1)
         const totalPages = total === 0 ? 0 : Math.ceil(total / data.limit)
-
-        resourceLogger.socket({
-          resource: "categories",
-          action: "socket-update",
-          event: "category:removed-from-cache",
-          resourceId: id,
-          payload: {
-            categoryId: id,
-            oldRowsCount: data.rows.length,
-            newRowsCount: result.rows.length,
-            oldTotal: data.total,
-            newTotal: total,
-          },
-        })
 
         return {
           ...data,

@@ -123,7 +123,12 @@ export function useCategoryActions({
 
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
         
-        // Socket events đã update cache, chỉ refresh nếu socket không connected
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "active" })
+        
+        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
         if (!isSocketConnected) {
           await runResourceRefresh({ refresh, resource: "categories" })
         }
@@ -155,7 +160,7 @@ export function useCategoryActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, isSocketConnected, showFeedback],
+    [canDelete, canRestore, canManage, isSocketConnected, showFeedback, queryClient],
   )
 
   const executeBulkAction = useCallback(
@@ -218,8 +223,15 @@ export function useCategoryActions({
           metadata: { requestedCount: ids.length, affectedCount: affected },
         })
 
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "active" })
+        
+        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
+        if (!isSocketConnected) {
+          await runResourceRefresh({ refresh, resource: "categories" })
+        }
       } catch (error: unknown) {
         // Extract error message từ response nếu có
         let errorMessage: string = CATEGORY_MESSAGES.UNKNOWN_ERROR
@@ -254,7 +266,7 @@ export function useCategoryActions({
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing, isSocketConnected],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, isSocketConnected, queryClient],
   )
 
   return {

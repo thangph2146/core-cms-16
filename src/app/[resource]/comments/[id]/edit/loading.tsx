@@ -1,15 +1,13 @@
 import { AdminHeader } from "@/components/layouts/headers"
 import { ResourceFormSkeleton } from "@/components/layouts/skeletons"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
-export default function SessionEditPageLoading() {
-  const sessionName = truncateBreadcrumbLabel("Đang tải...")
+export default function CommentEditPageLoading() {
   return (
     <>
       <AdminHeader
         breadcrumbs={[
-          { label: "Session", href: "/admin/sessions" },
-          { label: sessionName, href: "#" },
+          { label: "Bình luận", href: "/admin/comments" },
+          { label: "Chi tiết", href: "#" },
           { label: "Chỉnh sửa", isActive: true },
         ]}
       />
@@ -19,3 +17,4 @@ export default function SessionEditPageLoading() {
     </>
   )
 }
+

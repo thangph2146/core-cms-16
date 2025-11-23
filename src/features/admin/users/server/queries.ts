@@ -158,6 +158,32 @@ export async function getActiveRoles(): Promise<Array<{ id: string; name: string
 }
 
 /**
+ * Get active roles for select options (non-cached)
+ * Theo chuẩn Next.js 16: không cache admin data
+ */
+export async function getActiveRolesForSelect(): Promise<Array<{ label: string; value: string }>> {
+  const roles = await prisma.role.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      displayName: true,
+    },
+    orderBy: {
+      displayName: "asc",
+    },
+  })
+
+  return roles.map((role) => ({
+    label: role.displayName || role.name,
+    value: role.id,
+  }))
+}
+
+/**
  * Get active users for select options (non-cached)
  * Theo chuẩn Next.js 16: không cache admin data
  */

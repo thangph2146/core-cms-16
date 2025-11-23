@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getPostById } from "@/features/admin/posts/server/queries"
+import { serializePostDetail } from "@/features/admin/posts/server/helpers"
 import { updatePost, deletePost, type AuthContext, ApplicationError, NotFoundError } from "@/features/admin/posts/server/mutations"
 import { updatePostSchema } from "@/features/admin/posts/server/validation"
-import { createPutRoute, createDeleteRoute } from "@/lib/api/api-route-wrapper"
+import { createGetRoute, createPutRoute, createDeleteRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { validateID } from "@/lib/api/validation"
+
+async function getPostHandler(_req: NextRequest, _context: ApiRouteContext, ...args: unknown[]) {
+  const { params } = args[0] as { params: Promise<{ id: string }> }
+  const { id } = await params
+
+  const idValidation = validateID(id)
+  if (!idValidation.valid) {
+    return NextResponse.json({ error: idValidation.error || "ID không hợp lệ" }, { status: 400 })
+  }
+
+  // Sử dụng getPostById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data trong API routes
+  const post = await getPostById(id)
+
+  if (!post) {
+    return NextResponse.json({ error: "Không tìm thấy bài viết" }, { status: 404 })
+  }
+
+  return NextResponse.json({ data: serializePostDetail(post) })
+}
 
 async function putPostHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {
   const { params } = args[0] as { params: Promise<{ id: string }> }
@@ -90,6 +112,7 @@ async function deletePostHandler(_req: NextRequest, context: ApiRouteContext, ..
   }
 }
 
+export const GET = createGetRoute(getPostHandler)
 export const PUT = createPutRoute(putPostHandler)
 export const DELETE = createDeleteRoute(deletePostHandler)
 

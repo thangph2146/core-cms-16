@@ -6,7 +6,7 @@
  */
 import type { DataTableResult } from "@/components/tables"
 import { logger } from "@/lib/config"
-import { listNotificationsCached } from "../server/cache"
+import { listNotifications } from "../server/queries"
 import { serializeNotificationsList } from "../server/helpers"
 import type { NotificationRow } from "../types"
 import { NotificationsTableClient } from "./notifications-table.client"
@@ -30,10 +30,13 @@ export async function NotificationsTable({ canManage, userId, isSuperAdmin }: No
   try {
     // Nếu userId được truyền vào, chỉ fetch notifications của user đó
     // Nếu không (super admin), fetch tất cả notifications
-    const initial = await listNotificationsCached({
+    // Sử dụng listNotifications (non-cached) để đảm bảo data luôn fresh
+    // Theo chuẩn Next.js 16: không cache admin data
+    const initial = await listNotifications({
       page: 1,
       limit: 10,
       userId,
+      isSuperAdmin,
     })
     initialData = serializeNotificationsList(initial)
   } catch (error) {

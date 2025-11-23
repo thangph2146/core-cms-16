@@ -23,6 +23,7 @@ interface UseCommentActionsOptions {
   canManage: boolean
   isSocketConnected: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
+  refreshTable?: () => Promise<void>
 }
 
 export function useCommentActions({
@@ -32,6 +33,7 @@ export function useCommentActions({
   canManage,
   isSocketConnected,
   showFeedback,
+  refreshTable,
 }: UseCommentActionsOptions) {
   const queryClient = useQueryClient()
   const [approvingComments, setApprovingComments] = useState<Set<string>>(new Set())
@@ -86,6 +88,13 @@ export function useCommentActions({
             authorName: row.authorName,
           },
         })
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
+        // Gọi refreshTable để trigger UI refresh
+        await refreshTable?.()
       } catch (error: unknown) {
         // Extract error message từ axios error response
         let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
@@ -108,8 +117,10 @@ export function useCommentActions({
 
         showFeedback("error", newStatus ? COMMENT_MESSAGES.APPROVE_ERROR : COMMENT_MESSAGES.UNAPPROVE_ERROR, `Không thể ${newStatus ? "duyệt" : "hủy duyệt"} bình luận`, errorMessage)
         
-        // Invalidate queries để refresh data từ server
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all() })
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
       } finally {
         setTogglingComments((prev) => {
           const next = new Set(prev)
@@ -123,7 +134,7 @@ export function useCommentActions({
         })
       }
     },
-    [canApprove, isSocketConnected, showFeedback, queryClient],
+    [canApprove, isSocketConnected, showFeedback, queryClient, refreshTable],
   )
 
   const executeSingleAction = useCallback(
@@ -181,6 +192,13 @@ export function useCommentActions({
         })
         await apiClient.post(actionConfig.endpoint, actionConfig.payload)
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
+        // Gọi refreshTable để trigger UI refresh
+        await refreshTable?.()
       } catch (error: unknown) {
         // Extract error message từ axios error response
         let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
@@ -191,6 +209,8 @@ export function useCommentActions({
           errorMessage = error.message
         }
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
+        // Gọi refreshTable để đảm bảo UI được refresh ngay cả khi có lỗi
+        await refreshTable?.()
         if (action === "restore") {
           resourceLogger.tableAction({
             resource: "comments",
@@ -209,7 +229,7 @@ export function useCommentActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback, refreshTable],
   )
 
   const executeBulkAction = useCallback(
@@ -243,7 +263,16 @@ export function useCommentActions({
         
         showFeedback("success", title, description)
         clearSelection()
+
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Refetch ngay để đảm bảo table hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
+        // Gọi refreshTable để trigger UI refresh
+        await refreshTable?.()
       } catch (error: unknown) {
+        // Gọi refreshTable để đảm bảo UI được refresh ngay cả khi có lỗi
+        await refreshTable?.()
         // Extract error message từ axios error response
         let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
         if (error && typeof error === "object" && "response" in error) {
@@ -274,7 +303,7 @@ export function useCommentActions({
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, refreshTable],
   )
 
   return {

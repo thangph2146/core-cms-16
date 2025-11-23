@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getPostDetailById } from "../server/cache"
+import { getPostById } from "../server/queries"
 import { serializePostDetail } from "../server/helpers"
 import { PostDetailClient } from "./post-detail.client"
 import type { PostDetailData } from "./post-detail.client"
@@ -17,7 +17,7 @@ export interface PostDetailProps {
 }
 
 export async function PostDetail({ postId, backUrl = "/admin/posts" }: PostDetailProps) {
-  const post = await getPostDetailById(postId)
+  const post = await getPostById(postId)
 
   if (!post) {
     return <NotFoundMessage resourceName="bài viết" />

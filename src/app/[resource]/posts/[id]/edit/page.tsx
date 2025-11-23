@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { PostEdit } from "@/features/admin/posts/components/post-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getPostDetailById } from "@/features/admin/posts/server/cache"
+import { getPostById } from "@/features/admin/posts/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
 
 /**
@@ -20,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ resource?: string; id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const post = await getPostDetailById(id)
+  const post = await getPostById(id)
 
   if (!post) {
     return {
@@ -67,9 +68,10 @@ export default async function EditPostPage({
   const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
   const detailHref = applyResourceSegmentToPath(`/admin/posts/${id}`, resourceSegment)
   
-  // Fetch post data từ cache để hiển thị tên trong breadcrumb
-  const post = await getPostDetailById(id)
-  const postTitle = post?.title || "Chi tiết"
+  // Fetch post data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const post = await getPostById(id)
+  const postTitle = truncateBreadcrumbLabel(post?.title || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Bài viết")

@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { StudentDetail } from "@/features/admin/students/components/student-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getStudentDetailById } from "@/features/admin/students/server/cache"
+import { getStudentById } from "@/features/admin/students/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 import { getAuthInfo } from "@/features/admin/resources/server"
 
 /**
@@ -21,7 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const { actorId, isSuperAdminUser } = await getAuthInfo()
-  const student = await getStudentDetailById(id, actorId, isSuperAdminUser)
+  const student = await getStudentById(id, actorId, isSuperAdminUser)
 
   if (!student) {
     return {
@@ -53,10 +54,11 @@ async function StudentDetailContent({ studentId }: { studentId: string }) {
 export default async function StudentDetailPage({ params }: StudentDetailPageProps) {
   const { id } = await params
   
-  // Fetch student data từ cache để hiển thị tên trong breadcrumb
+  // Fetch student data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
   const { actorId, isSuperAdminUser } = await getAuthInfo()
-  const student = await getStudentDetailById(id, actorId, isSuperAdminUser)
-  const studentName = student?.name || student?.studentCode || "Chi tiết"
+  const student = await getStudentById(id, actorId, isSuperAdminUser)
+  const studentName = truncateBreadcrumbLabel(student?.name || student?.studentCode || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Học sinh")

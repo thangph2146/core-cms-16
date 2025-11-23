@@ -55,9 +55,10 @@ export interface DataStructureLog {
   resource: string
   dataType: "table" | "detail" | "form"
   structure: {
-    // Cho table: columns, rows, pagination
+    // Cho table: columns, rows, pagination, sampleRows
     columns?: string[]
-    rows?: Array<Record<string, unknown>>
+    rows?: Array<Record<string, unknown>> // Backward compatibility
+    sampleRows?: Array<Record<string, unknown>> // Hiển thị đầy đủ rows hiện tại
     pagination?: {
       page: number
       limit: number
@@ -93,7 +94,6 @@ export interface ActionFlowLog {
 /**
  * Resource Logger instance
  */
-export type { ResourceAction }
 export const resourceLogger = {
   /**
    * Log action cho data table
@@ -141,14 +141,16 @@ export const resourceLogger = {
     const { resource, dataType, structure, rowCount } = log
     
     if (dataType === "table") {
+      // Ưu tiên sampleRows nếu có, nếu không thì dùng rows (backward compatibility)
+      const rowsToLog = structure.sampleRows || structure.rows || []
       logger.debug(`[${resource.toUpperCase()}] 📊 Table Structure`, {
         resource,
         dataType,
         columns: structure.columns || [],
-        rowCount: rowCount ?? structure.rows?.length ?? 0,
+        rowCount: rowCount ?? rowsToLog.length,
         pagination: structure.pagination,
-        sampleRows: structure.rows?.slice(0, 3), // Log 3 rows đầu để xem structure
-        totalRows: structure.rows?.length,
+        sampleRows: rowsToLog, // Hiển thị đầy đủ rows hiện tại
+        totalRows: rowsToLog.length,
         tableStatus: structure.tableStatus,
       })
     } else if (dataType === "detail") {

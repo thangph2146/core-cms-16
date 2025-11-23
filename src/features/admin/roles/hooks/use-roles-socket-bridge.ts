@@ -36,28 +36,16 @@ function updateRoleQueries(
     queryKey: queryKeys.adminRoles.all() as unknown[],
   })
 
-  logger.debug("Found role queries to update", { count: queries.length })
-
   for (const [key, data] of queries) {
     if (!Array.isArray(key) || key.length < 2) continue
     const params = key[1] as AdminRolesListParams | undefined
     if (!params || !data) {
-      logger.debug("Skipping role query", { hasParams: !!params, hasData: !!data })
       continue
     }
     const next = updater({ key, params, data })
     if (next) {
-      logger.debug("Setting role query data", {
-        queryKey: key.slice(0, 2),
-        oldRowsCount: data.rows.length,
-        newRowsCount: next.rows.length,
-        oldTotal: data.total,
-        newTotal: next.total,
-      })
       queryClient.setQueryData(key, next)
       updated = true
-    } else {
-      logger.debug("Role updater returned null, skipping update")
     }
   }
 
@@ -84,28 +72,11 @@ export function useRolesSocketBridge() {
       const { role, previousStatus, newStatus } = payload as RoleUpsertPayload
       const rowStatus: "active" | "deleted" = role.deletedAt ? "deleted" : "active"
 
-      logger.debug("Received role:upsert", {
-        roleId: role.id,
-        previousStatus,
-        newStatus,
-        rowStatus,
-        deletedAt: role.deletedAt,
-      })
-
       const updated = updateRoleQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, role) && matchesSearch(params.search, role)
         const includesByStatus = shouldIncludeInStatus(params.status, rowStatus)
         const existingIndex = data.rows.findIndex((r) => r.id === role.id)
         const shouldInclude = matches && includesByStatus
-
-        logger.debug("Processing role update", {
-          roleId: role.id,
-          viewStatus: params.status,
-          rowStatus,
-          includesByStatus,
-          existingIndex,
-          shouldInclude,
-        })
 
         if (existingIndex === -1 && !shouldInclude) {
           // Nothing to update for this page
@@ -136,11 +107,6 @@ export function useRolesSocketBridge() {
         } else if (existingIndex >= 0) {
           // Role đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
           // Remove khỏi page này
-          logger.debug("Removing role from view", {
-            roleId: role.id,
-            viewStatus: params.status,
-            rowStatus,
-          })
           const result = removeRowFromPage(rows, role.id)
           rows = result.rows
           if (result.removed) {
@@ -160,13 +126,6 @@ export function useRolesSocketBridge() {
           totalPages,
         }
 
-        logger.debug("Cache updated for role", {
-          roleId: role.id,
-          rowsCount: result.rows.length,
-          total: result.total,
-          wasRemoved: existingIndex >= 0 && !shouldInclude,
-        })
-
         return result
       })
 
@@ -177,7 +136,6 @@ export function useRolesSocketBridge() {
         queryClient.setQueryData(detailQueryKey, {
           data: role,
         })
-        logger.debug("Updated role detail cache", { roleId: role.id })
       }
 
       if (updated) {
@@ -187,25 +145,15 @@ export function useRolesSocketBridge() {
 
     const detachRemove = on<[RoleRemovePayload]>("role:remove", (payload) => {
       const { id } = payload as RoleRemovePayload
-      logger.debug("Received role:remove", { roleId: id })
 
       const updated = updateRoleQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
         if (!result.removed) {
-          logger.debug("Role not found in current view", { roleId: id })
           return null
         }
 
         const total = Math.max(0, data.total - 1)
         const totalPages = total === 0 ? 0 : Math.ceil(total / data.limit)
-
-        logger.debug("Removed role from cache", {
-          roleId: id,
-          oldRowsCount: data.rows.length,
-          newRowsCount: result.rows.length,
-          oldTotal: data.total,
-          newTotal: total,
-        })
 
         return {
           ...data,

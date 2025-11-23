@@ -5,11 +5,11 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getStudentDetailById } from "../server/cache"
+import { getStudentById } from "../server/queries"
 import { serializeStudentDetail } from "../server/helpers"
 import { StudentEditClient } from "./student-edit.client"
 import type { StudentEditClientProps } from "./student-edit.client"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
+import { getActiveUsersForSelect } from "@/features/admin/users/server/queries"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { NotFoundMessage } from "@/features/admin/resources/components"
 
@@ -35,9 +35,9 @@ export async function StudentEdit({
   const { actorId, isSuperAdminUser } = await getAuthInfo()
 
   const [student, usersOptions] = await Promise.all([
-    getStudentDetailById(studentId, actorId, isSuperAdminUser),
+    getStudentById(studentId, actorId, isSuperAdminUser),
     // Chỉ fetch users options nếu là super admin
-    isSuperAdminUser ? getActiveUsersForSelectCached(100) : Promise.resolve([]),
+    isSuperAdminUser ? getActiveUsersForSelect(100) : Promise.resolve([]),
   ])
 
   if (!student) {

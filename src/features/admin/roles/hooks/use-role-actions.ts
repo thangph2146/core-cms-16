@@ -112,10 +112,9 @@ export function useRoleActions({
           errorMessage
         )
         
-        // Invalidate queries để refresh data từ server
-        if (!isSocketConnected) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all() })
-        }
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "active" })
       } finally {
         setTogglingRoles((prev) => {
           const next = new Set(prev)
@@ -212,7 +211,11 @@ export function useRoleActions({
         })
 
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // Socket events sẽ tự động update cache, không cần manual refresh
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : ROLE_MESSAGES.UNKNOWN_ERROR
         
@@ -300,7 +303,10 @@ export function useRoleActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        // Socket events sẽ tự động update cache, không cần manual refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "active" })
       } catch (error: unknown) {
         // Extract error message từ axios error response
         const axiosError = error as { response?: { data?: { message?: string; error?: string; data?: { message?: string } } } }

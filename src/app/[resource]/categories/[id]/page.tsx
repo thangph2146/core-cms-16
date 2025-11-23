@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { CategoryDetail } from "@/features/admin/categories/components/category-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getCategoryDetailById } from "@/features/admin/categories/server/cache"
+import { getCategoryById } from "@/features/admin/categories/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Category Detail Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const category = await getCategoryDetailById(id)
+  const category = await getCategoryById(id)
 
   if (!category) {
     return {
@@ -51,9 +52,10 @@ export default async function CategoryDetailPage({
 }) {
   const { id } = await params
   
-  // Fetch category data từ cache để hiển thị tên trong breadcrumb
-  const category = await getCategoryDetailById(id)
-  const categoryName = category?.name || "Chi tiết"
+  // Fetch category data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const category = await getCategoryById(id)
+  const categoryName = truncateBreadcrumbLabel(category?.name || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Danh mục")

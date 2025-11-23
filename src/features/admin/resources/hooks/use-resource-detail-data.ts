@@ -100,9 +100,17 @@ export function useResourceDetailData<T extends Record<string, unknown>>({
   const resolvedApiRoute = useMemo(() => {
     if (apiRoute) return apiRoute(resourceId)
     
-    // Map resourceName sang apiRoutes
+    // Map resourceName sang apiRoutes (hỗ trợ cả kebab-case và camelCase)
     try {
-      const resourceRoutes = (apiRoutes as unknown as Record<string, { detail?: (id: string) => string }>)[resourceName]
+      // Thử với resourceName trực tiếp (có thể là kebab-case như "contact-requests")
+      let resourceRoutes = (apiRoutes as unknown as Record<string, { detail?: (id: string) => string }>)[resourceName]
+      
+      // Nếu không tìm thấy, thử convert kebab-case sang camelCase (contact-requests -> contactRequests)
+      if (!resourceRoutes?.detail && resourceName.includes("-")) {
+        const camelCaseName = resourceName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+        resourceRoutes = (apiRoutes as unknown as Record<string, { detail?: (id: string) => string }>)[camelCaseName]
+      }
+      
       if (resourceRoutes?.detail) {
         return resourceRoutes.detail(resourceId)
       }
@@ -110,32 +118,28 @@ export function useResourceDetailData<T extends Record<string, unknown>>({
       // Ignore type errors
     }
     
-    // Fallback: tạo route từ resourceName
+    // Fallback: tạo route từ resourceName (apiClient sẽ tự động thêm /api prefix)
     return `/admin/${resourceName}/${resourceId}`
   }, [apiRoute, resourceId, resourceName])
 
   // Fetch từ API khi cần để đảm bảo data luôn fresh (theo chuẩn Next.js 16)
-  // Luôn fetch từ API khi mount nếu fetchOnMount = true để đảm bảo data mới nhất
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // staleTime: 0 đảm bảo data luôn được coi là stale và refetch khi cần
+  // React Query tự động deduplicate requests với cùng queryKey, không cần lo về duplicate fetches
   const { data: fetchedData, isFetched, isFetching } = useQuery<{ data: T }>({
     queryKey,
     queryFn: async () => {
-      logger.debug(`[useResourceDetailData:${resourceName}] Fetching detail data from API`, {
-        resourceId,
-        apiRoute: resolvedApiRoute,
-      })
+      // Chỉ log khi thực sự fetch (không log khi sử dụng cache)
+      // React Query sẽ tự động deduplicate requests với cùng queryKey
       const response = await apiClient.get<{ data: T }>(resolvedApiRoute)
-      logger.debug(`[useResourceDetailData:${resourceName}] Fetched detail data from API`, {
-        resourceId,
-        hasData: !!response.data?.data,
-        fields: response.data?.data ? Object.keys(response.data.data) : [],
-      })
       return response.data
     },
-    enabled: fetchOnMount, // Luôn fetch khi mount để đảm bảo data fresh
-    staleTime: 0, // Luôn coi là stale để đảm bảo data fresh
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnMount: true, // Luôn refetch khi mount để đảm bảo data fresh
+    enabled: fetchOnMount && !!resourceId, // Chỉ fetch khi fetchOnMount = true và có resourceId
+    staleTime: 0, // Luôn coi là stale - đảm bảo luôn fetch fresh data (theo chuẩn Next.js 16: không cache admin data)
+    gcTime: 5 * 60 * 1000, // 5 minutes - chỉ giữ cache trong memory để tránh flash of old data, không dùng cho fresh data
+    refetchOnMount: fetchOnMount && !!resourceId ? "always" : false, // Luôn refetch khi mount nếu fetchOnMount = true để đảm bảo data fresh (đặc biệt sau khi edit)
     refetchOnWindowFocus: false, // Không refetch khi window focus (tránh unnecessary requests)
+    refetchOnReconnect: false, // Không refetch khi reconnect (tránh unnecessary requests)
     initialData: queryClient.getQueryData<{ data: T }>(queryKey) || { data: initialData }, // Sử dụng cache hoặc initialData làm initialData
   })
 

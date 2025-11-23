@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { Tag, Hash, AlignLeft, Calendar, Clock, Edit } from "lucide-react"
 import { 
   ResourceDetailPage, 
@@ -33,13 +33,13 @@ export interface CategoryDetailClientProps {
   backUrl?: string
 }
 
-// Module-level Set để track các categoryId đã log (tránh duplicate trong React Strict Mode)
-const loggedCategoryIds = new Set<string>()
-
 export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/categories" }: CategoryDetailClientProps) {
   const { navigateBack, router } = useResourceNavigation({
     invalidateQueryKey: queryKeys.adminCategories.all(),
   })
+
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = useRef<string | null>(null)
 
   // Ưu tiên sử dụng React Query cache nếu có (dữ liệu mới nhất sau khi edit), fallback về props
   // Chỉ log sau khi fetch từ API xong để đảm bảo data mới nhất
@@ -48,16 +48,23 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
     resourceId: categoryId,
     detailQueryKey: queryKeys.adminCategories.detail,
     resourceName: "categories",
+    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
 
-  // Log detail load một lần cho mỗi categoryId (chỉ log sau khi fetch từ API xong)
+  // Log detail load một lần cho mỗi unique data state (chỉ log sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
   useEffect(() => {
-    const logKey = `categories-detail-${categoryId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedCategoryIds.has(logKey) || !fetchedData) return
-    loggedCategoryIds.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${categoryId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
     
     resourceLogger.detailAction({
       resource: "categories",
@@ -73,14 +80,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc categoryId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedCategoryIds.delete(logKey)
-      }, 1000)
-    }
-  }, [categoryId, isFetched, isFromApi, fetchedData])
+  }, [categoryId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   const detailFields: ResourceDetailField<CategoryDetailData>[] = []
 

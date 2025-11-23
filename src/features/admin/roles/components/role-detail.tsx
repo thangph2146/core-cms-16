@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getRoleDetailById } from "../server/cache"
+import { getRoleById } from "../server/queries"
 import { serializeRoleDetail } from "../server/helpers"
 import { RoleDetailClient } from "./role-detail.client"
 import type { RoleDetailData } from "./role-detail.client"
@@ -17,7 +17,7 @@ export interface RoleDetailProps {
 }
 
 export async function RoleDetail({ roleId, backUrl = "/admin/roles" }: RoleDetailProps) {
-  const role = await getRoleDetailById(roleId)
+  const role = await getRoleById(roleId)
 
   if (!role) {
     return <NotFoundMessage resourceName="vai trò" />

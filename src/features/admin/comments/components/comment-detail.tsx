@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getCommentDetailById } from "../server/cache"
+import { getCommentById } from "../server/queries"
 import { serializeCommentDetail } from "../server/helpers"
 import { CommentDetailClient } from "./comment-detail.client"
 import type { CommentDetailData } from "./comment-detail.client"
@@ -20,7 +20,7 @@ export interface CommentDetailProps {
 
 export async function CommentDetail({ commentId, backUrl = "/admin/comments" }: CommentDetailProps) {
   const [comment, { permissions, roles }] = await Promise.all([
-    getCommentDetailById(commentId),
+    getCommentById(commentId),
     getAuthInfo(),
   ])
 

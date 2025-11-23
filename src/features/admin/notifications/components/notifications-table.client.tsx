@@ -15,7 +15,6 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
 } from "@/features/admin/resources/hooks"
@@ -279,13 +278,8 @@ export function NotificationsTableClient({
     [],
   )
 
-  useResourceInitialDataCache<NotificationRow, AdminNotificationsListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: buildNotificationsQueryKey,
-    resourceName: "notifications",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   // Helper function to create selection actions
   const createSelectionActions = useCallback(

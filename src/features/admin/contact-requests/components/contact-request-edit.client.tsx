@@ -7,9 +7,12 @@
 
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
+import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { getBaseContactRequestFields, type ContactRequestFormData } from "../form-fields"
 import type { ContactStatus, ContactPriority } from "../types"
 
@@ -41,16 +44,32 @@ export interface ContactRequestEditClientProps {
 }
 
 export function ContactRequestEditClient({
-  contactRequest,
+  contactRequest: initialContactRequest,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  contactRequestId: _contactRequestId,
+  contactRequestId,
   usersOptions = [],
 }: ContactRequestEditClientProps) {
+  const queryClient = useQueryClient()
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = contactRequestId || initialContactRequest?.id
+  const { data: contactRequestData } = useResourceDetailData({
+    initialData: initialContactRequest || ({} as ContactRequestEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminContactRequests.detail,
+    resourceName: "contact-requests",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const contactRequest = (contactRequestData as ContactRequestEditData | null) || initialContactRequest
+
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.contactRequests.update(id),
     method: "PUT",
@@ -68,11 +87,15 @@ export function ContactRequestEditClient({
           : undefined,
       fallback: backUrl,
     },
-    onSuccess: async () => {
-      if (onSuccess) {
-        onSuccess()
-      }
-    },
+    onSuccess: createResourceEditOnSuccess({
+      queryClient,
+      resourceId: contactRequest?.id,
+      allQueryKey: queryKeys.adminContactRequests.all(),
+      detailQueryKey: queryKeys.adminContactRequests.detail,
+      resourceName: "contact-requests",
+      getRecordName: (data) => (data.name as string | undefined) || (data.email as string | undefined),
+      onSuccess,
+    }),
   })
 
   if (!contactRequest?.id) {

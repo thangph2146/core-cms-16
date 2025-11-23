@@ -2,7 +2,8 @@
  * API Route: GET /api/admin/roles/[id], PUT /api/admin/roles/[id], DELETE /api/admin/roles/[id]
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getRoleDetailById } from "@/features/admin/roles/server/cache"
+import { getRoleById } from "@/features/admin/roles/server/queries"
+import { serializeRoleDetail } from "@/features/admin/roles/server/helpers"
 import {
   type AuthContext,
   updateRole,
@@ -23,12 +24,14 @@ async function getRoleHandler(_req: NextRequest, _context: ApiRouteContext, ...a
     return NextResponse.json({ error: idValidation.error || "ID không hợp lệ" }, { status: 400 })
   }
 
-  const role = await getRoleDetailById(id)
+  // Sử dụng getRoleById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data trong API routes
+  const role = await getRoleById(id)
   if (!role || role.deletedAt) {
     return NextResponse.json({ error: role ? "Vai trò đã bị xóa" : "Không tìm thấy vai trò" }, { status: 404 })
   }
 
-  return NextResponse.json({ data: role })
+  return NextResponse.json({ data: serializeRoleDetail(role) })
 }
 
 async function putRoleHandler(req: NextRequest, context: ApiRouteContext, ...args: unknown[]) {

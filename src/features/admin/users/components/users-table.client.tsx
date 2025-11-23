@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useEffect, useRef } from "react"
+import { useCallback, useMemo, useEffect, useRef, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -14,9 +14,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -286,67 +286,6 @@ export function UsersTableClient({
     [],
   )
 
-  useResourceInitialDataCache<UserRow, AdminUsersListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminUsers.list,
-    resourceName: "users",
-  })
-
-  // Log table load và data structure (chỉ log một lần)
-  const loggedTableKeys = useRef<Set<string>>(new Set())
-  const tableLogKey = useMemo(
-    () => `users-table-${initialData?.page ?? 1}-${initialData?.total ?? 0}`,
-    [initialData?.page, initialData?.total]
-  )
-  useEffect(() => {
-    if (loggedTableKeys.current.has(tableLogKey)) return
-    loggedTableKeys.current.add(tableLogKey)
-    
-    resourceLogger.tableAction({
-      resource: "users",
-      action: "load-table",
-      view: "active",
-      total: initialData?.total,
-      page: initialData?.page,
-    })
-
-    if (initialData) {
-      // Log tất cả rows để hiển thị đầy đủ thông tin
-      const allRows = initialData.rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        name: row.name,
-        isActive: row.isActive,
-        createdAt: row.createdAt,
-        deletedAt: row.deletedAt,
-      }))
-      
-      resourceLogger.dataStructure({
-        resource: "users",
-        dataType: "table",
-        rowCount: initialData.rows.length,
-        structure: {
-          columns: ["id", "email", "name", "isActive", "createdAt", "deletedAt"],
-          pagination: {
-            page: initialData.page,
-            limit: initialData.limit,
-            total: initialData.total,
-            totalPages: initialData.totalPages,
-          },
-          rows: allRows,
-        },
-      })
-    }
-
-    // Cleanup sau một khoảng thời gian
-    return () => {
-      setTimeout(() => {
-        loggedTableKeys.current.delete(tableLogKey)
-      }, 1000)
-    }
-  }, [tableLogKey, initialData])
 
   const viewModes = useMemo<ResourceViewMode<UserRow>[]>(() => {
     const modes: ResourceViewMode<UserRow>[] = [
@@ -501,6 +440,33 @@ export function UsersTableClient({
     [initialData],
   )
 
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<UserRow>({
+    resourceName: "users",
+    initialData,
+    initialDataByView,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminUsers.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "email", "name", "isActive", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
+  })
+
   const getDeleteConfirmTitle = () => {
     if (!deleteConfirm) return ""
     if (deleteConfirm.type === "hard") {
@@ -560,6 +526,7 @@ export function UsersTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

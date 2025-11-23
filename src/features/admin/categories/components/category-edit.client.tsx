@@ -9,7 +9,7 @@
 
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
@@ -35,20 +35,34 @@ export interface CategoryEditClientProps {
 }
 
 export function CategoryEditClient({
-  category,
+  category: initialCategory,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  categoryId: _categoryId,
+  categoryId,
 }: CategoryEditClientProps) {
   const queryClient = useQueryClient()
   const { navigateBack } = useResourceNavigation({
     queryClient,
     invalidateQueryKey: queryKeys.adminCategories.all(),
   })
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = categoryId || initialCategory?.id
+  const { data: categoryData } = useResourceDetailData({
+    initialData: initialCategory || ({} as CategoryEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminCategories.detail,
+    resourceName: "categories",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const category = (categoryData as CategoryEditData | null) || initialCategory
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.categories.update(id),

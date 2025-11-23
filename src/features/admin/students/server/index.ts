@@ -2,19 +2,17 @@
  * Server-side exports for Students feature
  *
  * Structure:
- * - queries.ts: Non-cached database queries
- * - cache.ts: Cached functions using React cache()
+ * - queries.ts: Non-cached database queries (theo chuẩn Next.js 16: không cache admin data)
  * - mutations.ts: Data mutations (create, update, delete)
  * - helpers.ts: Shared helper functions
  * - notifications.ts: Realtime notifications via Socket.IO
  * - schemas.ts: Zod validation schemas
+ * 
+ * LƯU Ý: cache.ts đã được xóa theo chuẩn Next.js 16 - không cache admin data
  */
 
 // Queries
 export * from "./queries"
-
-// Cache
-export * from "./cache"
 
 // Mutations
 export * from "./mutations"

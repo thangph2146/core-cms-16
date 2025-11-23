@@ -14,10 +14,9 @@ import {
 } from "@/features/admin/resources/components"
 import type { ResourceViewMode, ResourceRefreshHandler } from "@/features/admin/resources/types"
 import {
-  useResourceInitialDataCache,
   useResourceTableLoader,
   useResourceTableRefresh,
-  runResourceRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -350,66 +349,35 @@ export function PostsTableClient({
     [],
   )
 
-  useResourceInitialDataCache<PostRow, AdminPostsListParams>({
-    initialData,
-    queryClient,
-    buildParams: buildInitialParams,
-    buildQueryKey: queryKeys.adminPosts.list,
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
+
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("active")
+
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<PostRow>({
     resourceName: "posts",
+    initialData,
+    initialDataByView: initialData ? { active: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: (params) => queryKeys.adminPosts.list({
+      ...params,
+      search: undefined,
+      filters: undefined,
+    }),
+    columns: ["id", "title", "slug", "published", "createdAt", "deletedAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      published: row.published,
+      createdAt: row.createdAt,
+      deletedAt: row.deletedAt,
+    }),
+    cacheVersion,
   })
-
-  // Log table load và data structure (chỉ log một lần)
-  const loggedTableKeys = useRef<Set<string>>(new Set())
-  const tableLogKey = useMemo(
-    () => `posts-table-${initialData?.page ?? 1}-${initialData?.total ?? 0}`,
-    [initialData?.page, initialData?.total]
-  )
-  
-  useEffect(() => {
-    if (loggedTableKeys.current.has(tableLogKey)) return
-    loggedTableKeys.current.add(tableLogKey)
-    
-    resourceLogger.tableAction({
-      resource: "posts",
-      action: "load-table",
-      view: "active",
-      total: initialData?.total,
-      page: initialData?.page,
-    })
-
-    if (initialData) {
-      const allRows = initialData.rows.map((row) => ({
-        id: row.id,
-        title: row.title,
-        slug: row.slug,
-        published: row.published,
-        createdAt: row.createdAt,
-        deletedAt: row.deletedAt,
-      }))
-      
-      resourceLogger.dataStructure({
-        resource: "posts",
-        dataType: "table",
-        rowCount: initialData.rows.length,
-        structure: {
-          columns: ["id", "title", "slug", "published", "createdAt", "deletedAt"],
-          pagination: {
-            page: initialData.page,
-            limit: initialData.limit,
-            total: initialData.total,
-            totalPages: initialData.totalPages,
-          },
-          rows: allRows,
-        },
-      })
-    }
-
-    return () => {
-      setTimeout(() => {
-        loggedTableKeys.current.delete(tableLogKey)
-      }, 1000)
-    }
-  }, [tableLogKey, initialData])
 
   const createActiveSelectionActions = useCallback(
     ({
@@ -636,6 +604,7 @@ export function PostsTableClient({
         fallbackRowCount={6}
         headerActions={headerActions}
         onRefreshReady={onRefreshReady}
+        onViewChange={setCurrentViewId}
       />
 
       {/* Delete Confirmation Dialog */}

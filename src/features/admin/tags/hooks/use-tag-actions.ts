@@ -101,8 +101,12 @@ export function useTagActions({
 
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
 
-        // Theo chuẩn Next.js 16: không update cache manually, chỉ invalidate
-        // Socket events sẽ tự động update cache nếu có
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "active" })
+        
+        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
         if (!isSocketConnected) {
           await runResourceRefresh({ refresh, resource: "tags" })
         }
@@ -202,8 +206,15 @@ export function useTagActions({
           metadata: { requestedCount: ids.length, affectedCount: affected },
         })
 
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "active" })
+        
+        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
+        if (!isSocketConnected) {
+          await runResourceRefresh({ refresh, resource: "tags" })
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : TAG_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {

@@ -2,12 +2,13 @@
  * Server-side exports for Notifications feature
  * 
  * Structure:
- * - queries.ts: Non-cached database queries (dùng trong API routes)
- * - cache.ts: Cached queries với React cache() (dùng trong Server Components)
+ * - queries.ts: Non-cached database queries (theo chuẩn Next.js 16: không cache admin data)
  * - helpers.ts: Helper functions for serialization
+ * 
+ * LƯU Ý: cache.ts đã được xóa theo chuẩn Next.js 16 - không cache admin data
  */
 
-// Non-cached queries (for API routes)
+// Non-cached queries (theo chuẩn Next.js 16: không cache admin data)
 export {
   listNotifications,
   getNotificationById,
@@ -16,13 +17,6 @@ export {
   type ListedNotification,
   type ListNotificationsResult,
 } from "./queries"
-
-// Cached queries (for Server Components)
-export {
-  listNotificationsCached,
-  getNotificationByIdCached,
-  getNotificationColumnOptionsCached,
-} from "./cache"
 
 // Helpers
 export {

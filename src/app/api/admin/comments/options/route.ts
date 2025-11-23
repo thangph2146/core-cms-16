@@ -1,13 +1,10 @@
 /**
  * API Route: GET /api/admin/comments/options - Get filter options for a column
  * 
- * Theo chuẩn Next.js 16:
- * - Sử dụng server-side caching với React cache()
- * - Response caching với short-term cache (30s) để optimize performance
- * - Dynamic route vì có search query parameter
+ * Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data
  */
 import { NextRequest } from "next/server"
-import { getCommentColumnOptionsCached } from "@/features/admin/comments/server/cache"
+import { getCommentColumnOptions } from "@/features/admin/comments/server/queries"
 import { createGetRoute } from "@/lib/api/api-route-wrapper"
 import type { ApiRouteContext } from "@/lib/api/types"
 import { createOptionsHandler } from "@/lib/api/options-route-helper"
@@ -15,7 +12,7 @@ import { createOptionsHandler } from "@/lib/api/options-route-helper"
 async function getCommentOptionsHandler(req: NextRequest, _context: ApiRouteContext) {
   return createOptionsHandler(req, {
     allowedColumns: ["content", "authorName", "authorEmail", "postTitle"],
-    getOptions: (column, search, limit) => getCommentColumnOptionsCached(column, search, limit),
+    getOptions: (column, search, limit) => getCommentColumnOptions(column, search, limit),
   })
 }
 

@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getStudentDetailById } from "../server/cache"
+import { getStudentById } from "../server/queries"
 import { serializeStudentDetail } from "../server/helpers"
 import { StudentDetailClient } from "./student-detail.client"
 import type { StudentDetailData } from "./student-detail.client"
@@ -20,7 +20,7 @@ export interface StudentDetailProps {
 export async function StudentDetail({ studentId, backUrl = "/admin/students" }: StudentDetailProps) {
   const { actorId, isSuperAdminUser } = await getAuthInfo()
   
-  const student = await getStudentDetailById(studentId, actorId, isSuperAdminUser)
+  const student = await getStudentById(studentId, actorId, isSuperAdminUser)
 
   if (!student) {
     return <NotFoundMessage resourceName="học sinh" />

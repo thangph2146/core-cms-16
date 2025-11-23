@@ -12,7 +12,6 @@ export { useDynamicFilterOptions } from "./use-dynamic-filter-options"
 // Table helpers
 export { useResourceTableRefresh } from "./use-resource-table-refresh"
 export { useResourceTableLoader } from "./use-resource-table-loader"
-export { useResourceInitialDataCache } from "./use-resource-initial-data-cache"
 export { runResourceRefresh } from "./resource-refresh"
 export { useResourceBulkProcessing } from "./use-resource-bulk-processing"
 
@@ -22,4 +21,7 @@ export type { UseResourceNavigationOptions, UseResourceNavigationResult } from "
 
 // Detail data helpers
 export { useResourceDetailData } from "./use-resource-detail-data"
+
+// Table logger helpers
+export { useResourceTableLogger } from "./use-resource-table-logger"
 

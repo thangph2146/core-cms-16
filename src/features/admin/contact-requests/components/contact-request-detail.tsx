@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getContactRequestDetailById } from "../server/cache"
+import { getContactRequestById } from "../server/queries"
 import { serializeContactRequestDetail } from "../server/helpers"
 import { ContactRequestDetailClient } from "./contact-request-detail.client"
 import type { ContactRequestDetailData } from "./contact-request-detail.client"
@@ -17,7 +17,7 @@ export interface ContactRequestDetailProps {
 }
 
 export async function ContactRequestDetail({ contactRequestId, backUrl = "/admin/contact-requests" }: ContactRequestDetailProps) {
-  const contactRequest = await getContactRequestDetailById(contactRequestId)
+  const contactRequest = await getContactRequestById(contactRequestId)
 
   if (!contactRequest) {
     return <NotFoundMessage resourceName="yêu cầu liên hệ" />

@@ -79,16 +79,15 @@ export function useResourceTableRefresh({
       refreshRef.current = async () => {
         const invalidateKey = getInvalidateQueryKey?.()
         if (invalidateKey) {
-          logger.debug("Invalidating queries before refresh", { queryKey: invalidateKey })
-          // Invalidate queries nhưng KHÔNG tự động refetch (refetchType: "none")
-          // refreshFn() sẽ trigger refetch query hiện tại khi table reload
-          await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "none" })
+          // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+          // Refetch ngay để đảm bảo table hiển thị data mới ngay sau mutations
+          await queryClient.invalidateQueries({ queryKey: invalidateKey, refetchType: "active" })
+          await queryClient.refetchQueries({ queryKey: invalidateKey, type: "active" })
         }
         refreshFn()
       }
 
       if (pendingRealtimeRefreshRef.current) {
-        logger.debug("Executing pending soft refresh")
         pendingRealtimeRefreshRef.current = false
         refreshFn()
       }

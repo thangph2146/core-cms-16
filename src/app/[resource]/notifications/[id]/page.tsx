@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { NotificationDetail } from "@/features/admin/notifications/components/notification-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getNotificationByIdCached } from "@/features/admin/notifications/server/cache"
+import { getNotificationById } from "@/features/admin/notifications/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Notification Detail Page Metadata (Dynamic)
@@ -19,7 +20,9 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const notification = await getNotificationByIdCached(id)
+  // Sử dụng getNotificationById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data
+  const notification = await getNotificationById(id)
 
   if (!notification) {
     return {
@@ -51,9 +54,10 @@ export default async function NotificationDetailPage({
 }) {
   const { id } = await params
   
-  // Fetch notification data từ cache để hiển thị tên trong breadcrumb
-  const notification = await getNotificationByIdCached(id)
-  const notificationTitle = notification?.title || "Chi tiết"
+  // Fetch notification data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const notification = await getNotificationById(id)
+  const notificationTitle = truncateBreadcrumbLabel(notification?.title || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Thông báo")

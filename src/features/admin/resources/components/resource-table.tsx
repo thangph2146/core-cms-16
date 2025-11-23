@@ -8,7 +8,9 @@
  * ```typescript
  * // In your feature (e.g., users)
  * export async function UsersTable(props: UsersTableProps) {
- *   const initial = await listUsersCached({
+ *   // Sử dụng non-cached queries để đảm bảo data luôn fresh
+ *   // Theo chuẩn Next.js 16: không cache admin data
+ *   const initial = await listUsers({
  *     page: 1,
  *     limit: 10,
  *     status: "active",

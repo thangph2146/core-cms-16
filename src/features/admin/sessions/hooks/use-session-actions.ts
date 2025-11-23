@@ -4,14 +4,16 @@
  */
 
 import { useCallback, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
-import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import { queryKeys } from "@/lib/query-keys"
+import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { SessionRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
-import { SESSION_MESSAGES } from "../constants/messages"
 import { logger } from "@/lib/config"
+import { SESSION_MESSAGES } from "../constants/messages"
 
 interface UseSessionActionsOptions {
   canDelete: boolean
@@ -26,6 +28,7 @@ export function useSessionActions({
   canManage,
   showFeedback,
 }: UseSessionActionsOptions) {
+  const queryClient = useQueryClient()
   const [deletingSessions, setDeletingSessions] = useState<Set<string>>(new Set())
   const [restoringSessions, setRestoringSessions] = useState<Set<string>>(new Set())
   const [hardDeletingSessions, setHardDeletingSessions] = useState<Set<string>>(new Set())
@@ -52,7 +55,10 @@ export function useSessionActions({
           newStatus ? SESSION_MESSAGES.TOGGLE_ACTIVE_SUCCESS : SESSION_MESSAGES.TOGGLE_INACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} session của ${row.userName || row.userEmail || "người dùng"}`
         )
-        await runResourceRefresh({ refresh, resource: "sessions" })
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminSessions.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminSessions.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : SESSION_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -126,7 +132,11 @@ export function useSessionActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        await runResourceRefresh({ refresh, resource: "sessions" })
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminSessions.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminSessions.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : SESSION_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -170,7 +180,10 @@ export function useSessionActions({
         showFeedback("success", message.title, message.description)
         clearSelection()
 
-        await runResourceRefresh({ refresh, resource: "sessions" })
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminSessions.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminSessions.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : SESSION_MESSAGES.UNKNOWN_ERROR
         const errorTitles = {

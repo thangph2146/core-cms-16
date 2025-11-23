@@ -5,14 +5,14 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getPostDetailById } from "../server/cache"
+import { getPostById } from "../server/queries"
 import { serializePostDetail } from "../server/helpers"
 import { PostEditClient } from "./post-edit.client"
 import type { PostEditData } from "./post-edit.client"
 import { NotFoundMessage } from "@/features/admin/resources/components"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
-import { getActiveCategoriesForSelectCached } from "@/features/admin/categories/server/cache"
-import { getActiveTagsForSelectCached } from "@/features/admin/tags/server/cache"
+import { getActiveUsersForSelect } from "@/features/admin/users/server/queries"
+import { getActiveCategoriesForSelect } from "@/features/admin/categories/server/queries"
+import { getActiveTagsForSelect } from "@/features/admin/tags/server/queries"
 import { getAuthInfo } from "@/features/admin/resources/server"
 
 export interface PostEditProps {
@@ -34,7 +34,7 @@ export async function PostEdit({
   backUrl,
   backLabel = "Quay lại",
 }: PostEditProps) {
-  const post = await getPostDetailById(postId)
+  const post = await getPostById(postId)
 
   if (!post) {
     return <NotFoundMessage resourceName="bài viết" />
@@ -45,9 +45,9 @@ export async function PostEdit({
   // Fetch options in parallel
   const [usersOptions, categoriesOptions, tagsOptions] = await Promise.all([
     // Chỉ fetch users options nếu là super admin
-    isSuperAdminUser ? getActiveUsersForSelectCached(100) : Promise.resolve([]),
-    getActiveCategoriesForSelectCached(100),
-    getActiveTagsForSelectCached(100),
+    isSuperAdminUser ? getActiveUsersForSelect(100) : Promise.resolve([]),
+    getActiveCategoriesForSelect(100),
+    getActiveTagsForSelect(100),
   ])
 
   const postForEdit: PostEditData = {

@@ -43,9 +43,6 @@ export interface CommentDetailClientProps {
   canApprove?: boolean
 }
 
-// Module-level Set để track các commentId đã log (tránh duplicate trong React Strict Mode)
-const loggedCommentIds = new Set<string>()
-
 // Status field with Switch
 interface StatusFieldProps {
   approved: boolean
@@ -92,7 +89,11 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
     resourceId: commentId,
     detailQueryKey: queryKeys.adminComments.detail,
     resourceName: "comments",
+    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
+
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = React.useRef<string | null>(null)
 
   const [isToggling, setIsToggling] = React.useState(false)
   const [approved, setApproved] = React.useState(detailData.approved)
@@ -105,11 +106,17 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
   // Log detail action và data structure (chỉ log sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
   React.useEffect(() => {
-    const logKey = `comments-detail-${commentId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedCommentIds.has(logKey) || !fetchedData) return
-    loggedCommentIds.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${commentId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
 
     resourceLogger.detailAction({
       resource: "comments",
@@ -125,14 +132,7 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc commentId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedCommentIds.delete(logKey)
-      }, 1000)
-    }
-  }, [commentId, isFetched, isFromApi, fetchedData])
+  }, [commentId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   const handleToggleApprove = React.useCallback(
     async (newStatus: boolean) => {

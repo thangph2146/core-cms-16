@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { TagDetail } from "@/features/admin/tags/components/tag-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getTagDetailById } from "@/features/admin/tags/server/cache"
+import { getTagById } from "@/features/admin/tags/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Tag Detail Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const tag = await getTagDetailById(id)
+  const tag = await getTagById(id)
 
   if (!tag) {
     return {
@@ -51,9 +52,10 @@ async function TagDetailContent({ tagId }: { tagId: string }) {
 export default async function TagDetailPage({ params }: TagDetailPageProps) {
   const { id } = await params
   
-  // Fetch tag data từ cache để hiển thị tên trong breadcrumb
-  const tag = await getTagDetailById(id)
-  const tagName = tag?.name || "Chi tiết"
+  // Fetch tag data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const tag = await getTagById(id)
+  const tagName = truncateBreadcrumbLabel(tag?.name || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Thẻ tag")

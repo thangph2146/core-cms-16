@@ -4,7 +4,7 @@
  * DELETE /api/admin/sessions/[id] - Soft delete session
  */
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionDetailById } from "@/features/admin/sessions/server/cache"
+import { getSessionById } from "@/features/admin/sessions/server/queries"
 import { serializeSessionDetail } from "@/features/admin/sessions/server/helpers"
 import {
   updateSession,
@@ -25,7 +25,9 @@ async function getSessionHandler(_req: NextRequest, _context: ApiRouteContext, .
     return NextResponse.json({ error: "Session ID is required" }, { status: 400 })
   }
 
-  const session = await getSessionDetailById(sessionId)
+  // Sử dụng getSessionById (non-cached) để đảm bảo data luôn fresh
+  // Theo chuẩn Next.js 16: không cache admin data trong API routes
+  const session = await getSessionById(sessionId)
 
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 })

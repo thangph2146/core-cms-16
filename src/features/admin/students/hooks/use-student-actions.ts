@@ -65,7 +65,10 @@ export function useStudentActions({
           STUDENT_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh ${row.studentCode}`
         )
-        // Socket events đã update cache, không cần manual refresh
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminStudents.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -149,7 +152,11 @@ export function useStudentActions({
         }
         
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // Socket events đã update cache, không cần manual refresh
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminStudents.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : STUDENT_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -201,7 +208,10 @@ export function useStudentActions({
         showFeedback("success", title, description)
         clearSelection()
 
-        // Socket events đã update cache, không cần manual refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminStudents.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage =
           error instanceof Error

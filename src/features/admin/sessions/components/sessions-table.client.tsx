@@ -12,7 +12,6 @@ import { ResourceTableClient, SelectionActionsWrapper } from "@/features/admin/r
 import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
   useResourceTableRefresh,
-  useResourceInitialDataCache,
   useResourceTableLoader,
 } from "@/features/admin/resources/hooks"
 import { sanitizeFilters, normalizeSearch } from "@/features/admin/resources/utils"
@@ -203,19 +202,8 @@ export function SessionsTableClient({
     buildQueryKey,
   })
 
-  useResourceInitialDataCache({
-    initialData,
-    queryClient,
-    buildParams: (data) => ({
-      status: "active" as const,
-      page: data.page,
-      limit: data.limit,
-      search: undefined,
-      filters: undefined,
-    }),
-    buildQueryKey,
-    resourceName: "sessions",
-  })
+  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+  // Không cần useResourceInitialDataCache nữa
 
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete", ids: string[], refresh: () => void, clearSelection: () => void) => {

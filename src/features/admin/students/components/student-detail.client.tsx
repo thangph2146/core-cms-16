@@ -40,9 +40,6 @@ export interface StudentDetailClientProps {
   backUrl?: string
 }
 
-// Module-level Set để track các studentId đã log (tránh duplicate trong React Strict Mode)
-const loggedStudentIds = new Set<string>()
-
 export function StudentDetailClient({ studentId, student, backUrl = "/admin/students" }: StudentDetailClientProps) {
   const queryClient = useQueryClient()
   const router = useResourceRouter()
@@ -51,6 +48,9 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     invalidateQueryKey: queryKeys.adminStudents.all(),
   })
 
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = React.useRef<string | null>(null)
+
   // Ưu tiên sử dụng React Query cache nếu có (dữ liệu mới nhất sau khi edit), fallback về props
   // Chỉ log sau khi fetch từ API xong để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
@@ -58,16 +58,23 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     resourceId: studentId,
     detailQueryKey: queryKeys.adminStudents.detail,
     resourceName: "students",
+    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
 
   // Log detail action và data structure (chỉ log sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
   React.useEffect(() => {
-    const logKey = `students-detail-${studentId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedStudentIds.has(logKey) || !fetchedData) return
-    loggedStudentIds.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${studentId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
 
     resourceLogger.detailAction({
       resource: "students",
@@ -83,14 +90,7 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc studentId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedStudentIds.delete(logKey)
-      }, 1000)
-    }
-  }, [studentId, isFetched, isFromApi, fetchedData])
+  }, [studentId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   const detailFields: ResourceDetailField<StudentDetailData>[] = []
 

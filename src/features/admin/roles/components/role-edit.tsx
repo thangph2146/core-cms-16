@@ -5,7 +5,8 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getRoleDetailById, getAllPermissionsCached } from "../server/cache"
+import { getRoleById } from "../server/queries"
+import { getAllPermissionsOptions } from "../server/queries"
 import { serializeRoleDetail } from "../server/helpers"
 import { RoleEditClient } from "./role-edit.client"
 import type { RoleEditClientProps } from "./role-edit.client"
@@ -31,8 +32,8 @@ export async function RoleEdit({
   backLabel = "Quay lại",
 }: RoleEditProps) {
   const [role, permissions] = await Promise.all([
-    getRoleDetailById(roleId),
-    getAllPermissionsCached(),
+    getRoleById(roleId),
+    getAllPermissionsOptions(),
   ])
 
   if (!role) {

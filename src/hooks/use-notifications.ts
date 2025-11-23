@@ -419,27 +419,24 @@ export function useNotificationsSocketBridge() {
     }
 
     const stopNew = onNotification((payload: SocketNotificationPayload) => {
-      logger.debug("Socket notification:new received", { userId, notificationId: payload.id })
-      
       // Chỉ update cache nếu notification dành cho user này
+      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       if (payload.toUserId === userId) {
         applyNotificationUpdate(payload)
       }
     })
 
     const stopUpdated = onNotificationUpdated((payload: SocketNotificationPayload) => {
-      logger.debug("Socket notification:updated received", { userId, notificationId: payload.id })
-      
       // Chỉ update cache nếu notification dành cho user này
+      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       if (payload.toUserId === userId) {
         applyNotificationUpdate(payload)
       }
     })
 
     const stopSync = onNotificationsSync((payloads: SocketNotificationPayload[]) => {
-      logger.debug("Socket notifications:sync received", { userId, count: payloads.length })
-      
       // Lọc và convert notifications cho user này
+      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       const userNotifications = payloads
         .filter((p) => p.toUserId === userId)
         .map(convertSocketToNotification)

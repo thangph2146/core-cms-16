@@ -13,31 +13,26 @@ interface UseResourceTableLoaderOptions<T extends object, P> {
 
 /**
  * Tạo loader chuẩn cho ResourceTable dựa trên fetcher + query client
+ * Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
+ * Socket updates sẽ update cache trực tiếp, nhưng khi load table sẽ luôn fetch fresh data
  */
 export function useResourceTableLoader<T extends object, P>({
   queryClient,
   fetcher,
   buildParams,
   buildQueryKey,
-  staleTime = Infinity, // Set staleTime = Infinity để luôn ưu tiên cache từ socket updates
+  staleTime = 0, // Luôn coi là stale - đảm bảo luôn fetch fresh data (theo chuẩn Next.js 16: không cache admin data)
 }: UseResourceTableLoaderOptions<T, P>): ResourceTableLoader<T> {
   return useCallback<ResourceTableLoader<T>>(
     async (query, view) => {
       const params = buildParams({ query, view })
       const queryKey = buildQueryKey(params)
 
-      // Kiểm tra cache trước - ưu tiên cache từ socket updates
-      const cachedData = queryClient.getQueryData<DataTableResult<T>>(queryKey)
-      if (cachedData) {
-        // Return cache ngay để dùng data từ socket updates
-        // fetchQuery sẽ được gọi trong background nếu cần
-        return cachedData
-      }
-
-      // Nếu không có cache, fetch từ server
+      // Luôn fetch từ API để đảm bảo data fresh (theo chuẩn Next.js 16)
+      // Socket updates sẽ update cache, nhưng khi load table sẽ luôn fetch fresh data
       return queryClient.fetchQuery({
         queryKey,
-        staleTime,
+        staleTime, // staleTime: 0 đảm bảo luôn fetch fresh data
         queryFn: () => fetcher(params),
       })
     },

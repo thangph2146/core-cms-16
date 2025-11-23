@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getCategoryDetailById } from "../server/cache"
+import { getCategoryById } from "../server/queries"
 import { serializeCategoryDetail } from "../server/helpers"
 import { CategoryDetailClient } from "./category-detail.client"
 import type { CategoryDetailData } from "./category-detail.client"
@@ -17,7 +17,7 @@ export interface CategoryDetailProps {
 }
 
 export async function CategoryDetail({ categoryId, backUrl = "/admin/categories" }: CategoryDetailProps) {
-  const category = await getCategoryDetailById(categoryId)
+  const category = await getCategoryById(categoryId)
 
   if (!category) {
     return <NotFoundMessage resourceName="danh mục" />

@@ -52,9 +52,6 @@ export interface RoleDetailClientProps {
   backUrl?: string
 }
 
-// Module-level Set để track các roleId đã log (tránh duplicate trong React Strict Mode)
-const loggedRoleIds = new Set<string>()
-
 export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: RoleDetailClientProps) {
   const queryClient = useQueryClient()
   const { navigateBack, router } = useResourceNavigation({
@@ -63,6 +60,9 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
   })
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
 
+  // useRef để track logged state (tránh duplicate logs trong React Strict Mode)
+  const loggedDataKeyRef = React.useRef<string | null>(null)
+
   // Ưu tiên sử dụng React Query cache nếu có (dữ liệu mới nhất sau khi edit), fallback về props
   // Chỉ log sau khi fetch từ API xong để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
@@ -70,16 +70,23 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
     resourceId: roleId,
     detailQueryKey: queryKeys.adminRoles.detail,
     resourceName: "roles",
+    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
   })
 
-  // Log detail load một lần cho mỗi roleId (chỉ log sau khi fetch từ API xong)
+  // Log detail load một lần cho mỗi unique data state (chỉ log sau khi fetch từ API xong)
   // Sử dụng fetchedData (data từ API) thay vì detailData để đảm bảo log data mới nhất
   React.useEffect(() => {
-    const logKey = `roles-detail-${roleId}`
-    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và chưa log
-    // Sử dụng fetchedData (data từ API) để đảm bảo log data mới nhất
-    if (!isFetched || !isFromApi || loggedRoleIds.has(logKey) || !fetchedData) return
-    loggedRoleIds.add(logKey)
+    // Chỉ log khi đã fetch xong, data từ API (isFromApi = true), và có fetchedData
+    if (!isFetched || !isFromApi || !fetchedData) return
+    
+    // Tạo unique key từ data để đảm bảo chỉ log khi data thực sự thay đổi
+    const dataKey = `${roleId}-${fetchedData.updatedAt || fetchedData.createdAt || ""}`
+    
+    // Nếu đã log cho data key này rồi, skip
+    if (loggedDataKeyRef.current === dataKey) return
+    
+    // Mark as logged
+    loggedDataKeyRef.current = dataKey
     
     resourceLogger.detailAction({
       resource: "roles",
@@ -95,14 +102,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
         fields: fetchedData as Record<string, unknown>,
       },
     })
-
-    // Cleanup khi component unmount hoặc roleId thay đổi
-    return () => {
-      setTimeout(() => {
-        loggedRoleIds.delete(logKey)
-      }, 1000)
-    }
-  }, [roleId, isFetched, isFromApi, fetchedData])
+  }, [roleId, isFetched, isFromApi, fetchedData?.id, fetchedData?.updatedAt, fetchedData?.createdAt])
 
   // Get grouped permissions
   const permissionsGroups = getAllPermissionsOptionGroups()

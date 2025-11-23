@@ -9,7 +9,7 @@
 
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
@@ -34,14 +34,14 @@ export interface RoleEditClientProps {
 }
 
 export function RoleEditClient({
-  role,
+  role: initialRole,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  roleId: _roleId,
+  roleId,
   permissions: permissionsFromServer = [],
 }: RoleEditClientProps) {
   const queryClient = useQueryClient()
@@ -49,6 +49,20 @@ export function RoleEditClient({
     queryClient,
     invalidateQueryKey: queryKeys.adminRoles.all(),
   })
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = roleId || initialRole?.id
+  const { data: roleData } = useResourceDetailData({
+    initialData: initialRole || ({} as RoleEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminRoles.detail,
+    resourceName: "roles",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const role = (roleData as RoleEditData | null) || initialRole
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.roles.update(id),

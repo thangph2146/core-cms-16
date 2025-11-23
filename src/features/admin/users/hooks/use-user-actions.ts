@@ -4,8 +4,10 @@
  */
 
 import { useCallback, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { UserRow } from "../types"
@@ -26,6 +28,7 @@ export function useUserActions({
   canManage,
   showFeedback,
 }: UseUserActionsOptions) {
+  const queryClient = useQueryClient()
   const [deletingUsers, setDeletingUsers] = useState<Set<string>>(new Set())
   const [restoringUsers, setRestoringUsers] = useState<Set<string>>(new Set())
   const [hardDeletingUsers, setHardDeletingUsers] = useState<Set<string>>(new Set())
@@ -93,8 +96,11 @@ export function useUserActions({
           await apiClient.post(actionConfig.endpoint)
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminUsers.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -115,7 +121,7 @@ export function useUserActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback, queryClient],
   )
 
   const executeToggleActive = useCallback(
@@ -143,8 +149,11 @@ export function useUserActions({
           USER_MESSAGES.TOGGLE_ACTIVE_SUCCESS,
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} người dùng ${row.email}`
         )
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminUsers.all(), type: "active" })
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : USER_MESSAGES.UNKNOWN_ERROR
         showFeedback(
@@ -225,8 +234,10 @@ export function useUserActions({
           metadata: { requestedCount: ids.length, affectedCount: affected },
         })
 
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminUsers.all(), type: "active" })
       } catch (error: unknown) {
         // Extract error message từ response nếu có
         let errorMessage: string = USER_MESSAGES.UNKNOWN_ERROR
@@ -263,7 +274,7 @@ export function useUserActions({
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

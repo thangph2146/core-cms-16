@@ -7,9 +7,12 @@
 
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
+import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { getBaseSessionFields, getSessionFormSections, type SessionFormData } from "../form-fields"
 import type { SessionRow } from "../types"
 
@@ -31,16 +34,32 @@ export interface SessionEditClientProps {
 }
 
 export function SessionEditClient({
-  session,
+  session: initialSession,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  sessionId: _sessionId,
+  sessionId,
   users: usersFromServer = [],
 }: SessionEditClientProps) {
+  const queryClient = useQueryClient()
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = sessionId || initialSession?.id
+  const { data: sessionData } = useResourceDetailData({
+    initialData: initialSession || ({} as SessionEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminSessions.detail,
+    resourceName: "sessions",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const session = (sessionData as SessionEditData | null) || initialSession
+
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.sessions.update(id),
     method: "PUT",
@@ -58,11 +77,15 @@ export function SessionEditClient({
           : undefined,
       fallback: backUrl,
     },
-    onSuccess: async () => {
-      if (onSuccess) {
-        onSuccess()
-      }
-    },
+    onSuccess: createResourceEditOnSuccess({
+      queryClient,
+      resourceId: session?.id,
+      allQueryKey: queryKeys.adminSessions.all(),
+      detailQueryKey: queryKeys.adminSessions.detail,
+      resourceName: "sessions",
+      getRecordName: (data) => (data.userEmail as string | undefined) || (data.userId as string | undefined),
+      onSuccess,
+    }),
   })
 
   if (!session?.id) {

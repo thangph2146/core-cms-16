@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getCategoryDetailById } from "../server/cache"
+import { getCategoryById } from "../server/queries"
 import { serializeCategoryDetail } from "../server/helpers"
 import { CategoryEditClient } from "./category-edit.client"
 import type { CategoryEditClientProps } from "./category-edit.client"
@@ -30,7 +30,7 @@ export async function CategoryEdit({
   backUrl,
   backLabel = "Quay lại",
 }: CategoryEditProps) {
-  const category = await getCategoryDetailById(categoryId)
+  const category = await getCategoryById(categoryId)
 
   if (!category) {
     return <NotFoundMessage resourceName="danh mục" />

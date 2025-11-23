@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { ContactRequestDetail } from "@/features/admin/contact-requests/components/contact-request-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getContactRequestDetailById } from "@/features/admin/contact-requests/server/cache"
+import { getContactRequestById } from "@/features/admin/contact-requests/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Contact Request Detail Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const contactRequest = await getContactRequestDetailById(id)
+  const contactRequest = await getContactRequestById(id)
 
   if (!contactRequest) {
     return {
@@ -54,9 +55,10 @@ export default async function ContactRequestDetailPage({
 }) {
   const { id } = await params
   
-  // Fetch contact request data từ cache để hiển thị tên trong breadcrumb
-  const contactRequest = await getContactRequestDetailById(id)
-  const contactRequestName = contactRequest?.name || contactRequest?.email || "Chi tiết"
+  // Fetch contact request data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const contactRequest = await getContactRequestById(id)
+  const contactRequestName = truncateBreadcrumbLabel(contactRequest?.name || contactRequest?.email || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Yêu cầu liên hệ")

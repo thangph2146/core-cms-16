@@ -45,6 +45,7 @@ export interface ResourceTableClientProps<T extends object> {
   fallbackRowCount?: number
   headerActions?: React.ReactNode
   onRefreshReady?: (refresh: () => void) => void
+  onViewChange?: (viewId: string) => void
 }
 
 export function ResourceTableClient<T extends object>({
@@ -58,6 +59,7 @@ export function ResourceTableClient<T extends object>({
   fallbackRowCount = 5,
   headerActions,
   onRefreshReady,
+  onViewChange,
 }: ResourceTableClientProps<T>) {
   if (viewModes.length === 0) {
     throw new Error("ResourceTableClient requires at least one view mode")
@@ -67,6 +69,7 @@ export function ResourceTableClient<T extends object>({
   const [currentViewId, setCurrentViewId] = useState(defaultViewId ?? viewModes[0].id)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const lastViewIdRef = useRef<string | undefined>(currentViewId)
 
   const activeView =
     viewModes.find((view) => view.id === currentViewId) ?? viewModes[0]
@@ -87,15 +90,14 @@ export function ResourceTableClient<T extends object>({
       }
       lastRefreshTimeRef.current = now
       
-    setRefreshKey((prev) => {
-      const next = prev + 1
-        // Chỉ log khi thực sự thay đổi và chưa log lần này (tránh duplicate trong React Strict Mode)
+      setRefreshKey((prev) => {
+        const next = prev + 1
+        // Chỉ update ref, không log ở đây - log sẽ được thực hiện trong useResourceTableLogger khi có data mới
         if (prev !== next && lastRefreshKeyRef.current !== next) {
           lastRefreshKeyRef.current = next
-        logger.debug("[ResourceTableClient] refreshKey updated", { prev, next })
-      }
-      return next
-    })
+        }
+        return next
+      })
     },
     200 // Debounce 200ms
   )
@@ -122,12 +124,20 @@ export function ResourceTableClient<T extends object>({
   const handleViewChange = useCallback(
     (viewId: string) => {
       if (viewId === currentViewId) return
+      lastViewIdRef.current = currentViewId
       setCurrentViewId(viewId)
       setSelectedIds([])
+      // Force refresh khi view thay đổi để fetch data mới từ API
       handleRefresh()
+      onViewChange?.(viewId)
     },
-    [currentViewId, handleRefresh],
+    [currentViewId, handleRefresh, onViewChange],
   )
+
+  // Notify parent về view hiện tại khi mount hoặc khi view thay đổi
+  useEffect(() => {
+    onViewChange?.(currentViewId)
+  }, [currentViewId, onViewChange])
 
   const dataLoader: DataTableLoader<T> = useCallback(
     (query: DataTableQueryState) => loader(query, activeView),
@@ -164,7 +174,10 @@ export function ResourceTableClient<T extends object>({
         } satisfies ResourceRowActionContext<T>)
     : undefined
 
-  const initialData = initialDataByView?.[activeView.id]
+  // Chỉ dùng initialData khi view chưa thay đổi (lần đầu mount)
+  // Khi view thay đổi, không dùng initialData để force fetch data mới từ API
+  const viewChanged = lastViewIdRef.current !== currentViewId
+  const initialData = viewChanged ? undefined : initialDataByView?.[activeView.id]
 
   const viewModeButtons = useMemo(() => {
     if (viewModes.length <= 1) return null

@@ -5,11 +5,11 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getContactRequestDetailById } from "../server/cache"
+import { getContactRequestById } from "../server/queries"
 import { serializeContactRequestDetail } from "../server/helpers"
 import { ContactRequestEditClient } from "./contact-request-edit.client"
 import type { ContactRequestEditClientProps } from "./contact-request-edit.client"
-import { getActiveUsersForSelectCached } from "@/features/admin/users/server/cache"
+import { getActiveUsersForSelect } from "@/features/admin/users/server/queries"
 import { NotFoundMessage } from "@/features/admin/resources/components"
 
 export interface ContactRequestEditProps {
@@ -32,8 +32,8 @@ export async function ContactRequestEdit({
   backLabel = "Quay lại",
 }: ContactRequestEditProps) {
   const [contactRequest, usersOptions] = await Promise.all([
-    getContactRequestDetailById(contactRequestId),
-    getActiveUsersForSelectCached(100),
+    getContactRequestById(contactRequestId),
+    getActiveUsersForSelect(100),
   ])
 
   if (!contactRequest) {

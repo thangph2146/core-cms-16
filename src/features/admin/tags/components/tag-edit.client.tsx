@@ -9,7 +9,7 @@
 
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
-import { useResourceFormSubmit, useResourceNavigation } from "@/features/admin/resources/hooks"
+import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
@@ -34,20 +34,34 @@ export interface TagEditClientProps {
 }
 
 export function TagEditClient({
-  tag,
+  tag: initialTag,
   open = true,
   onOpenChange,
   onSuccess,
   variant = "dialog",
   backUrl,
   backLabel = "Quay lại",
-  tagId: _tagId,
+  tagId,
 }: TagEditClientProps) {
   const queryClient = useQueryClient()
   const { navigateBack } = useResourceNavigation({
     queryClient,
     invalidateQueryKey: queryKeys.adminTags.all(),
   })
+
+  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
+  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
+  const resourceId = tagId || initialTag?.id
+  const { data: tagData } = useResourceDetailData({
+    initialData: initialTag || ({} as TagEditData),
+    resourceId: resourceId || "",
+    detailQueryKey: queryKeys.adminTags.detail,
+    resourceName: "tags",
+    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+  })
+
+  // Sử dụng fresh data từ API nếu có, fallback về initial data
+  const tag = (tagData as TagEditData | null) || initialTag
   
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.tags.update(id),

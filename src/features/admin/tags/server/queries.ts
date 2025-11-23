@@ -101,3 +101,28 @@ export async function getTagById(id: string): Promise<TagDetail | null> {
   return mapTagRecord(tag)
 }
 
+/**
+ * Get active tags for select options (non-cached)
+ * Theo chuẩn Next.js 16: không cache admin data
+ */
+export async function getActiveTagsForSelect(limit: number = 100): Promise<Array<{ label: string; value: string }>> {
+  const tags = await prisma.tag.findMany({
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    take: limit,
+  })
+
+  return tags.map((tag) => ({
+    label: tag.name,
+    value: tag.id,
+  }))
+}
+

@@ -4,8 +4,10 @@
  */
 
 import { useCallback, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
+import { queryKeys } from "@/lib/query-keys"
 import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { PostRow } from "../types"
@@ -26,6 +28,7 @@ export function usePostActions({
   canManage,
   showFeedback,
 }: UsePostActionsOptions) {
+  const queryClient = useQueryClient()
   const [deletingPosts, setDeletingPosts] = useState<Set<string>>(new Set())
   const [restoringPosts, setRestoringPosts] = useState<Set<string>>(new Set())
   const [hardDeletingPosts, setHardDeletingPosts] = useState<Set<string>>(new Set())
@@ -87,6 +90,11 @@ export function usePostActions({
         }
         showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
         
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "active" })
+        
         // Log success với metadata chi tiết
         resourceLogger.actionFlow({
           resource: "posts",
@@ -94,9 +102,6 @@ export function usePostActions({
           step: "success",
           metadata: { postId: row.id, postTitle: row.title },
         })
-        
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
         showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
@@ -117,7 +122,7 @@ export function usePostActions({
         })
       }
     },
-    [canDelete, canRestore, canManage, showFeedback],
+    [canDelete, canRestore, canManage, showFeedback, queryClient],
   )
 
   const executeBulkAction = useCallback(
@@ -179,8 +184,10 @@ export function usePostActions({
           metadata: { requestedCount: ids.length, affectedCount: affected },
         })
 
-        // Socket events đã update cache và trigger refresh qua cacheVersion
-        // Không cần manual refresh nữa để tránh duplicate refresh
+        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
+        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
+        await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "active" })
+        await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "active" })
       } catch (error: unknown) {
         // Extract error message từ response nếu có
         let errorMessage: string = POST_MESSAGES.UNKNOWN_ERROR
@@ -216,7 +223,7 @@ export function usePostActions({
         stopBulkProcessing()
       }
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing],
+    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
   )
 
   return {

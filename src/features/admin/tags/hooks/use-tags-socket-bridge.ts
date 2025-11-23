@@ -36,28 +36,15 @@ function updateTagQueries(
     queryKey: queryKeys.adminTags.all() as unknown[],
   })
 
-  logger.debug("Found tag queries to update", { count: queries.length })
-
+  // Không log chi tiết để tránh duplicate logs trong bulk operations
   for (const [key, data] of queries) {
     if (!Array.isArray(key) || key.length < 2) continue
     const params = key[1] as AdminTagsListParams | undefined
-    if (!params || !data) {
-      logger.debug("Skipping tag query", { hasParams: !!params, hasData: !!data })
-      continue
-    }
+    if (!params || !data) continue
     const next = updater({ key, params, data })
     if (next) {
-      logger.debug("Setting tag query data", {
-        queryKey: key.slice(0, 2),
-        oldRowsCount: data.rows.length,
-        newRowsCount: next.rows.length,
-        oldTotal: data.total,
-        newTotal: next.total,
-      })
       queryClient.setQueryData(key, next)
       updated = true
-    } else {
-      logger.debug("Tag updater returned null, skipping update")
     }
   }
 
@@ -84,28 +71,14 @@ export function useTagsSocketBridge() {
       const { tag, previousStatus, newStatus } = payload as TagUpsertPayload
       const rowStatus: "active" | "deleted" = tag.deletedAt ? "deleted" : "active"
 
-      logger.debug("Received tag:upsert", {
-        tagId: tag.id,
-        previousStatus,
-        newStatus,
-        rowStatus,
-        deletedAt: tag.deletedAt,
-      })
+      // Không log chi tiết từng tag để tránh duplicate logs trong bulk operations
+      // Chỉ log tổng hợp nếu cần debug
 
       const updated = updateTagQueries(queryClient, ({ params, data }) => {
         const matches = matchesFilters(params.filters, tag) && matchesSearch(params.search, tag)
         const includesByStatus = shouldIncludeInStatus(params.status, rowStatus)
         const existingIndex = data.rows.findIndex((r) => r.id === tag.id)
         const shouldInclude = matches && includesByStatus
-
-        logger.debug("Processing tag update", {
-          tagId: tag.id,
-          viewStatus: params.status,
-          rowStatus,
-          includesByStatus,
-          existingIndex,
-          shouldInclude,
-        })
 
         if (existingIndex === -1 && !shouldInclude) {
           // Nothing to update for this page
@@ -136,11 +109,6 @@ export function useTagsSocketBridge() {
         } else if (existingIndex >= 0) {
           // Tag đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
           // Remove khỏi page này
-          logger.debug("Removing tag from view", {
-            tagId: tag.id,
-            viewStatus: params.status,
-            rowStatus,
-          })
           const result = removeRowFromPage(rows, tag.id)
           rows = result.rows
           if (result.removed) {
@@ -153,21 +121,12 @@ export function useTagsSocketBridge() {
         const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
 
         // Luôn return object mới để React Query detect được thay đổi
-        const result = {
+        return {
           ...next,
           rows,
           total,
           totalPages,
         }
-
-        logger.debug("Cache updated for tag", {
-          tagId: tag.id,
-          rowsCount: result.rows.length,
-          total: result.total,
-          wasRemoved: existingIndex >= 0 && !shouldInclude,
-        })
-
-        return result
       })
 
       if (updated) {
@@ -177,25 +136,16 @@ export function useTagsSocketBridge() {
 
     const detachRemove = on<[TagRemovePayload]>("tag:remove", (payload) => {
       const { id } = payload as TagRemovePayload
-      logger.debug("Received tag:remove", { tagId: id })
+      // Không log chi tiết để tránh duplicate logs
 
       const updated = updateTagQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
         if (!result.removed) {
-          logger.debug("Tag not found in current view", { tagId: id })
           return null
         }
 
         const total = Math.max(0, data.total - 1)
         const totalPages = total === 0 ? 0 : Math.ceil(total / data.limit)
-
-        logger.debug("Removed tag from cache", {
-          tagId: id,
-          oldRowsCount: data.rows.length,
-          newRowsCount: result.rows.length,
-          oldTotal: data.total,
-          newTotal: total,
-        })
 
         return {
           ...data,

@@ -3,7 +3,8 @@ import { AdminHeader } from "@/components/layouts/headers"
 import { SessionEdit } from "@/features/admin/sessions/components/session-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { getSessionDetailById } from "@/features/admin/sessions/server/cache"
+import { getSessionById } from "@/features/admin/sessions/server/queries"
+import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Session Edit Page Metadata (Dynamic)
@@ -19,7 +20,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const session = await getSessionDetailById(id)
+  const session = await getSessionById(id)
 
   if (!session) {
     return {
@@ -51,9 +52,10 @@ async function SessionEditContent({ sessionId }: { sessionId: string }) {
 export default async function SessionEditPage({ params }: SessionEditPageProps) {
   const { id } = await params
   
-  // Fetch session data từ cache để hiển thị tên trong breadcrumb
-  const session = await getSessionDetailById(id)
-  const sessionName = session?.userEmail || session?.userId || "Chi tiết"
+  // Fetch session data (non-cached) để hiển thị tên trong breadcrumb
+  // Theo chuẩn Next.js 16: không cache admin data
+  const session = await getSessionById(id)
+  const sessionName = truncateBreadcrumbLabel(session?.userEmail || session?.userId || "Chi tiết")
   
   // Validate route ID
   const validatedId = validateRouteId(id, "Session")
