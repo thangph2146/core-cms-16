@@ -4,6 +4,7 @@ import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { ContactRequestsTable } from "@/features/admin/contact-requests/components/contact-requests-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Contact Requests Page Metadata
@@ -48,11 +49,7 @@ async function ContactRequestsTableContent() {
 export default async function ContactRequestsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Yêu cầu liên hệ", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Yêu cầu liên hệ" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={6} rowCount={10}>
           <ContactRequestsTableContent />

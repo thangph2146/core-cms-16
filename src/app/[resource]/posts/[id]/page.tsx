@@ -4,8 +4,8 @@ import { PostDetail } from "@/features/admin/posts/components/post-detail"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getPostById } from "@/features/admin/posts/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
-import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
+import { createDetailBreadcrumbs, getResourceSegmentFromParams, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 /**
  * Post Detail Page Metadata (Dynamic)
@@ -54,12 +54,7 @@ export default async function PostDetailPage({
 }) {
   const resolvedParams = await params
   const { id } = resolvedParams
-  const resourceSegment =
-    resolvedParams.resource && resolvedParams.resource.length > 0
-      ? resolvedParams.resource.toLowerCase()
-      : DEFAULT_RESOURCE_SEGMENT
-  const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
-  const detailHref = applyResourceSegmentToPath(`/admin/posts/${id}`, resourceSegment)
+  const resourceSegment = getResourceSegmentFromParams(resolvedParams.resource)
   
   // Fetch post data (non-cached) để hiển thị tên trong breadcrumb
   // Theo chuẩn Next.js 16: không cache admin data
@@ -72,10 +67,13 @@ export default async function PostDetailPage({
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Bài viết", href: listHref },
-            { label: postTitle, href: detailHref },
-          ]}
+          breadcrumbs={createDetailBreadcrumbs({
+            resourceSegment,
+            listLabel: "Bài viết",
+            listPath: "/admin/posts",
+            detailLabel: postTitle,
+            detailPath: `/admin/posts/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -94,10 +92,13 @@ export default async function PostDetailPage({
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Bài viết", href: listHref },
-          { label: postTitle, isActive: true },
-        ]}
+        breadcrumbs={createDetailBreadcrumbs({
+          resourceSegment,
+          listLabel: "Bài viết",
+          listPath: "/admin/posts",
+          detailLabel: postTitle,
+          detailPath: `/admin/posts/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={8} sectionCount={3}>

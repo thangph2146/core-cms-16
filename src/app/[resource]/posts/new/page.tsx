@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import { AdminHeader } from "@/components/layouts/headers"
 import { PostCreate } from "@/features/admin/posts/components/post-create"
 import { FormPageSuspense } from "@/features/admin/resources/components"
-import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
+import { createCreateBreadcrumbs, getResourceSegmentFromParams } from "@/features/admin/resources/utils"
+import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 /**
  * Post Create Page Metadata
@@ -32,23 +33,20 @@ export default async function CreatePostPage({
   params: Promise<{ resource?: string }>
 }) {
   const resolvedParams = await params
-  const resourceSegment =
-    resolvedParams.resource && resolvedParams.resource.length > 0
-      ? resolvedParams.resource.toLowerCase()
-      : DEFAULT_RESOURCE_SEGMENT
-  const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
+  const resourceSegment = getResourceSegmentFromParams(resolvedParams.resource)
 
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Bài viết", href: listHref },
-          { label: "Tạo mới", isActive: true },
-        ]}
+        breadcrumbs={createCreateBreadcrumbs({
+          resourceSegment,
+          listLabel: "Bài viết",
+          listPath: "/admin/posts",
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={3}>
-          <PostCreateContent backUrl={listHref} />
+          <PostCreateContent backUrl={applyResourceSegmentToPath("/admin/posts", resourceSegment)} />
         </FormPageSuspense>
       </div>
     </>

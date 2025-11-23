@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { SessionsTable } from "@/features/admin/sessions/components/sessions-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Sessions Page Metadata
@@ -45,11 +46,7 @@ async function SessionsTableContent() {
 export default async function SessionsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Session", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Session" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={5} rowCount={10}>
           <SessionsTableContent />

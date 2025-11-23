@@ -4,6 +4,8 @@
  * Các hàm utility chung được dùng bởi nhiều resource features
  */
 
+import type { AdminBreadcrumbItem } from "@/components/layouts/headers/admin-header"
+import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
 import { logActionFlow } from "./server/mutation-helpers"
 
 /**
@@ -156,6 +158,101 @@ export function truncateBreadcrumbLabel(text: string, maxLength: number = 30): s
     return text
   }
   return text.substring(0, maxLength).trim() + "..."
+}
+
+/**
+ * Helper để lấy resource segment từ params
+ * Theo chuẩn Next.js 16: code ngắn gọn, logic rõ ràng
+ */
+export function getResourceSegmentFromParams(
+  resource?: string,
+  defaultSegment: string = DEFAULT_RESOURCE_SEGMENT
+): string {
+  return resource && resource.length > 0 ? resource.toLowerCase() : defaultSegment
+}
+
+/**
+ * Helper để tạo breadcrumbs cho admin pages
+ * Theo chuẩn Next.js 16: code ngắn gọn, logic rõ ràng
+ */
+export interface CreateBreadcrumbsOptions {
+  resourceSegment?: string
+  listLabel: string
+  listPath: string
+  detailLabel?: string
+  detailPath?: string
+  editLabel?: string
+  editPath?: string
+  createLabel?: string
+  createPath?: string
+}
+
+/**
+ * Tạo breadcrumbs cho list page
+ */
+export function createListBreadcrumbs({
+  resourceSegment = DEFAULT_RESOURCE_SEGMENT,
+  listLabel,
+}: Pick<CreateBreadcrumbsOptions, "resourceSegment" | "listLabel">): AdminBreadcrumbItem[] {
+  return [{ label: listLabel, isActive: true }]
+}
+
+/**
+ * Tạo breadcrumbs cho detail page
+ */
+export function createDetailBreadcrumbs({
+  resourceSegment = DEFAULT_RESOURCE_SEGMENT,
+  listLabel,
+  listPath,
+  detailLabel,
+  detailPath,
+}: Pick<CreateBreadcrumbsOptions, "resourceSegment" | "listLabel" | "listPath" | "detailLabel" | "detailPath">): AdminBreadcrumbItem[] {
+  if (!detailLabel || !detailPath) {
+    return createListBreadcrumbs({ resourceSegment, listLabel })
+  }
+  
+  return [
+    { label: listLabel, href: applyResourceSegmentToPath(listPath, resourceSegment) },
+    { label: truncateBreadcrumbLabel(detailLabel), isActive: true },
+  ]
+}
+
+/**
+ * Tạo breadcrumbs cho edit page
+ */
+export function createEditBreadcrumbs({
+  resourceSegment = DEFAULT_RESOURCE_SEGMENT,
+  listLabel,
+  listPath,
+  detailLabel,
+  detailPath,
+  editLabel = "Chỉnh sửa",
+}: Pick<CreateBreadcrumbsOptions, "resourceSegment" | "listLabel" | "listPath" | "detailLabel" | "detailPath" | "editLabel">): AdminBreadcrumbItem[] {
+  const items: AdminBreadcrumbItem[] = [
+    { label: listLabel, href: applyResourceSegmentToPath(listPath, resourceSegment) },
+  ]
+  
+  if (detailLabel && detailPath) {
+    items.push({ label: truncateBreadcrumbLabel(detailLabel), href: applyResourceSegmentToPath(detailPath, resourceSegment) })
+  }
+  
+  items.push({ label: editLabel, isActive: true })
+  return items
+}
+
+/**
+ * Tạo breadcrumbs cho create page
+ */
+export function createCreateBreadcrumbs({
+  resourceSegment = DEFAULT_RESOURCE_SEGMENT,
+  listLabel,
+  listPath,
+  createLabel = "Tạo mới",
+}: Pick<CreateBreadcrumbsOptions, "resourceSegment" | "listLabel" | "listPath" | "createLabel">): AdminBreadcrumbItem[] {
+  return [
+    { label: listLabel, href: applyResourceSegmentToPath(listPath, resourceSegment) },
+    { label: createLabel, isActive: true },
+  ]
 }
 
 /**

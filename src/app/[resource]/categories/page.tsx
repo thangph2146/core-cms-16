@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { CategoriesTable } from "@/features/admin/categories/components/categories-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Categories Page Metadata
@@ -44,11 +45,7 @@ async function CategoriesTableWithPermissions() {
 export default async function CategoriesPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Danh mục", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Danh mục" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={4} rowCount={10}>
           <CategoriesTableWithPermissions />

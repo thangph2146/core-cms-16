@@ -10,8 +10,7 @@ export interface CategoryRow {
   deletedAt: string | null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface CategoriesTableClientProps extends BaseResourceTableClientProps<CategoryRow> {}
+export type CategoriesTableClientProps = BaseResourceTableClientProps<CategoryRow>
 
 export type CategoriesResponse = ResourceResponse<CategoryRow>
 
@@ -33,9 +32,7 @@ export interface ListedCategory {
   deletedAt: Date | null
 }
 
-export interface CategoryDetail extends ListedCategory {
-  // updatedAt đã có trong ListedCategory
-}
+export type CategoryDetail = ListedCategory
 
 export interface ListCategoriesResult {
   data: ListedCategory[]

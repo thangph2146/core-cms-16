@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { RolesTable } from "@/features/admin/roles/components/roles-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Roles Page Metadata
@@ -44,11 +45,7 @@ async function RolesTableContent() {
 export default async function RolesPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Vai trò", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Vai trò" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={4} rowCount={10}>
           <RolesTableContent />

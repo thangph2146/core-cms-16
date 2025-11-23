@@ -4,7 +4,7 @@ import { UserEdit } from "@/features/admin/users/components/user-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getUserDetailById } from "@/features/admin/users/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { createEditBreadcrumbs, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * User Edit Page Metadata (Dynamic)
@@ -71,11 +71,12 @@ export default async function EditUserPage({
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Users", href: "/admin/users" },
-            { label: userName, href: `/admin/users/${id}` },
-            { label: "Chỉnh sửa", href: `/admin/users/${id}/edit` },
-          ]}
+          breadcrumbs={createEditBreadcrumbs({
+            listLabel: "Users",
+            listPath: "/admin/users",
+            detailLabel: userName,
+            detailPath: `/admin/users/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -94,11 +95,12 @@ export default async function EditUserPage({
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Users", href: "/admin/users" },
-          { label: userName, href: `/admin/users/${id}` },
-          { label: "Chỉnh sửa", isActive: true },
-        ]}
+        breadcrumbs={createEditBreadcrumbs({
+          listLabel: "Users",
+          listPath: "/admin/users",
+          detailLabel: userName,
+          detailPath: `/admin/users/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={8} sectionCount={2}>

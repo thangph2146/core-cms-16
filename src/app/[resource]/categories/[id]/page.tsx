@@ -4,7 +4,7 @@ import { CategoryDetail } from "@/features/admin/categories/components/category-
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getCategoryById } from "@/features/admin/categories/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { createDetailBreadcrumbs, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Category Detail Page Metadata (Dynamic)
@@ -63,10 +63,12 @@ export default async function CategoryDetailPage({
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Danh mục", href: "/admin/categories" },
-            { label: categoryName, href: `/admin/categories/${id}` },
-          ]}
+          breadcrumbs={createDetailBreadcrumbs({
+            listLabel: "Danh mục",
+            listPath: "/admin/categories",
+            detailLabel: categoryName,
+            detailPath: `/admin/categories/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -85,10 +87,12 @@ export default async function CategoryDetailPage({
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Danh mục", href: "/admin/categories" },
-          { label: categoryName, isActive: true },
-        ]}
+        breadcrumbs={createDetailBreadcrumbs({
+          listLabel: "Danh mục",
+          listPath: "/admin/categories",
+          detailLabel: categoryName,
+          detailPath: `/admin/categories/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={1}>

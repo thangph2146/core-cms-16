@@ -4,6 +4,7 @@ import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { NotificationsTable } from "@/features/admin/notifications/components/notifications-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Notifications Page Metadata
@@ -44,11 +45,7 @@ async function NotificationsTableContent() {
 export default async function NotificationsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Thông báo", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Thông báo" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={5} rowCount={10}>
           <NotificationsTableContent />

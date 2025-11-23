@@ -4,6 +4,7 @@ import { PERMISSIONS, canPerformAction } from "@/lib/permissions"
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { CommentsTable } from "@/features/admin/comments/components/comments-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Comments Page Metadata
@@ -45,11 +46,7 @@ async function CommentsTableContent() {
 export default async function CommentsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Bình luận", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Bình luận" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={6} rowCount={10}>
           <CommentsTableContent />

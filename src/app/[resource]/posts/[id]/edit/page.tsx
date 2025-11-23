@@ -4,8 +4,7 @@ import { PostEdit } from "@/features/admin/posts/components/post-edit"
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getPostById } from "@/features/admin/posts/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
-import { applyResourceSegmentToPath, DEFAULT_RESOURCE_SEGMENT } from "@/lib/permissions"
+import { createEditBreadcrumbs, getResourceSegmentFromParams, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Post Edit Page Metadata (Dynamic)
@@ -42,13 +41,12 @@ export async function generateMetadata({
  * Theo Next.js 16 best practices:
  * - Header render ngay, form content stream khi ready
  */
-async function PostEditContent({ postId, resourceSegment }: { postId: string; resourceSegment: string }) {
-  const detailHref = applyResourceSegmentToPath(`/admin/posts/${postId}`, resourceSegment)
+async function PostEditContent({ postId }: { postId: string }) {
   return (
     <PostEdit
       postId={postId}
       variant="page"
-      backUrl={detailHref}
+      backUrl={`/admin/posts/${postId}`}
       backLabel="Quay lại chi tiết"
     />
   )
@@ -61,13 +59,8 @@ export default async function EditPostPage({
 }) {
   const resolvedParams = await params
   const { id } = resolvedParams
-  const resourceSegment =
-    resolvedParams.resource && resolvedParams.resource.length > 0
-      ? resolvedParams.resource.toLowerCase()
-      : DEFAULT_RESOURCE_SEGMENT
-  const listHref = applyResourceSegmentToPath("/admin/posts", resourceSegment)
-  const detailHref = applyResourceSegmentToPath(`/admin/posts/${id}`, resourceSegment)
-  
+  const resourceSegment = getResourceSegmentFromParams(resolvedParams.resource)
+
   // Fetch post data (non-cached) để hiển thị tên trong breadcrumb
   // Theo chuẩn Next.js 16: không cache admin data
   const post = await getPostById(id)
@@ -79,11 +72,13 @@ export default async function EditPostPage({
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Bài viết", href: listHref },
-            { label: postTitle, href: detailHref },
-            { label: "Chỉnh sửa", href: `${detailHref}/edit` },
-          ]}
+          breadcrumbs={createEditBreadcrumbs({
+            resourceSegment,
+            listLabel: "Bài viết",
+            listPath: "/admin/posts",
+            detailLabel: postTitle,
+            detailPath: `/admin/posts/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -102,15 +97,17 @@ export default async function EditPostPage({
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Bài viết", href: listHref },
-          { label: postTitle, href: detailHref },
-          { label: "Chỉnh sửa", isActive: true },
-        ]}
+        breadcrumbs={createEditBreadcrumbs({
+          resourceSegment,
+          listLabel: "Bài viết",
+          listPath: "/admin/posts",
+          detailLabel: postTitle,
+          detailPath: `/admin/posts/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={3}>
-          <PostEditContent postId={validatedId} resourceSegment={resourceSegment} />
+          <PostEditContent postId={validatedId} />
         </FormPageSuspense>
       </div>
     </>

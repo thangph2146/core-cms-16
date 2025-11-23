@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { AdminHeader } from "@/components/layouts/headers"
 import { CategoryCreate } from "@/features/admin/categories/components/category-create"
 import { FormPageSuspense } from "@/features/admin/resources/components"
+import { createCreateBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Category Create Page Metadata
@@ -29,10 +30,10 @@ export default async function CategoryCreatePage() {
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Danh mục", href: "/admin/categories" },
-          { label: "Tạo mới", isActive: true },
-        ]}
+        breadcrumbs={createCreateBreadcrumbs({
+          listLabel: "Danh mục",
+          listPath: "/admin/categories",
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={1}>

@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { PostsTable } from "@/features/admin/posts/components/posts-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Posts Page Metadata
@@ -47,11 +48,7 @@ async function PostsTableWithPermissions() {
 export default async function PostsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Bài viết", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Bài viết" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={6} rowCount={10}>
           <PostsTableWithPermissions />

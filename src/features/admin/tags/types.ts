@@ -9,8 +9,7 @@ export interface TagRow {
   deletedAt: string | null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface TagsTableClientProps extends BaseResourceTableClientProps<TagRow> {}
+export type TagsTableClientProps = BaseResourceTableClientProps<TagRow>
 
 export type TagsResponse = ResourceResponse<TagRow>
 
@@ -31,9 +30,7 @@ export interface ListedTag {
   deletedAt: Date | null
 }
 
-export interface TagDetail extends ListedTag {
-  // updatedAt đã có trong ListedTag
-}
+export type TagDetail = ListedTag
 
 export interface ListTagsResult {
   data: ListedTag[]

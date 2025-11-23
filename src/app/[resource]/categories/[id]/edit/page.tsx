@@ -4,7 +4,7 @@ import { CategoryEdit } from "@/features/admin/categories/components/category-ed
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getCategoryById } from "@/features/admin/categories/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { createEditBreadcrumbs, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Category Edit Page Metadata (Dynamic)
@@ -63,11 +63,12 @@ export default async function CategoryEditPage({
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Danh mục", href: "/admin/categories" },
-            { label: categoryName, href: `/admin/categories/${id}` },
-            { label: "Chỉnh sửa", href: `/admin/categories/${id}/edit` },
-          ]}
+          breadcrumbs={createEditBreadcrumbs({
+            listLabel: "Danh mục",
+            listPath: "/admin/categories",
+            detailLabel: categoryName,
+            detailPath: `/admin/categories/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -86,11 +87,12 @@ export default async function CategoryEditPage({
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Danh mục", href: "/admin/categories" },
-          { label: categoryName, href: `/admin/categories/${id}` },
-          { label: "Chỉnh sửa", isActive: true },
-        ]}
+        breadcrumbs={createEditBreadcrumbs({
+          listLabel: "Danh mục",
+          listPath: "/admin/categories",
+          detailLabel: categoryName,
+          detailPath: `/admin/categories/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={1}>

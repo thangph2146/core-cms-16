@@ -4,6 +4,7 @@ import { PERMISSIONS, canPerformAction, canPerformAnyAction } from "@/lib/permis
 import { getAuthInfo } from "@/features/admin/resources/server"
 import { StudentsTable } from "@/features/admin/students/components/students-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Students Page Metadata
@@ -53,11 +54,7 @@ async function StudentsTableContent() {
 export default async function StudentsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Học sinh", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Học sinh" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={5} rowCount={10}>
           <StudentsTableContent />

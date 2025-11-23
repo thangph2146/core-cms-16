@@ -56,8 +56,7 @@ export interface ListedContactRequest {
   } | null
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ContactRequestDetail extends ListedContactRequest {}
+export type ContactRequestDetail = ListedContactRequest
 
 export interface ListContactRequestsResult {
   data: ListedContactRequest[]

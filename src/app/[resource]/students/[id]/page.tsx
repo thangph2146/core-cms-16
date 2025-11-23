@@ -4,7 +4,7 @@ import { StudentDetail } from "@/features/admin/students/components/student-deta
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getStudentById } from "@/features/admin/students/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { createDetailBreadcrumbs, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 import { getAuthInfo } from "@/features/admin/resources/server"
 
 /**
@@ -66,10 +66,12 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Học sinh", href: "/admin/students" },
-            { label: studentName, href: `/admin/students/${id}` },
-          ]}
+          breadcrumbs={createDetailBreadcrumbs({
+            listLabel: "Học sinh",
+            listPath: "/admin/students",
+            detailLabel: studentName,
+            detailPath: `/admin/students/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -88,10 +90,12 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Học sinh", href: "/admin/students" },
-          { label: studentName, isActive: true },
-        ]}
+        breadcrumbs={createDetailBreadcrumbs({
+          listLabel: "Học sinh",
+          listPath: "/admin/students",
+          detailLabel: studentName,
+          detailPath: `/admin/students/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={8} sectionCount={2}>

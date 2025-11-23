@@ -37,9 +37,7 @@ export interface ListedRole {
   deletedAt: Date | null
 }
 
-export interface RoleDetail extends ListedRole {
-  // updatedAt đã có trong ListedRole
-}
+export type RoleDetail = ListedRole
 
 export interface ListRolesResult {
   data: ListedRole[]

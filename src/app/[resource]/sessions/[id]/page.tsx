@@ -4,7 +4,7 @@ import { SessionDetail } from "@/features/admin/sessions/components/session-deta
 import { validateRouteId } from "@/lib/validation/route-params"
 import { FormPageSuspense } from "@/features/admin/resources/components"
 import { getSessionById } from "@/features/admin/sessions/server/queries"
-import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { createDetailBreadcrumbs, truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
 
 /**
  * Session Detail Page Metadata (Dynamic)
@@ -63,10 +63,12 @@ export default async function SessionDetailPage({ params }: SessionDetailPagePro
     return (
       <>
         <AdminHeader
-          breadcrumbs={[
-            { label: "Session", href: "/admin/sessions" },
-            { label: sessionName, href: `/admin/sessions/${id}` },
-          ]}
+          breadcrumbs={createDetailBreadcrumbs({
+            listLabel: "Session",
+            listPath: "/admin/sessions",
+            detailLabel: sessionName,
+            detailPath: `/admin/sessions/${id}`,
+          })}
         />
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex min-h-[400px] flex-1 items-center justify-center">
@@ -85,10 +87,12 @@ export default async function SessionDetailPage({ params }: SessionDetailPagePro
   return (
     <>
       <AdminHeader
-        breadcrumbs={[
-          { label: "Session", href: "/admin/sessions" },
-          { label: sessionName, isActive: true },
-        ]}
+        breadcrumbs={createDetailBreadcrumbs({
+          listLabel: "Session",
+          listPath: "/admin/sessions",
+          detailLabel: sessionName,
+          detailPath: `/admin/sessions/${id}`,
+        })}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <FormPageSuspense fieldCount={6} sectionCount={1}>

@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { TagsTable } from "@/features/admin/tags/components/tags-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Tags Page Metadata
@@ -44,11 +45,7 @@ async function TagsTableContent() {
 export default async function TagsPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Thẻ tag", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Thẻ tag" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={4} rowCount={10}>
           <TagsTableContent />

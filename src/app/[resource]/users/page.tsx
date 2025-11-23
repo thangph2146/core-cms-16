@@ -4,6 +4,7 @@ import { PERMISSIONS, type Permission } from "@/lib/permissions"
 import { getTablePermissionsAsync } from "@/features/admin/resources/server"
 import { UsersTable } from "@/features/admin/users/components/users-table"
 import { TablePageSuspense } from "@/features/admin/resources/components"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 /**
  * Users Page Metadata
@@ -53,11 +54,7 @@ async function UsersTableWithPermissions() {
 export default async function UsersPage() {
   return (
     <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Users", isActive: true },
-        ]}
-      />
+      <AdminHeader breadcrumbs={createListBreadcrumbs({ listLabel: "Users" })} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <TablePageSuspense columnCount={6} rowCount={10}>
           <UsersTableWithPermissions />
