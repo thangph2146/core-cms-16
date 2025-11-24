@@ -311,26 +311,31 @@ const defaultRoleConfigs: RoleConfig<DefaultRoleKey>[] = (
 const roleConfigs: RoleConfig[] = defaultRoleConfigs
 
 const resetDatabase = async () => {
-  await prisma.$transaction(async (tx) => {
-    await tx.messageRead.deleteMany()
-    await tx.groupMember.deleteMany()
-    await tx.group.deleteMany()
-    await tx.notification.deleteMany()
-    await tx.message.deleteMany()
-    await tx.comment.deleteMany()
-    await tx.postTag.deleteMany()
-    await tx.postCategory.deleteMany()
-    await tx.post.deleteMany()
-    await tx.tag.deleteMany()
-    await tx.category.deleteMany()
-    await tx.student.deleteMany()
-    await tx.contactRequest.deleteMany()
-    await tx.userRole.deleteMany()
-    await tx.session.deleteMany()
-    await tx.account.deleteMany()
-    await tx.role.deleteMany()
-    await tx.user.deleteMany()
-  })
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.messageRead.deleteMany()
+      await tx.groupMember.deleteMany()
+      await tx.group.deleteMany()
+      await tx.notification.deleteMany()
+      await tx.message.deleteMany()
+      await tx.comment.deleteMany()
+      await tx.postTag.deleteMany()
+      await tx.postCategory.deleteMany()
+      await tx.post.deleteMany()
+      await tx.tag.deleteMany()
+      await tx.category.deleteMany()
+      await tx.student.deleteMany()
+      await tx.contactRequest.deleteMany()
+      await tx.userRole.deleteMany()
+      await tx.session.deleteMany()
+      await tx.account.deleteMany()
+      await tx.role.deleteMany()
+      await tx.user.deleteMany()
+    },
+    {
+      timeout: 60000, // 60 seconds
+    }
+  )
 }
 
 async function main() {

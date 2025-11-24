@@ -476,13 +476,91 @@ export function useNotificationsSocketBridge() {
       setUnreadCountsValue(unreadCount)
     })
 
+    // Xử lý xóa notification đơn lẻ
+    const handleNotificationDeleted = (payload: { id?: string; notificationId?: string }) => {
+      const notificationId = payload.id || payload.notificationId
+      if (!notificationId) return
+
+      let deletedNotification: Notification | undefined
+
+      queryClient.setQueriesData<NotificationsResponse>(
+        { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
+        (oldData) => {
+          if (!oldData) return oldData
+
+          const notification = oldData.notifications.find((n) => n.id === notificationId)
+          if (!notification) return oldData
+
+          deletedNotification = notification
+          const wasUnread = !notification.isRead
+          const newNotifications = oldData.notifications.filter((n) => n.id !== notificationId)
+          const newTotal = Math.max(0, oldData.total - 1)
+          const newUnreadCount = wasUnread ? Math.max(0, oldData.unreadCount - 1) : oldData.unreadCount
+
+          return {
+            ...oldData,
+            notifications: newNotifications,
+            total: newTotal,
+            unreadCount: newUnreadCount,
+          }
+        },
+      )
+
+      // Update unread counts
+      if (deletedNotification) {
+        updateUnreadCountsByDelta(deletedNotification.isRead ? 0 : -1)
+      }
+    }
+
+    // Xử lý xóa nhiều notifications
+    const handleNotificationsDeleted = (payload: { ids?: string[]; notificationIds?: string[] }) => {
+      const notificationIds = payload.ids || payload.notificationIds || []
+      if (notificationIds.length === 0) return
+
+      let deletedNotifications: Notification[] = []
+      let unreadDeletedCount = 0
+
+      queryClient.setQueriesData<NotificationsResponse>(
+        { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
+        (oldData) => {
+          if (!oldData) return oldData
+
+          deletedNotifications = oldData.notifications.filter((n) => notificationIds.includes(n.id))
+          unreadDeletedCount = deletedNotifications.filter((n) => !n.isRead).length
+          const newNotifications = oldData.notifications.filter((n) => !notificationIds.includes(n.id))
+          const newTotal = Math.max(0, oldData.total - deletedNotifications.length)
+          const newUnreadCount = Math.max(0, oldData.unreadCount - unreadDeletedCount)
+
+          return {
+            ...oldData,
+            notifications: newNotifications,
+            total: newTotal,
+            unreadCount: newUnreadCount,
+          }
+        },
+      )
+
+      // Update unread counts
+      if (unreadDeletedCount > 0) {
+        updateUnreadCountsByDelta(-unreadDeletedCount)
+      }
+    }
+
+    // Đăng ký socket listeners cho delete events
+    socket?.on("notification:deleted", handleNotificationDeleted)
+    socket?.on("notifications:deleted", handleNotificationsDeleted)
+
     return () => {
       stopNew?.()
       stopUpdated?.()
       stopSync?.()
+      if (socket) {
+        socket.off("notification:deleted", handleNotificationDeleted)
+        socket.off("notifications:deleted", handleNotificationsDeleted)
+      }
       registeredUsers.delete(userId)
     }
-  }, [session?.user?.id, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
+  }, [session?.user?.id, socket, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
 
   return { socket }
 }
