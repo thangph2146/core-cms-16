@@ -3,51 +3,51 @@
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useMemo } from "react"
-import { FolderOpen, X } from "lucide-react"
+import { Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
-interface Category {
+interface Tag {
   id: string
   name: string
   slug: string
 }
 
-interface PostCategoryNavProps {
-  categories: Category[]
+interface PostTagNavProps {
+  tags: Tag[]
 }
 
-export function PostCategoryNav({ categories }: PostCategoryNavProps) {
+export function PostTagNav({ tags }: PostTagNavProps) {
   const searchParams = useSearchParams()
-  const selectedCategories = useMemo(() => {
-    const categories = searchParams?.getAll("category") || []
-    return new Set(categories)
+  const selectedTags = useMemo(() => {
+    const tags = searchParams?.getAll("tag") || []
+    return new Set(tags)
   }, [searchParams])
 
-  const toggleCategory = useMemo(
+  const toggleTag = useMemo(
     () => (slug: string) => {
       const params = new URLSearchParams(searchParams?.toString() || "")
-      const currentCategories = params.getAll("category")
+      const currentTags = params.getAll("tag")
       
-      if (currentCategories.includes(slug)) {
-        // Remove category
-        params.delete("category")
-        currentCategories.filter(c => c !== slug).forEach(c => params.append("category", c))
+      if (currentTags.includes(slug)) {
+        // Remove tag
+        params.delete("tag")
+        currentTags.filter(t => t !== slug).forEach(t => params.append("tag", t))
       } else {
-        // Add category
-        params.append("category", slug)
+        // Add tag
+        params.append("tag", slug)
       }
       
-      params.delete("page") // Reset to page 1 when changing category
+      params.delete("page") // Reset to page 1 when changing tag
       return `/bai-viet${params.toString() ? `?${params.toString()}` : ""}`
     },
     [searchParams]
   )
 
-  const clearAllCategories = useMemo(
+  const clearAllTags = useMemo(
     () => () => {
       const params = new URLSearchParams(searchParams?.toString() || "")
-      params.delete("category")
+      params.delete("tag")
       params.delete("page")
       return `/bai-viet${params.toString() ? `?${params.toString()}` : ""}`
     },
@@ -55,34 +55,34 @@ export function PostCategoryNav({ categories }: PostCategoryNavProps) {
   )
 
   return (
-    <nav aria-label="Category navigation">
+    <nav aria-label="Tag navigation">
       {/* Mobile: Flex wrap */}
       <div className="lg:hidden">
         <div className="flex flex-wrap items-stretch gap-2">
           <Link
-            href={clearAllCategories()}
+            href={clearAllTags()}
             className={cn(
               "group flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border",
-              selectedCategories.size === 0
+              selectedTags.size === 0
                 ? "bg-accent/10 hover:bg-accent/10 text-primary border-primary/20 shadow-sm"
                 : "hover:bg-accent/10 text-muted-foreground border-transparent hover:border-border"
             )}
           >
-            <FolderOpen className={cn(
+            <Tag className={cn(
               "h-4 w-4 transition-transform",
-              selectedCategories.size === 0 && "scale-110"
+              selectedTags.size === 0 && "scale-110"
             )} />
             <span>Tất cả</span>
-            {selectedCategories.size > 0 && (
+            {selectedTags.size > 0 && (
               <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
             )}
           </Link>
-          {categories.map((category) => {
-            const isActive = selectedCategories.has(category.slug)
+          {tags.map((tag) => {
+            const isActive = selectedTags.has(tag.slug)
             return (
               <Link
-                key={category.id}
-                href={toggleCategory(category.slug)}
+                key={tag.id}
+                href={toggleTag(tag.slug)}
                 className={cn(
                   "group flex items-center gap-2 px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border",
                   isActive
@@ -90,11 +90,11 @@ export function PostCategoryNav({ categories }: PostCategoryNavProps) {
                     : "hover:bg-accent/10 text-muted-foreground border-transparent hover:border-border"
                 )}
               >
-                <FolderOpen className={cn(
+                <Tag className={cn(
                   "h-4 w-4 transition-transform",
                   isActive && "scale-110"
                 )} />
-                <span>{category.name}</span>
+                <span>{tag.name}</span>
                 {isActive && (
                   <X className="h-3 w-3 opacity-50 group-hover:opacity-100 ml-auto" />
                 )}
@@ -106,32 +106,32 @@ export function PostCategoryNav({ categories }: PostCategoryNavProps) {
 
       {/* Desktop: Vertical scroll */}
       <div className="hidden lg:block">
-        <ScrollArea className="w-full max-h-[calc(100vh-12rem)]">
+        <ScrollArea className="w-full max-h-[calc(100vh-20rem)]">
           <div className="flex flex-col items-stretch gap-2 pr-4">
             <Link
-              href={clearAllCategories()}
+              href={clearAllTags()}
               className={cn(
                 "group flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border w-full",
-                selectedCategories.size === 0
+                selectedTags.size === 0
                   ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
                   : "hover:bg-accent/10 text-muted-foreground border-transparent hover:border-border"
               )}
             >
-              <FolderOpen className={cn(
+              <Tag className={cn(
                 "h-4 w-4 transition-transform",
-                selectedCategories.size === 0 && "scale-110"
+                selectedTags.size === 0 && "scale-110"
               )} />
               <span>Tất cả</span>
-              {selectedCategories.size > 0 && (
+              {selectedTags.size > 0 && (
                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100 ml-auto" />
               )}
             </Link>
-            {categories.map((category) => {
-              const isActive = selectedCategories.has(category.slug)
+            {tags.map((tag) => {
+              const isActive = selectedTags.has(tag.slug)
               return (
                 <Link
-                  key={category.id}
-                  href={toggleCategory(category.slug)}
+                  key={tag.id}
+                  href={toggleTag(tag.slug)}
                   className={cn(
                     "group flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border w-full",
                     isActive
@@ -139,11 +139,11 @@ export function PostCategoryNav({ categories }: PostCategoryNavProps) {
                       : "hover:bg-accent/10 text-muted-foreground border-transparent hover:border-border"
                   )}
                 >
-                  <FolderOpen className={cn(
+                  <Tag className={cn(
                     "h-4 w-4 transition-transform",
                     isActive && "scale-110"
                   )} />
-                  <span>{category.name}</span>
+                  <span>{tag.name}</span>
                   {isActive && (
                     <X className="h-3 w-3 opacity-50 group-hover:opacity-100 ml-auto" />
                   )}

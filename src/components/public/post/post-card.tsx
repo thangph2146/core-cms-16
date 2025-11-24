@@ -11,9 +11,10 @@ import { formatPostDate } from "@/features/public/post/utils/date-formatter"
 interface PostCardProps {
   post: Post
   className?: string
+  priority?: boolean
 }
 
-export function PostCard({ post, className }: PostCardProps) {
+export function PostCard({ post, className, priority = false }: PostCardProps) {
   const primaryCategory = post.categories[0]
   const displayTags = post.tags.slice(0, 2)
 
@@ -47,7 +48,8 @@ export function PostCard({ post, className }: PostCardProps) {
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-110"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
+              priority={priority}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </div>

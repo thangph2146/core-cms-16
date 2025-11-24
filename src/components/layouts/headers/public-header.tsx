@@ -162,7 +162,7 @@ export function PublicHeader() {
   return (
     <header
       className={cn("sticky top-0 z-50 w-full border-b border-transparent", {
-        "bg-background/95 supports-[backdrop-filter]:bg-background/50 border-border backdrop-blur-lg":
+        "bg-background/95 supports-[backdrop-filter]:bg-background/70 border-border backdrop-blur-lg":
           scrolled,
       })}
     >

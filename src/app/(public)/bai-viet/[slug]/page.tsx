@@ -11,7 +11,7 @@
  */
 
 import type { Metadata } from "next"
-import { getPostBySlugCached } from "@/features/public/post/server/cache"
+import { getPostBySlug } from "@/features/public/post/server/queries"
 import { PostDetail } from "@/features/public/post/components/post-detail"
 import { appConfig } from "@/lib/config"
 import Script from "next/script"
@@ -22,7 +22,7 @@ interface PostDetailPageProps {
 
 /**
  * Helper function to convert Date to ISO string
- * Handles both Date objects and string values (from cache serialization)
+ * Handles both Date objects and string values
  */
 function toISOString(date: Date | string | null | undefined): string | undefined {
   if (!date) return undefined
@@ -37,7 +37,7 @@ export async function generateMetadata({
   params,
 }: PostDetailPageProps): Promise<Metadata> {
   const { slug } = await params
-  const post = await getPostBySlugCached(slug)
+  const post = await getPostBySlug(slug)
 
   if (!post) {
     return {
@@ -92,7 +92,7 @@ export async function generateMetadata({
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { slug } = await params
-  const post = await getPostBySlugCached(slug)
+  const post = await getPostBySlug(slug)
 
   if (!post) {
     return null

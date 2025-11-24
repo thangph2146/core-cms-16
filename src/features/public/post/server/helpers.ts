@@ -81,8 +81,8 @@ export function mapPostDetailRecord(post: PostWithRelations & { content: Prisma.
  */
 export function buildPublicPostWhereClause(params: {
   search?: string
-  category?: string
-  tag?: string
+  categories?: string[]
+  tags?: string[]
 }): Prisma.PostWhereInput {
   const where: Prisma.PostWhereInput = {
     published: true,
@@ -101,23 +101,27 @@ export function buildPublicPostWhereClause(params: {
     ]
   }
 
-  // Category filter
-  if (params.category) {
+  // Category filter - support multiple categories (OR logic: post must have ANY selected category)
+  if (params.categories && params.categories.length > 0) {
     where.categories = {
       some: {
         category: {
-          slug: params.category,
+          slug: {
+            in: params.categories,
+          },
         },
       },
     }
   }
 
-  // Tag filter
-  if (params.tag) {
+  // Tag filter - support multiple tags (OR logic: post must have ANY selected tag)
+  if (params.tags && params.tags.length > 0) {
     where.tags = {
       some: {
         tag: {
-          slug: params.tag,
+          slug: {
+            in: params.tags,
+          },
         },
       },
     }

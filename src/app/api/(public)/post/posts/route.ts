@@ -7,8 +7,8 @@
  * - page: number (default: 1)
  * - limit: number (default: 12, max: 100)
  * - search: string (optional)
- * - category: string (optional, category slug)
- * - tag: string (optional, tag slug)
+ * - category: string | string[] (optional, category slug(s) - can specify multiple)
+ * - tag: string | string[] (optional, tag slug(s) - can specify multiple)
  * - sort: "newest" | "oldest" (default: "newest")
  * 
  * @public - No authentication required
@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
 
     // Parse filters
     const search = searchParams.get("search")?.trim() || undefined
-    const category = searchParams.get("category")?.trim() || undefined
-    const tag = searchParams.get("tag")?.trim() || undefined
+    const categories = searchParams.getAll("category").filter(c => c.trim()).map(c => c.trim())
+    const tags = searchParams.getAll("tag").filter(t => t.trim()).map(t => t.trim())
     const sortParam = searchParams.get("sort")
     const sort = (sortParam === "oldest" ? "oldest" : "newest") as "newest" | "oldest"
 
@@ -65,8 +65,8 @@ export async function GET(req: NextRequest) {
       page,
       limit,
       search,
-      category,
-      tag,
+      categories: categories.length > 0 ? categories : undefined,
+      tags: tags.length > 0 ? tags : undefined,
       sort,
     })
 

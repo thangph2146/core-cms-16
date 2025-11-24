@@ -16,8 +16,8 @@ export interface GetPostsParams {
   page?: number
   limit?: number
   search?: string
-  category?: string
-  tag?: string
+  categories?: string[]
+  tags?: string[]
   sort?: "newest" | "oldest"
 }
 
@@ -42,8 +42,8 @@ export async function getPosts(params: GetPostsParams = {}): Promise<PostsResult
   // Build where clause using helper
   const where = buildPublicPostWhereClause({
     search: params.search,
-    category: params.category,
-    tag: params.tag,
+    categories: params.categories,
+    tags: params.tags,
   })
 
   // Build orderBy using helper
@@ -245,6 +245,36 @@ export async function getRelatedPosts(
  */
 export async function getCategories() {
   return await prisma.category.findMany({
+    where: {
+      deletedAt: null,
+      posts: {
+        some: {
+          post: {
+            published: true,
+            deletedAt: null,
+            publishedAt: {
+              lte: new Date(),
+            },
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  })
+}
+
+/**
+ * Get all tags that have published posts
+ */
+export async function getTags() {
+  return await prisma.tag.findMany({
     where: {
       deletedAt: null,
       posts: {
