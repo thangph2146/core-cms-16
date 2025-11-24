@@ -1,18 +1,12 @@
-import { AdminHeader } from "@/components/layouts/headers"
+import { LoadingWrapper } from "@/components/layouts/skeletons/loading-wrapper"
 import { ResourceTableSkeleton } from "@/components/layouts/skeletons"
+import { createListBreadcrumbs } from "@/features/admin/resources/utils"
 
 export default function RolesPageLoading() {
   return (
-    <>
-      <AdminHeader
-        breadcrumbs={[
-          { label: "Vai trò", isActive: true },
-        ]}
-      />
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <ResourceTableSkeleton title={false} rowCount={10} columnCount={4} />
-      </div>
-    </>
+    <LoadingWrapper breadcrumbs={createListBreadcrumbs({ listLabel: "Vai trò" })}>
+      <ResourceTableSkeleton title={false} rowCount={10} columnCount={4} />
+    </LoadingWrapper>
   )
 }
 
