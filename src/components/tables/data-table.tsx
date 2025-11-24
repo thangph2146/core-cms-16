@@ -682,7 +682,7 @@ function TableBodyContent<T extends object>({
                                 </TableCell>
                             )
                         })}
-                        {actions ? <TableCell className="min-w-[100px] text-center whitespace-nowrap px-2 sm:px-3 sticky right-0 z-10 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted border-l border-border">{actions(row)}</TableCell> : null}
+                        {actions ? <TableCell className="min-w-[100px] text-center whitespace-nowrap px-2 sm:px-3 sticky right-0 z-10 bg-background group-data-[state=selected]:bg-muted border-l border-border">{actions(row)}</TableCell> : null}
                     </TableRow>
                 )
             })}
