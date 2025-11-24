@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import React from "react"
-import Link from "next/link"
-import { useSession } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { MenuToggleIcon } from "@/components/ui/menu-toggle-icon"
-import { ModeToggle } from "@/components/layouts/shared"
-import { NavUser } from "@/components/layouts/navigation"
-import { createPortal } from "react-dom"
+import React from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { MenuToggleIcon } from "@/components/ui/menu-toggle-icon";
+import { ModeToggle } from "@/components/layouts/shared";
+import { NavUser } from "@/components/layouts/navigation";
+import { createPortal } from "react-dom";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -16,7 +16,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu"
+} from "@/components/ui/navigation-menu";
 import {
   HelpCircle,
   LucideIcon,
@@ -28,28 +28,28 @@ import {
   FileText,
   Info,
   Mail,
-} from "lucide-react"
-import { Logo } from "../../../../public/svg/Logo"
-import { appFeatures } from "@/lib/config/app-features"
-import { getResourceMainRoute } from "@/lib/permissions/route-helpers"
-import { Separator } from "@/components/ui/separator"
+} from "lucide-react";
+import { Logo } from "../../../../public/svg/Logo";
+import { appFeatures } from "@/lib/config/app-features";
+import { getResourceMainRoute } from "@/lib/permissions/route-helpers";
+import { Separator } from "@/components/ui/separator";
 
 /**
  * Helper functions để lấy routes từ appFeatures
  */
 function getRouteFromFeature(key: string): string | null {
-  const feature = appFeatures.find((f) => f.key === key)
-  if (!feature?.navigation) return null
+  const feature = appFeatures.find((f) => f.key === key);
+  if (!feature?.navigation) return null;
 
-  const nav = feature.navigation
-  if (nav.href) return nav.href
+  const nav = feature.navigation;
+  if (nav.href) return nav.href;
 
   if (nav.resourceName) {
-    const route = getResourceMainRoute(nav.resourceName)
-    return route?.path || null
+    const route = getResourceMainRoute(nav.resourceName);
+    return route?.path || null;
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -59,15 +59,15 @@ function getRouteFromFeature(key: string): string | null {
 function getPublicFeatures() {
   return appFeatures
     .filter((feature) => feature.navigation?.group === "public")
-    .sort((a, b) => (a.navigation?.order || 0) - (b.navigation?.order || 0))
+    .sort((a, b) => (a.navigation?.order || 0) - (b.navigation?.order || 0));
 }
 
 /**
  * Convert public features thành LinkItem[]
  */
 function getPublicLinks(): LinkItem[] {
-  const publicFeatures = getPublicFeatures()
-  
+  const publicFeatures = getPublicFeatures();
+
   // Map icon names từ app-features.ts
   const iconMap: Record<string, LucideIcon> = {
     Home,
@@ -75,24 +75,28 @@ function getPublicLinks(): LinkItem[] {
     Info,
     Mail,
     HelpCircle,
-  }
-  
+  };
+
   return publicFeatures.map((feature) => {
-    const nav = feature.navigation!
-    const href = nav.href || getRouteFromFeature(feature.key) || "#"
-    
+    const nav = feature.navigation!;
+    const href = nav.href || getRouteFromFeature(feature.key) || "#";
+
     // Extract icon từ React element
-    const iconElement = feature.icon
-    let IconComponent: LucideIcon = Home // Default icon
-    
+    const iconElement = feature.icon;
+    let IconComponent: LucideIcon = Home; // Default icon
+
     // Lấy icon component từ React element
-    if (iconElement && typeof iconElement === 'object' && 'type' in iconElement) {
-      const iconType = iconElement.type
+    if (
+      iconElement &&
+      typeof iconElement === "object" &&
+      "type" in iconElement
+    ) {
+      const iconType = iconElement.type;
       // Nếu là function component, lấy tên và map
-      if (typeof iconType === 'function' && iconType.name) {
-        IconComponent = iconMap[iconType.name] || Home
+      if (typeof iconType === "function" && iconType.name) {
+        IconComponent = iconMap[iconType.name] || Home;
       } else {
-        IconComponent = iconType as LucideIcon
+        IconComponent = iconType as LucideIcon;
       }
     }
 
@@ -101,8 +105,8 @@ function getPublicLinks(): LinkItem[] {
       href,
       description: feature.description,
       icon: IconComponent,
-    }
-  })
+    };
+  });
 }
 
 // Public routes constants - Lấy từ appFeatures
@@ -117,43 +121,43 @@ const PUBLIC_ROUTES = {
     signIn: "/auth/sign-in",
     signUp: "/auth/sign-up",
   },
-} as const
+} as const;
 
 type LinkItem = {
-  title: string
-  href: string
-  icon: LucideIcon
-  description?: string
-}
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  description?: string;
+};
 
 // Generate public navigation links từ appFeatures
-const publicLinks: LinkItem[] = getPublicLinks()
+const publicLinks: LinkItem[] = getPublicLinks();
 
 /**
  * Public Header Component
  * Header cho public pages và auth pages
  */
 export function PublicHeader() {
-  const [open, setOpen] = React.useState(false)
-  const [mounted, setMounted] = React.useState(false)
-  const scrolled = useScroll(10)
-  const { data: session } = useSession()
-  const isAuthenticated = !!session
+  const [open, setOpen] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+  const scrolled = useScroll(10);
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
 
   React.useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
     if (open) {
-      document.body.style.overflow = "hidden"
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = ""
+      document.body.style.overflow = "";
     }
     return () => {
-      document.body.style.overflow = ""
-    }
-  }, [open])
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   return (
     <header
@@ -162,26 +166,30 @@ export function PublicHeader() {
           scrolled,
       })}
     >
-      <nav className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4">
+      <nav className="container mx-auto flex h-14 w-full items-center justify-between px-4">
         <div className="flex items-center gap-5">
-          <Link href={PUBLIC_ROUTES.home} className="dark:bg-foreground rounded-md p-1 flex items-center gap-2">
+          <Link
+            href={PUBLIC_ROUTES.home}
+            className="dark:bg-foreground rounded-md p-1 flex items-center gap-2"
+          >
             <Logo className="h-10 w-10 text-blue-100" />
           </Link>
-          <div className="space-y-1">
-              <h3 className="text-md text-center font-bold text-foreground">
-                Trường Đại học Ngân hàng
-              </h3>
-              <p className="text-sm font-medium">
-                Thành Phố Hồ Chí Minh
-              </p>
-            </div>
-            <Separator orientation="vertical" className="h-4" />
+          <div>
+            <h3 className="text-md text-center font-bold text-foreground">
+              Trường Đại học Ngân hàng
+            </h3>
+            <p className="text-sm font-medium">Thành Phố Hồ Chí Minh</p>
+          </div>
+          <Separator orientation="vertical" className="h-4" />
           {mounted ? (
             <NavigationMenu className="hidden md:flex">
               <NavigationMenuList>
                 {publicLinks.map((link) => {
                   // Hiển thị "Trang chủ" và "Bài viết" trực tiếp
-                  if (link.href === PUBLIC_ROUTES.home || link.href === PUBLIC_ROUTES.blog) {
+                  if (
+                    link.href === PUBLIC_ROUTES.home ||
+                    link.href === PUBLIC_ROUTES.blog
+                  ) {
                     return (
                       <NavigationMenuItem key={link.href}>
                         <NavigationMenuLink asChild>
@@ -196,13 +204,15 @@ export function PublicHeader() {
                           </Link>
                         </NavigationMenuLink>
                       </NavigationMenuItem>
-                    )
+                    );
                   }
-                  return null
+                  return null;
                 })}
                 {/* Support menu với các links còn lại */}
-                {publicLinks.filter(link => 
-                  link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                {publicLinks.filter(
+                  (link) =>
+                    link.href !== PUBLIC_ROUTES.home &&
+                    link.href !== PUBLIC_ROUTES.blog
                 ).length > 0 && (
                   <NavigationMenuItem>
                     <NavigationMenuTrigger className="bg-transparent">
@@ -211,8 +221,10 @@ export function PublicHeader() {
                     <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
                       <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
                         {publicLinks
-                          .filter(link => 
-                            link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                          .filter(
+                            (link) =>
+                              link.href !== PUBLIC_ROUTES.home &&
+                              link.href !== PUBLIC_ROUTES.blog
                           )
                           .map((item, i) => (
                             <li key={i}>
@@ -228,7 +240,12 @@ export function PublicHeader() {
           ) : (
             <div className="hidden md:flex items-center gap-4">
               {publicLinks.slice(0, 2).map((link) => (
-                <Button key={link.href} variant="ghost" className="bg-transparent" asChild>
+                <Button
+                  key={link.href}
+                  variant="ghost"
+                  className="bg-transparent"
+                  asChild
+                >
                   <Link href={link.href}>{link.title}</Link>
                 </Button>
               ))}
@@ -270,7 +287,6 @@ export function PublicHeader() {
             <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
           </div>
         )}
-
       </nav>
       {mounted && (
         <MobileMenu open={open} onClose={() => setOpen(false)}>
@@ -296,7 +312,9 @@ export function PublicHeader() {
                     </div>
                     <div className="flex flex-col items-start">
                       <span className="font-semibold">Đăng nhập</span>
-                      <span className="text-xs text-muted-foreground">Đăng nhập vào tài khoản của bạn</span>
+                      <span className="text-xs text-muted-foreground">
+                        Đăng nhập vào tài khoản của bạn
+                      </span>
                     </div>
                   </Link>
                 </Button>
@@ -312,7 +330,9 @@ export function PublicHeader() {
                     </div>
                     <div className="flex flex-col items-start">
                       <span className="font-semibold">Đăng ký</span>
-                      <span className="text-xs text-muted-foreground">Tạo tài khoản mới</span>
+                      <span className="text-xs text-muted-foreground">
+                        Tạo tài khoản mới
+                      </span>
                     </div>
                   </Link>
                 </Button>
@@ -324,7 +344,10 @@ export function PublicHeader() {
               <div className="flex w-full flex-col gap-y-1">
                 {publicLinks.map((link) => {
                   // Hiển thị "Trang chủ" và "Bài viết" trực tiếp
-                  if (link.href === PUBLIC_ROUTES.home || link.href === PUBLIC_ROUTES.blog) {
+                  if (
+                    link.href === PUBLIC_ROUTES.home ||
+                    link.href === PUBLIC_ROUTES.blog
+                  ) {
                     return (
                       <Link
                         key={link.href}
@@ -336,27 +359,35 @@ export function PublicHeader() {
                           <link.icon className="text-foreground size-5" />
                         </div>
                         <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                          <span className="font-medium text-sm">{link.title}</span>
+                          <span className="font-medium text-sm">
+                            {link.title}
+                          </span>
                           {link.description && (
-                            <span className="text-xs leading-relaxed">{link.description}</span>
+                            <span className="text-xs leading-relaxed">
+                              {link.description}
+                            </span>
                           )}
                         </div>
                       </Link>
-                    )
+                    );
                   }
-                  return null
+                  return null;
                 })}
                 {/* Hiển thị các links còn lại dưới label "Hỗ trợ" */}
-                {publicLinks.filter(link => 
-                  link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                {publicLinks.filter(
+                  (link) =>
+                    link.href !== PUBLIC_ROUTES.home &&
+                    link.href !== PUBLIC_ROUTES.blog
                 ).length > 0 && (
                   <>
                     <span className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Hỗ trợ
                     </span>
                     {publicLinks
-                      .filter(link => 
-                        link.href !== PUBLIC_ROUTES.home && link.href !== PUBLIC_ROUTES.blog
+                      .filter(
+                        (link) =>
+                          link.href !== PUBLIC_ROUTES.home &&
+                          link.href !== PUBLIC_ROUTES.blog
                       )
                       .map((link) => (
                         <Link
@@ -369,9 +400,13 @@ export function PublicHeader() {
                             <link.icon className="text-foreground size-5" />
                           </div>
                           <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                            <span className="font-medium text-sm">{link.title}</span>
+                            <span className="font-medium text-sm">
+                              {link.title}
+                            </span>
                             {link.description && (
-                              <span className="text-xs leading-relaxed">{link.description}</span>
+                              <span className="text-xs leading-relaxed">
+                                {link.description}
+                              </span>
                             )}
                           </div>
                         </Link>
@@ -384,28 +419,34 @@ export function PublicHeader() {
         </MobileMenu>
       )}
     </header>
-  )
+  );
 }
 
 type MobileMenuProps = React.ComponentProps<"div"> & {
-  open: boolean
-  onClose?: () => void
-}
+  open: boolean;
+  onClose?: () => void;
+};
 
-function MobileMenu({ open, children, className, onClose, ...props }: MobileMenuProps) {
-  if (!open || typeof window === "undefined") return null
+function MobileMenu({
+  open,
+  children,
+  className,
+  onClose,
+  ...props
+}: MobileMenuProps) {
+  if (!open || typeof window === "undefined") return null;
 
   return createPortal(
     <div
       id="mobile-menu"
       className={cn(
         "bg-background/95 supports-[backdrop-filter]:bg-background/50 backdrop-blur-lg",
-        "fixed top-14 right-0 bottom-0 left-0 z-40 flex flex-col overflow-hidden border-y md:hidden",
+        "fixed top-14 right-0 bottom-0 left-0 z-40 flex flex-col overflow-hidden border-y md:hidden"
       )}
       onClick={(e) => {
         // Close menu when clicking on backdrop
         if (e.target === e.currentTarget && onClose) {
-          onClose()
+          onClose();
         }
       }}
     >
@@ -414,15 +455,15 @@ function MobileMenu({ open, children, className, onClose, ...props }: MobileMenu
         className={cn(
           "data-[slot=open]:animate-in data-[slot=open]:zoom-in-97 ease-out",
           "size-full p-4",
-          className,
+          className
         )}
         {...props}
       >
         {children}
       </div>
     </div>,
-    document.body,
-  )
+    document.body
+  );
 }
 
 function ListItem({
@@ -437,7 +478,7 @@ function ListItem({
     <NavigationMenuLink
       className={cn(
         "w-full flex flex-row gap-x-2 data-[active=true]:focus:bg-accent data-[active=true]:hover:bg-accent data-[active=true]:bg-accent/50 data-[active=true]:text-accent-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-sm p-2",
-        className,
+        className
       )}
       {...props}
       asChild
@@ -448,15 +489,12 @@ function ListItem({
         </div>
         <div className="flex flex-col items-start justify-center">
           <span className="font-medium">{title}</span>
-          {description && (
-            <span className="text-xs">{description}</span>
-          )}
+          {description && <span className="text-xs">{description}</span>}
         </div>
       </Link>
     </NavigationMenuLink>
-  )
+  );
 }
-
 
 /**
  * Convert appFeatures thành LinkItem[] cho support section
@@ -467,48 +505,47 @@ function getSupportLinks(): LinkItem[] {
   const iconMap: Record<string, LucideIcon> = {
     support: LifeBuoy,
     feedback: Command,
-  }
+  };
 
   const supportFeatures = appFeatures.filter(
     (feature) => feature.navigation?.group === "secondary"
-  )
+  );
 
   return supportFeatures.map((feature) => {
-    const nav = feature.navigation!
-    const href = nav.href || "#"
+    const nav = feature.navigation!;
+    const href = nav.href || "#";
 
     // Lấy icon từ map dựa trên feature key
-    const icon = iconMap[feature.key] || HelpCircle
+    const icon = iconMap[feature.key] || HelpCircle;
 
     return {
       title: feature.title,
       href,
       description: feature.description,
       icon,
-    }
-  })
+    };
+  });
 }
 
 // Generate links từ appFeatures
-const _supportLinks: LinkItem[] = getSupportLinks()
+const _supportLinks: LinkItem[] = getSupportLinks();
 
 function useScroll(threshold: number) {
-  const [scrolled, setScrolled] = React.useState(false)
+  const [scrolled, setScrolled] = React.useState(false);
 
   const onScroll = React.useCallback(() => {
-    setScrolled(window.scrollY > threshold)
-  }, [threshold])
+    setScrolled(window.scrollY > threshold);
+  }, [threshold]);
 
   React.useEffect(() => {
-    window.addEventListener("scroll", onScroll)
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [onScroll])
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [onScroll]);
 
   // also check on first load
   React.useEffect(() => {
-    onScroll()
-  }, [onScroll])
+    onScroll();
+  }, [onScroll]);
 
-  return scrolled
+  return scrolled;
 }
-

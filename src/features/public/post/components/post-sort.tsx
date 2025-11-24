@@ -53,7 +53,7 @@ export function PostSort() {
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-40 space-y-1">
         {sortOptions.map((option) => {
           const OptionIcon = option.icon
           const isActive = currentSort === option.value
@@ -63,7 +63,7 @@ export function PostSort() {
               onClick={() => handleSortChange(option.value)}
               className={cn(
                 "flex items-center gap-2 cursor-pointer",
-                isActive && "bg-accent font-medium"
+                isActive && "bg-accent/10 font-medium"
               )}
             >
               <OptionIcon className={cn(

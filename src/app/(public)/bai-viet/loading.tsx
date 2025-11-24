@@ -4,7 +4,7 @@ import { Filter } from "lucide-react"
 
 export default function PostLoading() {
   return (
-    <div className="container mx-auto px-4 py-8 sm:py-12 max-w-7xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 
       {/* Category Navigation Skeleton */}
       <div className="mb-6">

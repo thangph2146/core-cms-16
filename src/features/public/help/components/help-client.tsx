@@ -134,7 +134,6 @@ export function HelpClient({}: HelpClientProps) {
       {/* Guide Sections */}
       <section className="py-12 sm:py-16 lg:py-20 bg-background">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-4">
                 Hướng dẫn Sử dụng
@@ -178,7 +177,6 @@ export function HelpClient({}: HelpClientProps) {
                 )
               })}
             </div>
-          </div>
         </div>
       </section>
 
