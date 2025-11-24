@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -61,8 +62,15 @@ export function RoleEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const role = (roleData as RoleEditData | null) || initialRole
+  // Transform data từ API response sang form format
+  // Note: Role API đã trả về permissions là string[] trực tiếp, không cần transform như posts
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
+  const role = useMemo(() => {
+    if (roleData) {
+      return roleData as RoleEditData
+    }
+    return initialRole || null
+  }, [roleData, initialRole])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.roles.update(id),

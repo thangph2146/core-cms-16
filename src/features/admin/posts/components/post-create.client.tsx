@@ -149,7 +149,7 @@ export function PostCreateClient({
           {
             name: "categoryIds",
             label: "Danh mục",
-            type: "select",
+            type: "multiple-select",
             options: categories,
             description: "Chọn danh mục cho bài viết (có thể chọn nhiều)",
             section: "basic",
@@ -161,7 +161,7 @@ export function PostCreateClient({
           {
             name: "tagIds",
             label: "Thẻ tag",
-            type: "select",
+            type: "multiple-select",
             options: tags,
             description: "Chọn thẻ tag cho bài viết (có thể chọn nhiều)",
             section: "basic",

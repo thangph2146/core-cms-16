@@ -488,7 +488,7 @@ export function DataTable<T extends object>({
             </div>
 
             {selectionEnabled && selectionActions && selectedIdsSet.size > 0 ? (
-                <div className="rounded-lg border border-border/80 bg-muted/40 p-2 sm:p-3">
+                <div className="min-w-[100px] rounded-lg border border-border/80 bg-muted/40 p-2 sm:p-3">
                     {selectionActions({
                         selectedIds: Array.from(selectedIdsSet),
                         selectedRows: selectedVisibleRows,
@@ -530,18 +530,18 @@ export function DataTable<T extends object>({
                                 </TableHead>
                             ))}
                             {actions ? (
-                                <TableHead className="min-w-[100px] text-right px-2 sm:px-3 sticky right-0 z-10 bg-background border-l border-border">
+                                <TableHead className="min-w-[100px] text-center px-2 sm:px-3 sticky right-0 z-10 bg-background border-l border-border">
                                     <span className="text-xs sm:text-sm">Hành động</span>
                                 </TableHead>
                             ) : null}
                         </TableRow>
                         {columns.some((col) => col.filter) && showFilters && (
                             <TableRow className="border-t border-border bg-muted/40">
-                                {selectionEnabled ? <TableHead className="w-8 sm:w-10 bg-muted/40 px-1 sm:px-3" /> : null}
+                                {selectionEnabled ? <TableHead className="min-w-[100px] w-8 sm:w-10 bg-muted/40 px-1 sm:px-3" /> : null}
                                 {columns.map((column) => (
                                     <TableHead
                                         key={`filter-${column.accessorKey}`}
-                                        className={cn("align-middle bg-muted/40 whitespace-nowrap px-2 sm:px-3", column.headerClassName)}
+                                        className={cn("min-w-[100px] align-middle bg-muted/40 whitespace-nowrap px-2 sm:px-3", column.headerClassName)}
                                     >
                                         <ColumnFilterControl
                                             column={column}
@@ -551,7 +551,7 @@ export function DataTable<T extends object>({
                                         />
                                     </TableHead>
                                 ))}
-                                {actions ? <TableHead className="min-w-[100px] bg-muted/40 px-2 sm:px-3 sticky right-0 z-10 border-l border-border" /> : null}
+                                {actions ? <TableHead className="min-w-[100px] text-center bg-muted/40 px-2 sm:px-3 sticky right-0 z-10 border-l border-border" /> : null}
                             </TableRow>
                         )}
                     </TableHeader>

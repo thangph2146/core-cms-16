@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -61,8 +62,15 @@ export function CategoryEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const category = (categoryData as CategoryEditData | null) || initialCategory
+  // Transform data từ API response sang form format
+  // Note: Category API đã trả về name, slug, description trực tiếp, không cần transform như posts
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
+  const category = useMemo(() => {
+    if (categoryData) {
+      return categoryData as CategoryEditData
+    }
+    return initialCategory || null
+  }, [categoryData, initialCategory])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.categories.update(id),

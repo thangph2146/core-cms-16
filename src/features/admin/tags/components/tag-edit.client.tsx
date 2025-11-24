@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -60,8 +61,15 @@ export function TagEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const tag = (tagData as TagEditData | null) || initialTag
+  // Transform data từ API response sang form format
+  // Note: Tag API đã trả về name, slug trực tiếp, không cần transform như posts
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
+  const tag = useMemo(() => {
+    if (tagData) {
+      return tagData as TagEditData
+    }
+    return initialTag || null
+  }, [tagData, initialTag])
   
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.tags.update(id),

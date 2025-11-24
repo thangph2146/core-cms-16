@@ -259,19 +259,13 @@ export function PostEditClient({
                   } as ResourceFormField<PostEditData>,
               ]
             : []),
-        {
-            name: "published",
-            label: "Trạng thái xuất bản",
-            type: "switch",
-            description: "Trạng thái xuất bản của bài viết",
-            section: "basic",
-        },
+        
         ...(categories.length > 0
             ? [
                   {
                       name: "categoryIds",
                       label: "Danh mục",
-                      type: "select",
+                      type: "multiple-select",
                       options: categories,
                       description: "Chọn danh mục cho bài viết (có thể chọn nhiều)",
                       section: "basic",
@@ -283,7 +277,7 @@ export function PostEditClient({
                   {
                       name: "tagIds",
                       label: "Thẻ tag",
-                      type: "select",
+                      type: "multiple-select",
                       options: tags,
                       description: "Chọn thẻ tag cho bài viết (có thể chọn nhiều)",
                       section: "basic",
@@ -296,6 +290,13 @@ export function PostEditClient({
             type: "image",
             placeholder: "https://example.com/image.jpg",
             description: "URL hình ảnh đại diện cho bài viết",
+            section: "basic",
+        },
+        {
+            name: "published",
+            label: "Trạng thái xuất bản",
+            type: "switch",
+            description: "Trạng thái xuất bản của bài viết",
             section: "basic",
         },
         {

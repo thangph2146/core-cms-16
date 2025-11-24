@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceNavigation, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -63,8 +64,15 @@ export function StudentEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const student = (studentData as StudentEditData | null) || initialStudent
+  // Transform data từ API response sang form format
+  // Note: Student API đã trả về userId trực tiếp, không cần transform như posts/contact-requests
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
+  const student = useMemo(() => {
+    if (studentData) {
+      return studentData as StudentEditData
+    }
+    return initialStudent || null
+  }, [studentData, initialStudent])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.students.update(id),
