@@ -48,11 +48,14 @@ export async function updateCurrentUserAccount(
 
   const updateData: Prisma.UserUpdateInput = {}
 
-  if (validatedInput.name !== undefined) updateData.name = validatedInput.name?.trim() || null
+  // name is required, so it will always be present and valid after schema validation
+  updateData.name = validatedInput.name.trim()
   if (validatedInput.bio !== undefined) updateData.bio = validatedInput.bio?.trim() || null
   if (validatedInput.phone !== undefined) updateData.phone = validatedInput.phone?.trim() || null
   if (validatedInput.address !== undefined) updateData.address = validatedInput.address?.trim() || null
-  if (validatedInput.avatar !== undefined) updateData.avatar = validatedInput.avatar?.trim() || null
+  if (validatedInput.avatar !== undefined) {
+    updateData.avatar = validatedInput.avatar === null ? null : validatedInput.avatar.trim() || null
+  }
   if (validatedInput.password && validatedInput.password.trim() !== "") {
     updateData.password = await bcrypt.hash(validatedInput.password, 10)
   }

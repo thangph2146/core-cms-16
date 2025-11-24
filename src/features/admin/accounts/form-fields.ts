@@ -3,9 +3,8 @@
  */
 
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
-import { validateName, validatePassword } from "./utils"
 import React from "react"
-import { User, AlignLeft, Phone, MapPin, Lock } from "lucide-react"
+import { User, AlignLeft, Phone, MapPin, Lock, UserCircle } from "lucide-react"
 
 export interface AccountFormData {
   name?: string | null
@@ -50,8 +49,17 @@ export function getAccountFields(): ResourceFormField<AccountFormData>[] {
       label: "Tên",
       type: "text",
       placeholder: "Nhập tên",
-      validate: validateName,
+      required: true,
       icon: React.createElement(User, { className: "h-4 w-4" }),
+      section: "personal",
+    },
+    {
+      name: "avatar",
+      label: "Ảnh đại diện",
+      type: "image",
+      placeholder: "https://example.com/avatar.jpg",
+      description: "URL của ảnh đại diện",
+      icon: React.createElement(UserCircle, { className: "h-4 w-4" }),
       section: "personal",
     },
     {
@@ -85,7 +93,6 @@ export function getAccountFields(): ResourceFormField<AccountFormData>[] {
       placeholder: "Để trống nếu không muốn thay đổi",
       description: "Chỉ nhập nếu muốn thay đổi mật khẩu. Để trống để giữ nguyên mật khẩu hiện tại.",
       required: false,
-      validate: (value) => validatePassword(value, true),
       icon: React.createElement(Lock, { className: "h-4 w-4" }),
       section: "security",
     },
