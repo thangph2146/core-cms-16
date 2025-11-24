@@ -135,7 +135,7 @@ Generic form component với:
 - Auto-save (optional)
 - Error handling
 
-#### 3. `ResourceDetailPage`
+#### 3. `ResourceDetailClient`
 Generic detail page với:
 - Sections support
 - Custom `fieldsContent` (React Node)
@@ -637,7 +637,7 @@ export default async function NewResourcesPage() {
 ```typescript
 import { NewResourceDetail } from "@/features/admin/new-resource/components/new-resource-detail"
 
-export default async function NewResourceDetailPage({ params }: { params: { id: string } }) {
+export default async function NewResourceDetailClient({ params }: { params: { id: string } }) {
   return <NewResourceDetail resourceId={params.id} />
 }
 ```

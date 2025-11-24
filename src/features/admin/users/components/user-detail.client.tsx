@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Mail, User, Shield, Phone, MapPin, Calendar, Clock, CheckCircle2, XCircle, FileText, Edit } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -303,7 +303,7 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
   ]
 
   return (
-    <ResourceDetailPage<UserDetailData>
+    <ResourceDetailClient<UserDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

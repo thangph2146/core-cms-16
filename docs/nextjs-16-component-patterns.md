@@ -382,7 +382,7 @@ export async function UserDetail({ userId, backUrl = "/admin/users" }: UserDetai
 "use client"
 
 import { Mail, User, Shield, Phone, MapPin, Calendar, Clock, CheckCircle2, XCircle, FileText, Edit } from "lucide-react"
-import { ResourceDetailPage, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
+import { ResourceDetailClient, type ResourceDetailField, type ResourceDetailSection } from "@/features/admin/resources/components"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -439,7 +439,7 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
   ]
 
   return (
-    <ResourceDetailPage<UserDetailData>
+    <ResourceDetailClient<UserDetailData>
       data={user}
       fields={detailFields}
       detailSections={detailSections}

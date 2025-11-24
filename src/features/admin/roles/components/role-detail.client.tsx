@@ -4,7 +4,7 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Shield, FileText, Calendar, Clock, CheckCircle2, XCircle, Edit, ChevronsUpDown, Check } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -315,7 +315,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
   ]
 
   return (
-    <ResourceDetailPage<RoleDetailData>
+    <ResourceDetailClient<RoleDetailData>
       fields={detailFields}
       detailSections={detailSections}
       title={detailData.displayName}

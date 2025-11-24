@@ -4,7 +4,7 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { MessageSquare, User, Mail, FileText, Calendar, Clock, ExternalLink } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -253,7 +253,7 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
   ]
 
   return (
-    <ResourceDetailPage<CommentDetailData>
+    <ResourceDetailClient<CommentDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

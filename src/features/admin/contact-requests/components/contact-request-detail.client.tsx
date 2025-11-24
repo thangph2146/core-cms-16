@@ -3,7 +3,7 @@
 import * as React from "react"
 import { User, Mail, Phone, FileText, MessageSquare, AlertCircle, UserCheck, Calendar, Clock, Edit, CheckCircle2, XCircle } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -274,7 +274,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
   ]
 
   return (
-    <ResourceDetailPage<ContactRequestDetailData>
+    <ResourceDetailClient<ContactRequestDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

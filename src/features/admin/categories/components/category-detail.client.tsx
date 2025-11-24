@@ -2,7 +2,7 @@
 
 import { Tag, Hash, AlignLeft, Calendar, Clock, Edit } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -125,7 +125,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
   ]
 
   return (
-    <ResourceDetailPage<CategoryDetailData>
+    <ResourceDetailClient<CategoryDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

@@ -1,7 +1,7 @@
 /**
  * Server Component: Resource Detail
  * 
- * Generic server wrapper cho ResourceDetailPage
+ * Generic server wrapper cho ResourceDetailClient
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  * 
  * Usage:
@@ -41,11 +41,11 @@
  */
 
 import { Suspense } from "react"
-import { ResourceDetailPage } from "./resource-detail.client"
-import type { ResourceDetailPageProps } from "./resource-detail.client"
+import { ResourceDetailClient } from "./resource-detail.client"
+import type { ResourceDetailClientProps } from "./resource-detail.client"
 import { ResourceDetailSkeleton } from "@/components/layouts/skeletons"
 
-export type ResourceDetailProps<T extends Record<string, unknown>> = ResourceDetailPageProps<T>
+export type ResourceDetailProps<T extends Record<string, unknown>> = ResourceDetailClientProps<T>
 
 /**
  * ResourceDetail Server Component
@@ -63,7 +63,7 @@ export function ResourceDetail<T extends Record<string, unknown>>({
   ...props
 }: ResourceDetailProps<T>) {
   return (
-    <ResourceDetailPage
+    <ResourceDetailClient
       fields={fields}
       sections={sections}
       title={title}
@@ -81,8 +81,8 @@ export function ResourceDetail<T extends Record<string, unknown>>({
 export interface ResourceDetailAsyncProps<T extends Record<string, unknown>> 
   extends Omit<ResourceDetailProps<T>, "data" | "isLoading"> {
   dataLoader: () => Promise<T | null>
-  fields: ResourceDetailPageProps<T>["fields"]
-  sections?: ResourceDetailPageProps<T>["sections"]
+  fields: ResourceDetailClientProps<T>["fields"]
+  sections?: ResourceDetailClientProps<T>["sections"]
   title?: string
 }
 

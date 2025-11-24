@@ -2,7 +2,7 @@
 
 import { Tag, Hash, Calendar, Clock, Edit } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -103,7 +103,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
   ]
 
   return (
-    <ResourceDetailPage<TagDetailData>
+    <ResourceDetailClient<TagDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

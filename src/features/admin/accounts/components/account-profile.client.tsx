@@ -14,7 +14,7 @@ import {
   CheckCircle2
 } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -235,7 +235,7 @@ export function AccountProfileClient({
   ]
 
   return (
-    <ResourceDetailPage<AccountProfile>
+    <ResourceDetailClient<AccountProfile>
       data={account}
       fields={detailFields}
       detailSections={detailSections}

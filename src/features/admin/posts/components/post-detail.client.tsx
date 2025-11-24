@@ -14,7 +14,7 @@ import {
   Tags,
 } from "lucide-react";
 import {
-  ResourceDetailPage,
+  ResourceDetailClient,
   FieldItem,
   type ResourceDetailField,
   type ResourceDetailSection,
@@ -340,7 +340,7 @@ export function PostDetailClient({
   ];
 
   return (
-    <ResourceDetailPage<PostDetailData>
+    <ResourceDetailClient<PostDetailData>
       title={detailData.title}
       description={`Chi tiết bài viết ${detailData.slug}`}
       data={detailData}

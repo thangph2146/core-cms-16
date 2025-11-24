@@ -2,7 +2,7 @@
 
 import { User, Globe, MapPin, Calendar, CheckCircle2, XCircle, Edit, Key, RefreshCw, Clock } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -186,7 +186,7 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
   ]
 
   return (
-    <ResourceDetailPage<SessionDetailData>
+    <ResourceDetailClient<SessionDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

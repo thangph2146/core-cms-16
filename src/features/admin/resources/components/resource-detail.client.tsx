@@ -41,7 +41,7 @@ export interface ResourceDetailSection<T = unknown> extends ResourceFormSection 
   fieldsContent?: (fields: ResourceDetailField<T>[], data: T) => React.ReactNode // Custom render cho fields
 }
 
-export interface ResourceDetailPageProps<T extends Record<string, unknown>> {
+export interface ResourceDetailClientProps<T extends Record<string, unknown>> {
   // Data
   data: T | null
   isLoading?: boolean
@@ -79,7 +79,7 @@ export interface ResourceDetailPageProps<T extends Record<string, unknown>> {
   onBack?: () => void | Promise<void>
 }
 
-export function ResourceDetailPage<T extends Record<string, unknown>>({
+export function ResourceDetailClient<T extends Record<string, unknown>>({
   data,
   isLoading = false,
   fields,
@@ -92,7 +92,7 @@ export function ResourceDetailPage<T extends Record<string, unknown>>({
   detailSections,
   afterSections,
   onBack,
-}: ResourceDetailPageProps<T>) {
+}: ResourceDetailClientProps<T>) {
   const resourceSegment = useResourceSegment()
   const resolvedBackUrl = React.useMemo(
     () => (backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined),

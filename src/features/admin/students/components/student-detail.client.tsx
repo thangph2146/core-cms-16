@@ -4,7 +4,7 @@ import * as React from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { User, Mail, Hash, Calendar, Clock, CheckCircle2, XCircle, Edit } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -196,7 +196,7 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
   ]
 
   return (
-    <ResourceDetailPage<StudentDetailData>
+    <ResourceDetailClient<StudentDetailData>
       data={detailData}
       fields={detailFields}
       detailSections={detailSections}

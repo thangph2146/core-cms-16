@@ -14,7 +14,7 @@ import {
   XCircle as XCircleIcon
 } from "lucide-react"
 import { 
-  ResourceDetailPage, 
+  ResourceDetailClient, 
   FieldItem,
   type ResourceDetailField, 
   type ResourceDetailSection 
@@ -251,7 +251,7 @@ export function NotificationDetailClient({ notification, backUrl = "/admin/notif
   ]
 
   return (
-    <ResourceDetailPage<NotificationDetailData>
+    <ResourceDetailClient<NotificationDetailData>
       data={notification}
       fields={detailFields}
       detailSections={detailSections}

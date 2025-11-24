@@ -1,7 +1,7 @@
 /**
  * ResourceDetailSkeleton Component
  * 
- * Skeleton loading state cho ResourceDetailPage
+ * Skeleton loading state cho ResourceDetailClient
  * Hiển thị cấu trúc detail page với skeleton fields
  */
 
