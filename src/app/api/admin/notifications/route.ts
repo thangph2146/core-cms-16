@@ -12,7 +12,7 @@
 import { NextRequest } from "next/server"
 import { auth } from "@/lib/auth/auth"
 import { isSuperAdmin } from "@/lib/permissions"
-import { listNotificationsCached } from "@/features/admin/notifications/server/cache"
+import { listNotifications } from "@/features/admin/notifications/server/queries"
 import { createErrorResponse, createSuccessResponse } from "@/lib/config"
 import { sanitizeSearchQuery } from "@/lib/api/validation"
 import { logger } from "@/lib/config/logger"
@@ -69,7 +69,7 @@ async function getAdminNotificationsHandler(req: NextRequest) {
   })
 
   try {
-    // Sử dụng cached query function để fetch notifications
+    // Sử dụng non-cached query function để fetch notifications (theo chuẩn admin - không cache)
     // Nếu userId được truyền, chỉ fetch notifications của user đó
     // Nếu không (super admin), fetch tất cả notifications
     logger.debug("Fetching admin notifications", {
@@ -81,7 +81,7 @@ async function getAdminNotificationsHandler(req: NextRequest) {
       isSuperAdmin: isSuperAdminUser,
     })
 
-    const result = await listNotificationsCached({
+    const result = await listNotifications({
       page,
       limit,
       search: searchValidation.value || undefined,
@@ -97,7 +97,7 @@ async function getAdminNotificationsHandler(req: NextRequest) {
       notifications: result.data.map((n) => ({
         id: n.id,
         userId: n.userId,
-        userEmail: n.user.email,
+        userEmail: n.user?.email || "",
         kind: n.kind,
         title: n.title,
         isRead: n.isRead,
@@ -112,8 +112,8 @@ async function getAdminNotificationsHandler(req: NextRequest) {
       data: result.data.map((notification) => ({
         id: notification.id,
         userId: notification.userId,
-        userEmail: notification.user.email,
-        userName: notification.user.name,
+        userEmail: notification.user?.email || "",
+        userName: notification.user?.name || null,
         kind: notification.kind,
         title: notification.title,
         description: notification.description,

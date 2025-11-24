@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -67,8 +68,37 @@ export function ContactRequestEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const contactRequest = (contactRequestData as ContactRequestEditData | null) || initialContactRequest
+  // Transform data từ API response sang form format
+  // API trả về assignedTo object nhưng form cần assignedToId string
+  const transformContactRequestData = (data: unknown): ContactRequestEditData | null => {
+    if (!data || typeof data !== "object") return null
+    
+    const contactRequest = data as Record<string, unknown>
+    const transformed: ContactRequestEditData = {
+      ...contactRequest,
+    } as ContactRequestEditData
+
+    // Transform assignedTo object thành assignedToId string
+    if (contactRequest.assignedTo && typeof contactRequest.assignedTo === "object" && contactRequest.assignedTo !== null && "id" in contactRequest.assignedTo) {
+      transformed.assignedToId = String(contactRequest.assignedTo.id)
+    } else if (contactRequest.assignedToId !== undefined && contactRequest.assignedToId !== null) {
+      transformed.assignedToId = String(contactRequest.assignedToId)
+    } else {
+      // Nếu không có assignedTo hoặc assignedToId, để null
+      transformed.assignedToId = null
+    }
+
+    return transformed
+  }
+
+  // Sử dụng fresh data từ API nếu có, transform và fallback về initial data
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi contactRequestData thay đổi
+  const contactRequest = useMemo(() => {
+    if (contactRequestData) {
+      return transformContactRequestData(contactRequestData)
+    }
+    return initialContactRequest || null
+  }, [contactRequestData, initialContactRequest])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.contactRequests.update(id),
@@ -110,7 +140,7 @@ export function ContactRequestEditClient({
       fields={editFields}
       onSubmit={handleSubmit}
       title="Chỉnh sửa yêu cầu liên hệ"
-      description={`Cập nhật thông tin yêu cầu liên hệ: ${contactRequest.subject}`}
+      description={`Cập nhật thông tin yêu cầu liên hệ: ${contactRequest?.subject || ""}`}
       submitLabel="Cập nhật"
       cancelLabel="Hủy"
       backUrl={backUrl}
@@ -120,6 +150,9 @@ export function ContactRequestEditClient({
       onOpenChange={onOpenChange}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : "max-w-[800px]"}
+      resourceName="contact-requests"
+      resourceId={contactRequest?.id}
+      action="update"
     />
   )
 }

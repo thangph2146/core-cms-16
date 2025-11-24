@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
@@ -58,7 +59,14 @@ export function SessionEditClient({
   })
 
   // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const session = (sessionData as SessionEditData | null) || initialSession
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
+  // Note: Session API đã trả về userId trực tiếp, không cần transform như posts/contact-requests
+  const session = useMemo(() => {
+    if (sessionData) {
+      return sessionData as SessionEditData
+    }
+    return initialSession || null
+  }, [sessionData, initialSession])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.sessions.update(id),

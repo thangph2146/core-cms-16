@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { CheckCircle2, Trash2, BellOff } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -17,6 +17,7 @@ import type { ResourceViewMode } from "@/features/admin/resources/types"
 import {
   useResourceTableLoader,
   useResourceTableRefresh,
+  useResourceTableLogger,
 } from "@/features/admin/resources/hooks"
 import { normalizeSearch, sanitizeFilters } from "@/features/admin/resources/utils"
 import { apiClient } from "@/lib/api/axios"
@@ -53,6 +54,48 @@ export function NotificationsTableClient({
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const { cacheVersion } = useNotificationsSocketBridge()
+  
+  // Track current view để log khi view thay đổi
+  const [currentViewId, setCurrentViewId] = useState<string>("all")
+  
+  // Helper để build query key cho logger (không có search/filters)
+  const buildNotificationsQueryKeyForLogger = useCallback(
+    (params: { status?: string; page?: number; limit?: number; search?: string; filters?: Record<string, string> }): readonly unknown[] => {
+      return [
+        "notifications",
+        "admin",
+        params.status ?? "all",
+        params.page ?? 1,
+        params.limit ?? 10,
+        "", // search luôn empty cho logger
+        // filters không có trong logger query key
+      ]
+    },
+    [],
+  )
+  
+  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
+  useResourceTableLogger<NotificationRow>({
+    resourceName: "notifications",
+    initialData,
+    initialDataByView: initialData ? { all: initialData } : undefined,
+    currentViewId,
+    queryClient,
+    buildQueryKey: buildNotificationsQueryKeyForLogger,
+    columns: ["id", "userId", "userEmail", "kind", "title", "description", "isRead", "createdAt"],
+    getRowData: (row) => ({
+      id: row.id,
+      userId: row.userId,
+      userEmail: row.userEmail,
+      kind: row.kind,
+      title: row.title,
+      description: row.description,
+      isRead: row.isRead,
+      createdAt: row.createdAt,
+    }),
+    cacheVersion,
+  })
+  
   const getInvalidateQueryKey = useCallback(() => queryKeys.notifications.admin(), [])
   const { onRefreshReady, refresh: refreshTable } = useResourceTableRefresh({
     queryClient,
@@ -509,6 +552,10 @@ export function NotificationsTableClient({
     )
   }
 
+  const handleViewChange = useCallback((viewId: string) => {
+    setCurrentViewId(viewId)
+  }, [])
+
   return (
     <>
       <ResourceTableClient
@@ -520,6 +567,7 @@ export function NotificationsTableClient({
         initialDataByView={initialDataByView}
         fallbackRowCount={6}
         onRefreshReady={onRefreshReady}
+        onViewChange={handleViewChange}
       />
 
       {/* Delete Confirmation Dialog */}

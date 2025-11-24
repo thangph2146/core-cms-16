@@ -36,11 +36,14 @@ async function unapproveCommentHandler(_req: NextRequest, context: ApiRouteConte
     if (error instanceof NotFoundError) {
       return NextResponse.json({ error: error.message || "Không tìm thấy" }, { status: 404 })
     }
-    resourceLogger.error({
+    resourceLogger.actionFlow({
       resource: "comments",
       action: "unapprove",
-      error: error instanceof Error ? error.message : "Unknown error",
-      metadata: { commentId },
+      step: "error",
+      metadata: { 
+        commentId,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
     })
     return NextResponse.json({ error: "Đã xảy ra lỗi khi hủy duyệt bình luận" }, { status: 500 })
   }
