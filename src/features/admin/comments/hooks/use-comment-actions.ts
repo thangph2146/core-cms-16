@@ -1,6 +1,7 @@
 /**
  * Custom hook để xử lý các actions của comments
- * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
+ * Sử dụng useResourceActions dùng chung cho delete/restore/hard-delete
+ * Giữ lại handleToggleApprove và executeBulkAction riêng vì có logic approve/unapprove đặc biệt
  */
 
 import { useCallback, useState } from "react"
@@ -8,9 +9,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
+import { useResourceActions, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
 import type { CommentRow } from "../types"
-import type { DataTableResult } from "@/components/tables"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { COMMENT_MESSAGES } from "../constants/messages"
 import { resourceLogger } from "@/lib/config"
@@ -21,7 +21,7 @@ interface UseCommentActionsOptions {
   canDelete: boolean
   canRestore: boolean
   canManage: boolean
-  isSocketConnected: boolean
+  isSocketConnected?: boolean
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
   refreshTable?: () => Promise<void>
 }
@@ -39,12 +39,55 @@ export function useCommentActions({
   const [approvingComments, setApprovingComments] = useState<Set<string>>(new Set())
   const [unapprovingComments, setUnapprovingComments] = useState<Set<string>>(new Set())
   const [togglingComments, setTogglingComments] = useState<Set<string>>(new Set())
-  const [deletingComments, setDeletingComments] = useState<Set<string>>(new Set())
-  const [restoringComments, setRestoringComments] = useState<Set<string>>(new Set())
-  const [hardDeletingComments, setHardDeletingComments] = useState<Set<string>>(new Set())
 
-  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
+  // Sử dụng hook dùng chung cho delete/restore/hard-delete
+  const {
+    executeSingleAction: baseExecuteSingleAction,
+    deletingIds: deletingComments,
+    restoringIds: restoringComments,
+    hardDeletingIds: hardDeletingComments,
+    bulkState: baseBulkState,
+  } = useResourceActions<CommentRow>({
+    resourceName: "comments",
+    queryKeys: {
+      all: () => queryKeys.adminComments.all(),
+    },
+    apiRoutes: {
+      delete: (id) => apiRoutes.comments.delete(id),
+      restore: (id) => apiRoutes.comments.restore(id),
+      hardDelete: (id) => apiRoutes.comments.hardDelete(id),
+      bulk: apiRoutes.comments.bulk,
+    },
+    messages: COMMENT_MESSAGES,
+    getRecordName: (row) => row.authorName || row.authorEmail,
+    permissions: {
+      canDelete,
+      canRestore,
+      canManage,
+    },
+    showFeedback,
+    isSocketConnected,
+    getLogMetadata: (row) => ({
+      commentId: row.id,
+      authorName: row.authorName,
+      authorEmail: row.authorEmail,
+    }),
+  })
 
+  // Wrapper để gọi refreshTable sau khi action hoàn thành
+  // Comments sử dụng signature khác (không có refresh parameter)
+  const executeSingleAction = useCallback(
+    async (
+      action: "delete" | "restore" | "hard-delete",
+      row: CommentRow
+    ): Promise<void> => {
+      await baseExecuteSingleAction(action, row, async () => {})
+      await refreshTable?.()
+    },
+    [baseExecuteSingleAction, refreshTable]
+  )
+
+  // Giữ lại handleToggleApprove riêng vì là logic đặc biệt
   const handleToggleApprove = useCallback(
     async (row: CommentRow, newStatus: boolean) => {
       if (!canApprove) {
@@ -56,9 +99,6 @@ export function useCommentActions({
       const setLoadingState = newStatus ? setApprovingComments : setUnapprovingComments
       setTogglingComments((prev) => new Set(prev).add(row.id))
       setLoadingState((prev) => new Set(prev).add(row.id))
-
-      // Theo chuẩn Next.js 16: không update cache manually, chỉ invalidate
-      // Socket events sẽ tự động update cache nếu có
 
       try {
         resourceLogger.actionFlow({
@@ -90,13 +130,10 @@ export function useCommentActions({
         })
         
         // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
-        // Gọi refreshTable để trigger UI refresh
         await refreshTable?.()
       } catch (error: unknown) {
-        // Extract error message từ axios error response
         let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
         if (error && typeof error === "object" && "response" in error) {
           const axiosError = error as { response?: { data?: { message?: string; error?: string } } }
@@ -116,11 +153,7 @@ export function useCommentActions({
         })
 
         showFeedback("error", newStatus ? COMMENT_MESSAGES.APPROVE_ERROR : COMMENT_MESSAGES.UNAPPROVE_ERROR, `Không thể ${newStatus ? "duyệt" : "hủy duyệt"} bình luận`, errorMessage)
-        
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
-        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
+        await refreshTable?.()
       } finally {
         setTogglingComments((prev) => {
           const next = new Set(prev)
@@ -134,104 +167,11 @@ export function useCommentActions({
         })
       }
     },
-    [canApprove, isSocketConnected, showFeedback, queryClient, refreshTable],
+    [canApprove, showFeedback, queryClient, refreshTable],
   )
 
-  const executeSingleAction = useCallback(
-    async (
-      action: "delete" | "restore" | "hard-delete",
-      row: CommentRow
-    ): Promise<void> => {
-      const actionConfig = {
-        delete: {
-          permission: canDelete,
-          endpoint: apiRoutes.comments.bulk,
-          payload: { action: "delete", ids: [row.id] },
-          successTitle: COMMENT_MESSAGES.DELETE_SUCCESS,
-          successDescription: `Đã xóa bình luận của ${row.authorName || row.authorEmail}`,
-          errorTitle: COMMENT_MESSAGES.DELETE_ERROR,
-          errorDescription: `Không thể xóa bình luận của ${row.authorName || row.authorEmail}`,
-        },
-        restore: {
-          permission: canRestore,
-          endpoint: apiRoutes.comments.bulk,
-          payload: { action: "restore", ids: [row.id] },
-          successTitle: COMMENT_MESSAGES.RESTORE_SUCCESS,
-          successDescription: `Đã khôi phục bình luận của ${row.authorName || row.authorEmail}`,
-          errorTitle: COMMENT_MESSAGES.RESTORE_ERROR,
-          errorDescription: `Không thể khôi phục bình luận của ${row.authorName || row.authorEmail}`,
-        },
-        "hard-delete": {
-          permission: canManage,
-          endpoint: apiRoutes.comments.bulk,
-          payload: { action: "hard-delete", ids: [row.id] },
-          successTitle: COMMENT_MESSAGES.HARD_DELETE_SUCCESS,
-          successDescription: `Đã xóa vĩnh viễn bình luận của ${row.authorName || row.authorEmail}`,
-          errorTitle: COMMENT_MESSAGES.HARD_DELETE_ERROR,
-          errorDescription: `Không thể xóa vĩnh viễn bình luận của ${row.authorName || row.authorEmail}`,
-        },
-      }[action]
-
-      if (!actionConfig.permission) return
-
-      // Track loading state
-      const setLoadingState = action === "delete"
-        ? setDeletingComments
-        : action === "restore"
-        ? setRestoringComments
-        : setHardDeletingComments
-
-      setLoadingState((prev) => new Set(prev).add(row.id))
-
-      try {
-        resourceLogger.tableAction({
-          resource: "comments",
-          action,
-          resourceId: row.id,
-          authorName: row.authorName,
-        })
-        await apiClient.post(actionConfig.endpoint, actionConfig.payload)
-        showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Refetch ngay để đảm bảo table và detail hiển thị data mới sau mutations
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
-        await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
-        // Gọi refreshTable để trigger UI refresh
-        await refreshTable?.()
-      } catch (error: unknown) {
-        // Extract error message từ axios error response
-        let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
-        if (error && typeof error === "object" && "response" in error) {
-          const axiosError = error as { response?: { data?: { message?: string; error?: string; data?: { message?: string } } } }
-          errorMessage = axiosError.response?.data?.message || axiosError.response?.data?.error || axiosError.response?.data?.data?.message || COMMENT_MESSAGES.UNKNOWN_ERROR
-        } else if (error instanceof Error) {
-          errorMessage = error.message
-        }
-        showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
-        // Gọi refreshTable để đảm bảo UI được refresh ngay cả khi có lỗi
-        await refreshTable?.()
-        if (action === "restore") {
-          resourceLogger.tableAction({
-            resource: "comments",
-            action: action,
-            resourceId: row.id,
-            error: errorMessage,
-          })
-        } else {
-          throw error
-        }
-      } finally {
-        setLoadingState((prev) => {
-          const next = new Set(prev)
-          next.delete(row.id)
-          return next
-        })
-      }
-    },
-    [canDelete, canRestore, canManage, showFeedback, queryClient, refreshTable],
-  )
-
+  // Giữ lại executeBulkAction riêng vì hỗ trợ approve/unapprove
+  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove",
@@ -245,7 +185,7 @@ export function useCommentActions({
       try {
         resourceLogger.tableAction({
           resource: "comments",
-          action: action,
+          action,
           count: ids.length,
           commentIds: ids,
         })
@@ -265,15 +205,11 @@ export function useCommentActions({
         clearSelection()
 
         // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Refetch ngay để đảm bảo table hiển thị data mới sau bulk mutations
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminComments.all(), type: "active" })
-        // Gọi refreshTable để trigger UI refresh
         await refreshTable?.()
       } catch (error: unknown) {
-        // Gọi refreshTable để đảm bảo UI được refresh ngay cả khi có lỗi
         await refreshTable?.()
-        // Extract error message từ axios error response
         let errorMessage: string = COMMENT_MESSAGES.UNKNOWN_ERROR
         if (error && typeof error === "object" && "response" in error) {
           const axiosError = error as { response?: { data?: { message?: string; error?: string; data?: { message?: string } } } }
@@ -291,7 +227,7 @@ export function useCommentActions({
         }
         resourceLogger.tableAction({
           resource: "comments",
-          action: action,
+          action,
           count: ids.length,
           error: errorMessage,
         })
@@ -316,7 +252,6 @@ export function useCommentActions({
     deletingComments,
     restoringComments,
     hardDeletingComments,
-    bulkState,
+    bulkState: bulkState.isProcessing ? bulkState : baseBulkState,
   }
 }
-

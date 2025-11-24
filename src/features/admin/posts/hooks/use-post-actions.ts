@@ -1,19 +1,14 @@
 /**
  * Custom hook để xử lý các actions của posts
- * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
+ * Sử dụng useResourceActions dùng chung để đảm bảo consistency
  */
 
-import { useCallback, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
-import { apiClient } from "@/lib/api/axios"
+import { useResourceActions } from "@/features/admin/resources/hooks"
 import { apiRoutes } from "@/lib/api/routes"
 import { queryKeys } from "@/lib/query-keys"
-import { runResourceRefresh, useResourceBulkProcessing } from "@/features/admin/resources/hooks"
-import type { ResourceRefreshHandler } from "@/features/admin/resources/types"
 import type { PostRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
 import { POST_MESSAGES } from "../constants/messages"
-import { resourceLogger } from "@/lib/config"
 
 interface UsePostActionsOptions {
   canDelete: boolean
@@ -28,211 +23,29 @@ export function usePostActions({
   canManage,
   showFeedback,
 }: UsePostActionsOptions) {
-  const queryClient = useQueryClient()
-  const [deletingPosts, setDeletingPosts] = useState<Set<string>>(new Set())
-  const [restoringPosts, setRestoringPosts] = useState<Set<string>>(new Set())
-  const [hardDeletingPosts, setHardDeletingPosts] = useState<Set<string>>(new Set())
-
-  const { bulkState, startBulkProcessing, stopBulkProcessing } = useResourceBulkProcessing()
-
-  const executeSingleAction = useCallback(
-    async (
-      action: "delete" | "restore" | "hard-delete",
-      row: PostRow,
-      refresh: ResourceRefreshHandler
-    ): Promise<void> => {
-      const actionConfig = {
-        delete: {
-          permission: canDelete,
-          endpoint: apiRoutes.posts.delete(row.id),
-          method: "delete" as const,
-          successTitle: POST_MESSAGES.DELETE_SUCCESS,
-          successDescription: `Đã xóa bài viết ${row.title}`,
-          errorTitle: POST_MESSAGES.DELETE_ERROR,
-          errorDescription: `Không thể xóa bài viết ${row.title}`,
-        },
-        restore: {
-          permission: canRestore,
-          endpoint: apiRoutes.posts.restore(row.id),
-          method: "post" as const,
-          successTitle: POST_MESSAGES.RESTORE_SUCCESS,
-          successDescription: `Đã khôi phục bài viết "${row.title}"`,
-          errorTitle: POST_MESSAGES.RESTORE_ERROR,
-          errorDescription: `Không thể khôi phục bài viết "${row.title}"`,
-        },
-        "hard-delete": {
-          permission: canManage,
-          endpoint: apiRoutes.posts.hardDelete(row.id),
-          method: "delete" as const,
-          successTitle: POST_MESSAGES.HARD_DELETE_SUCCESS,
-          successDescription: `Đã xóa vĩnh viễn bài viết ${row.title}`,
-          errorTitle: POST_MESSAGES.HARD_DELETE_ERROR,
-          errorDescription: `Không thể xóa vĩnh viễn bài viết ${row.title}`,
-        },
-      }[action]
-
-      if (!actionConfig.permission) return
-
-      // Track loading state
-      const setLoadingState = action === "delete" 
-        ? setDeletingPosts 
-        : action === "restore" 
-        ? setRestoringPosts 
-        : setHardDeletingPosts
-
-      setLoadingState((prev) => new Set(prev).add(row.id))
-
-      try {
-        if (actionConfig.method === "delete") {
-          await apiClient.delete(actionConfig.endpoint)
-        } else {
-          await apiClient.post(actionConfig.endpoint)
-        }
-        showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
-        
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Đảm bảo table và detail luôn hiển thị data mới sau mutations
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "active" })
-        await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "active" })
-        
-        // Log success với metadata chi tiết
-        resourceLogger.actionFlow({
-          resource: "posts",
-          action: action === "delete" ? "delete" : action === "restore" ? "restore" : "hard-delete",
-          step: "success",
-          metadata: { postId: row.id, postTitle: row.title },
-        })
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : POST_MESSAGES.UNKNOWN_ERROR
-        showFeedback("error", actionConfig.errorTitle, actionConfig.errorDescription, errorMessage)
-        resourceLogger.actionFlow({
-          resource: "posts",
-          action: action === "delete" ? "delete" : action === "restore" ? "restore" : "hard-delete",
-          step: "error",
-          metadata: { postId: row.id, postTitle: row.title, error: errorMessage },
-        })
-        if (action !== "restore") {
-          throw error
-        }
-      } finally {
-        setLoadingState((prev) => {
-          const next = new Set(prev)
-          next.delete(row.id)
-          return next
-        })
-      }
+  return useResourceActions<PostRow>({
+    resourceName: "posts",
+    queryKeys: {
+      all: () => queryKeys.adminPosts.all(),
     },
-    [canDelete, canRestore, canManage, showFeedback, queryClient],
-  )
-
-  const executeBulkAction = useCallback(
-    async (
-      action: "delete" | "restore" | "hard-delete",
-      ids: string[],
-      refresh: ResourceRefreshHandler,
-      clearSelection: () => void
-    ) => {
-      if (ids.length === 0) return
-
-      if (!startBulkProcessing()) return
-
-      // Log action start
-      resourceLogger.actionFlow({
-        resource: "posts",
-        action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
-        step: "start",
-        metadata: { count: ids.length, postIds: ids },
-      })
-
-      try {
-        const response = await apiClient.post(apiRoutes.posts.bulk, { action, ids })
-
-        const result = response.data?.data
-        const affected = result?.affected ?? 0
-
-        // Nếu không có post nào được xử lý (affected === 0), hiển thị thông báo
-        if (affected === 0) {
-          const actionText = action === "restore" ? "khôi phục" : action === "delete" ? "xóa" : "xóa vĩnh viễn"
-          const errorMessage = result?.message || `Không có bài viết nào được ${actionText}`
-          showFeedback("error", "Không có thay đổi", errorMessage)
-          clearSelection()
-          resourceLogger.actionFlow({
-            resource: "posts",
-            action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
-            step: "error",
-            metadata: { requestedCount: ids.length, affectedCount: 0, error: errorMessage, requestedIds: ids },
-          })
-          return
-        }
-
-        // Hiển thị success message với số lượng thực tế đã xử lý và message từ server
-        const messages = {
-          restore: { title: POST_MESSAGES.BULK_RESTORE_SUCCESS, description: result?.message || `Đã khôi phục ${affected} bài viết` },
-          delete: { title: POST_MESSAGES.BULK_DELETE_SUCCESS, description: result?.message || `Đã xóa ${affected} bài viết` },
-          "hard-delete": { title: POST_MESSAGES.BULK_HARD_DELETE_SUCCESS, description: result?.message || `Đã xóa vĩnh viễn ${affected} bài viết` },
-        }
-
-        const message = messages[action]
-        showFeedback("success", message.title, message.description)
-        clearSelection()
-
-        // Log success với metadata chi tiết
-        resourceLogger.actionFlow({
-          resource: "posts",
-          action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
-          step: "success",
-          metadata: { requestedCount: ids.length, affectedCount: affected },
-        })
-
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
-        // Đảm bảo table luôn hiển thị data mới sau bulk mutations
-        await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "active" })
-        await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "active" })
-      } catch (error: unknown) {
-        // Extract error message từ response nếu có
-        let errorMessage: string = POST_MESSAGES.UNKNOWN_ERROR
-        if (error && typeof error === "object" && "response" in error) {
-          const axiosError = error as { response?: { data?: { message?: string; error?: string } } }
-          errorMessage = axiosError.response?.data?.message || axiosError.response?.data?.error || POST_MESSAGES.UNKNOWN_ERROR
-        } else if (error instanceof Error) {
-          errorMessage = error.message
-        }
-        
-        const errorTitles = {
-          restore: POST_MESSAGES.BULK_RESTORE_ERROR,
-          delete: POST_MESSAGES.BULK_DELETE_ERROR,
-          "hard-delete": POST_MESSAGES.BULK_HARD_DELETE_ERROR,
-        }
-        showFeedback("error", errorTitles[action], errorMessage)
-        
-        resourceLogger.actionFlow({
-          resource: "posts",
-          action: action === "delete" ? "bulk-delete" : action === "restore" ? "bulk-restore" : "bulk-hard-delete",
-          step: "error",
-          metadata: {
-            requestedCount: ids.length,
-            error: errorMessage,
-            requestedIds: ids,
-          },
-        })
-        
-        if (action !== "restore") {
-          throw error
-        }
-      } finally {
-        stopBulkProcessing()
-      }
+    apiRoutes: {
+      delete: (id) => apiRoutes.posts.delete(id),
+      restore: (id) => apiRoutes.posts.restore(id),
+      hardDelete: (id) => apiRoutes.posts.hardDelete(id),
+      bulk: apiRoutes.posts.bulk,
     },
-    [showFeedback, startBulkProcessing, stopBulkProcessing, queryClient],
-  )
-
-  return {
-    executeSingleAction,
-    executeBulkAction,
-    deletingPosts,
-    restoringPosts,
-    hardDeletingPosts,
-    bulkState,
-  }
+    messages: POST_MESSAGES,
+    getRecordName: (row) => row.title,
+    permissions: {
+      canDelete,
+      canRestore,
+      canManage,
+    },
+    showFeedback,
+    getLogMetadata: (row) => ({
+      postId: row.id,
+      postTitle: row.title,
+    }),
+  })
 }
 

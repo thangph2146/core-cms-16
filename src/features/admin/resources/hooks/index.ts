@@ -33,3 +33,7 @@ export { useResourceDetailLogger } from "./use-resource-detail-logger"
 // Form logger helpers
 export { useResourceFormLogger } from "./use-resource-form-logger"
 
+// Resource actions helpers
+export { useResourceActions } from "./use-resource-actions"
+export type { ResourceActionConfig, UseResourceActionsResult } from "./use-resource-actions"
+

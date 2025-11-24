@@ -3,7 +3,7 @@
  * Track data từ React Query cache và log khi data mới được refetch
  */
 
-import { useEffect, useRef, useMemo } from "react"
+import { useEffect, useRef, useMemo, useCallback } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import type { DataTableResult } from "@/components/tables"
 import { resourceLogger } from "@/lib/config/resource-logger"
@@ -54,97 +54,156 @@ export function useResourceTableLogger<T extends object>({
     return initialData
   }, [currentViewId, initialDataByView, initialData])
 
-  // Track data từ React Query cache
+  // Build queryKey từ view hiện tại (không cần initialData)
+  // Fix: Build queryKey ngay khi view thay đổi, không cần đợi initialData
   const currentQueryKey = useMemo(() => {
-    if (!currentInitialData) return null
+    // Ưu tiên dùng page/limit từ initialData nếu có, nếu không dùng mặc định
+    const page = currentInitialData?.page ?? 1
+    const limit = currentInitialData?.limit ?? 10
     return buildQueryKey({
       status: currentViewStatus,
-      page: currentInitialData.page,
-      limit: currentInitialData.limit,
+      page,
+      limit,
       search: undefined,
       filters: undefined,
     })
-  }, [currentInitialData, currentViewStatus, buildQueryKey])
+  }, [currentViewStatus, buildQueryKey, currentInitialData?.page, currentInitialData?.limit])
 
-  // Log khi data thay đổi hoặc khi view thay đổi - Tối ưu: tránh duplicate
-  useEffect(() => {
-    if (!currentQueryKey) return
+  // Helper function để log data (dùng useCallback để stable reference)
+  const logData = useCallback(
+    (dataToLog: DataTableResult<T>, viewId: string, viewStatus: string) => {
+      if (!dataToLog) return false
 
-    const cachedData = queryClient.getQueryData<DataTableResult<T>>(currentQueryKey)
-    const dataToLog = cachedData || currentInitialData
-    if (!dataToLog) return
-
-    // Kiểm tra xem data có đúng view không (tránh log data của view cũ)
-    // Nếu là deleted view, tất cả rows phải có deletedAt !== null
-    // Nếu là active view, tất cả rows phải có deletedAt === null
-    if (dataToLog.rows.length > 0) {
-      if (currentViewStatus === "deleted") {
-        const allDeleted = dataToLog.rows.every((r) => {
-          const row = r as Record<string, unknown>
-          return row.deletedAt !== null && row.deletedAt !== undefined
-        })
-        if (!allDeleted) {
-          // Data không đúng view, skip log
-          return
-        }
-      } else if (currentViewStatus === "active") {
-        const allActive = dataToLog.rows.every((r) => {
-          const row = r as Record<string, unknown>
-          return row.deletedAt === null || row.deletedAt === undefined
-        })
-        if (!allActive) {
-          // Data không đúng view, skip log
-          return
+      // Kiểm tra xem data có đúng view không (tránh log data của view cũ)
+      if (dataToLog.rows.length > 0) {
+        if (viewStatus === "deleted") {
+          const allDeleted = dataToLog.rows.every((r) => {
+            const row = r as Record<string, unknown>
+            return row.deletedAt !== null && row.deletedAt !== undefined
+          })
+          if (!allDeleted) {
+            // Data không đúng view, skip log
+            return false
+          }
+        } else if (viewStatus === "active") {
+          const allActive = dataToLog.rows.every((r) => {
+            const row = r as Record<string, unknown>
+            return row.deletedAt === null || row.deletedAt === undefined
+          })
+          if (!allActive) {
+            // Data không đúng view, skip log
+            return false
+          }
         }
       }
-    }
 
-    // Tạo unique key: view + page + total + rowIds (chỉ IDs để tránh log quá nhiều)
-    const rowIds = dataToLog.rows
-      .map((r) => {
-        const row = r as Record<string, unknown>
-        return row.id as string
+      // Tạo unique key: view + page + total + rowIds
+      const rowIds = dataToLog.rows
+        .map((r) => {
+          const row = r as Record<string, unknown>
+          return row.id as string
+        })
+        .sort()
+        .join(",")
+
+      const dataKey = `${viewId || "active"}:${dataToLog.page}:${dataToLog.total}:${rowIds}`
+
+      // Skip nếu đã log data này rồi
+      if (lastLoggedKeyRef.current === dataKey && lastViewIdRef.current === viewId) return false
+
+      // Mark as logged
+      lastLoggedKeyRef.current = dataKey
+      lastViewIdRef.current = viewId
+
+      // Log table action
+      resourceLogger.tableAction({
+        resource: resourceName,
+        action: "load-table",
+        view: viewStatus,
+        total: dataToLog.total,
+        page: dataToLog.page,
       })
-      .sort()
-      .join(",")
 
-    const dataKey = `${currentViewId || "active"}:${dataToLog.page}:${dataToLog.total}:${rowIds}`
+      // Log structure với đầy đủ rows
+      const allRows = dataToLog.rows.map((row) => getRowData(row as T))
 
-    // Skip nếu data không thay đổi và view không thay đổi
-    const viewChanged = lastViewIdRef.current !== currentViewId
-    if (!viewChanged && lastLoggedKeyRef.current === dataKey) return
-
-    // Mark as logged
-    lastLoggedKeyRef.current = dataKey
-    lastViewIdRef.current = currentViewId
-
-    // Log table action
-    resourceLogger.tableAction({
-      resource: resourceName,
-      action: "load-table",
-      view: currentViewStatus,
-      total: dataToLog.total,
-      page: dataToLog.page,
-    })
-
-    // Log structure với đầy đủ rows
-    const allRows = dataToLog.rows.map((row) => getRowData(row as T))
-
-    resourceLogger.dataStructure({
-      resource: resourceName,
-      dataType: "table",
-      rowCount: dataToLog.rows.length,
-      structure: {
-        columns,
-        pagination: {
-          page: dataToLog.page,
-          limit: dataToLog.limit,
-          total: dataToLog.total,
-          totalPages: dataToLog.totalPages,
+      resourceLogger.dataStructure({
+        resource: resourceName,
+        dataType: "table",
+        rowCount: dataToLog.rows.length,
+        structure: {
+          columns,
+          pagination: {
+            page: dataToLog.page,
+            limit: dataToLog.limit,
+            total: dataToLog.total,
+            totalPages: dataToLog.totalPages,
+          },
+          sampleRows: allRows,
         },
-        sampleRows: allRows,
-      },
-    })
-  }, [currentQueryKey, queryClient, currentInitialData, resourceName, columns, getRowData, currentViewId, currentViewStatus])
-}
+      })
 
+      return true
+    },
+    [resourceName, columns, getRowData]
+  )
+
+  // Log khi data thay đổi hoặc khi view thay đổi
+  useEffect(() => {
+    const viewChanged = lastViewIdRef.current !== currentViewId
+    const isFirstMount = lastViewIdRef.current === undefined
+
+    // Ưu tiên data từ cache (data mới nhất từ API sau khi fetch)
+    const cachedData = queryClient.getQueryData<DataTableResult<T>>(currentQueryKey)
+    const dataToLog = cachedData || currentInitialData
+
+    if (dataToLog) {
+      // Có data ngay, log luôn
+      logData(dataToLog, currentViewId || "active", currentViewStatus)
+    } else if (viewChanged || isFirstMount) {
+      // View thay đổi hoặc lần đầu mount nhưng chưa có data
+      // Đợi một chút để loader fetch data và update cache, sau đó log
+      // Retry nhiều lần để đảm bảo log được data
+      let retryCount = 0
+      const maxRetries = 10
+      const retryInterval = 100 // 100ms mỗi lần retry
+
+      const retryLog = () => {
+        const retryCachedData = queryClient.getQueryData<DataTableResult<T>>(currentQueryKey)
+        if (retryCachedData) {
+          const logged = logData(retryCachedData, currentViewId || "active", currentViewStatus)
+          if (logged) return // Đã log thành công, dừng retry
+        }
+
+        if (retryCount < maxRetries) {
+          retryCount++
+          setTimeout(retryLog, retryInterval)
+        }
+      }
+
+      const timeoutId = setTimeout(retryLog, retryInterval)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentQueryKey, queryClient, currentInitialData, currentViewId, currentViewStatus, logData])
+
+  // Subscribe vào cache changes để log ngay khi data được fetch
+  useEffect(() => {
+    // Subscribe vào query cache để detect khi data được fetch và update cache
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey && event.type === "updated") {
+        // Check xem có phải query key của view hiện tại không
+        const queryKeyStr = JSON.stringify(event.query.queryKey)
+        const currentQueryKeyStr = JSON.stringify(currentQueryKey)
+        if (queryKeyStr === currentQueryKeyStr) {
+          const data = event.query.state.data as DataTableResult<T> | undefined
+          if (data) {
+            // Data đã được fetch và update cache, log ngay
+            logData(data, currentViewId || "active", currentViewStatus)
+          }
+        }
+      }
+    })
+
+    return unsubscribe
+  }, [currentQueryKey, queryClient, currentViewId, currentViewStatus, logData])
+}

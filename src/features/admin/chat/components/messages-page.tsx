@@ -7,11 +7,11 @@
 
 import { getAuthInfo } from "@/features/admin/resources/server/auth-helpers"
 import {
-  listConversationsCached,
-  getMessagesBetweenUsersCached,
-  listGroupsCached,
-  getMessagesForGroupCached,
-} from "../server/cache"
+  listConversations,
+  getMessagesBetweenUsers,
+  listGroups,
+  getMessagesForGroup,
+} from "../server/queries"
 import { MessagesPageClient } from "./messages-page.client"
 import type { ChatFilterType, Contact } from "@/components/chat/types"
 import { ensureDate, mapGroupListItemToContact, mapMessageDetailToMessage } from "../utils/contact-transformers"
@@ -36,7 +36,7 @@ export async function MessagesPage({
   const currentUserId = authInfo.actorId
 
   // Fetch conversations
-  const conversationsResult = await listConversationsCached({
+  const conversationsResult = await listConversations({
     userId: currentUserId,
     page: 1,
     limit: 50,
@@ -45,7 +45,7 @@ export async function MessagesPage({
   const includeDeletedGroups = contactScope !== "active"
 
   // Fetch groups (toggle includeDeleted based on scope)
-  const groupsResult = await listGroupsCached({
+  const groupsResult = await listGroups({
     userId: currentUserId,
     page: 1,
     limit: 50,
@@ -55,7 +55,7 @@ export async function MessagesPage({
   // Map conversations to Contact format
   const personalContacts: Contact[] = await Promise.all(
     conversationsResult.data.map(async (conv) => {
-      const messages = await getMessagesBetweenUsersCached(currentUserId, conv.otherUser.id, 100)
+      const messages = await getMessagesBetweenUsers(currentUserId, conv.otherUser.id, 100)
       const mappedMessages = messages.map(mapMessageDetailToMessage)
 
       return {
@@ -77,7 +77,7 @@ export async function MessagesPage({
   // Map groups to Contact format
   const groupContacts: Contact[] = await Promise.all(
     groupsResult.data.map(async (groupData) => {
-      const messages = await getMessagesForGroupCached(groupData.id, currentUserId, 100)
+      const messages = await getMessagesForGroup(groupData.id, currentUserId, 100)
 
       return mapGroupListItemToContact({
         groupData,

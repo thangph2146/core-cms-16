@@ -13,5 +13,5 @@ export * from "./components"
 // Business Hooks
 export * from "./hooks"
 
-// Server-side Logic (queries, mutations, cache)
+// Server-side Logic (queries, mutations)
 export * from "./server"

@@ -26,10 +26,10 @@ features/admin/chat/
 │   ├── new-conversation-dialog.tsx    # Business dialog
 │   └── index.ts
 ├── server/            # Server-side logic
-│   ├── queries.ts
-│   ├── mutations.ts
-│   ├── cache.ts
-│   └── helpers.ts
+│   ├── queries.ts     # Non-cached database queries
+│   ├── mutations.ts   # Create, update, delete operations
+│   ├── helpers.ts     # Helper functions
+│   └── unread-counts.ts # Unread message counts
 └── index.ts          # Public exports
 ```
 
@@ -43,7 +43,7 @@ import { useChat } from "@/features/admin/chat/hooks"
 import { ChatTemplate } from "@/features/admin/chat/components"
 
 // Import server functions
-import { listConversationsCached } from "@/features/admin/chat/server"
+import { listConversations, listGroups, getMessagesBetweenUsers } from "@/features/admin/chat/server"
 ```
 
 ## Flow

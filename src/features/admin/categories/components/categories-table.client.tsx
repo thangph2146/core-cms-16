@@ -83,9 +83,9 @@ export function CategoriesTableClient({
   const {
     executeSingleAction,
     executeBulkAction,
-    deletingCategories,
-    restoringCategories,
-    hardDeletingCategories,
+    deletingIds: deletingCategories,
+    restoringIds: restoringCategories,
+    hardDeletingIds: hardDeletingCategories,
     bulkState,
   } = useCategoryActions({
     canDelete,

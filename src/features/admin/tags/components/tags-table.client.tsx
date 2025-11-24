@@ -83,9 +83,9 @@ export function TagsTableClient({
   const {
     executeSingleAction,
     executeBulkAction,
-    deletingTags,
-    restoringTags,
-    hardDeletingTags,
+    deletingIds: deletingTags,
+    restoringIds: restoringTags,
+    hardDeletingIds: hardDeletingTags,
     bulkState,
   } = useTagActions({
     canDelete,
