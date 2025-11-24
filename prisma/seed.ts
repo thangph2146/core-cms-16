@@ -1077,7 +1077,7 @@ async function main() {
   console.log("✅ Đã tạo groups và group members")
 
   // Tạo Messages (Personal và Group)
-  const personalMessage1 = await prisma.message.create({
+  const _personalMessage1 = await prisma.message.create({
     data: {
       senderId: regularUser.id,
       receiverId: adminUser.id,

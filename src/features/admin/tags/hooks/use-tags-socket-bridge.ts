@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { logger } from "@/lib/config"
 import type { TagRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminTagsListParams } from "@/lib/query-keys"
@@ -68,7 +67,7 @@ export function useTagsSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[TagUpsertPayload]>("tag:upsert", (payload) => {
-      const { tag, previousStatus, newStatus } = payload as TagUpsertPayload
+      const { tag, previousStatus } = payload as TagUpsertPayload
       const rowStatus: "active" | "deleted" = tag.deletedAt ? "deleted" : "active"
 
       // Không log chi tiết từng tag để tránh duplicate logs trong bulk operations

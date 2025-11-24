@@ -70,7 +70,7 @@ export function useStudentActions({
 
   // Giữ lại handleToggleStatus riêng vì là logic đặc biệt
   const handleToggleStatus = useCallback(
-    async (row: StudentRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
+    async (row: StudentRow, newStatus: boolean, _refresh: ResourceRefreshHandler) => {
       if (!canManage) {
         showFeedback("error", STUDENT_MESSAGES.NO_PERMISSION, STUDENT_MESSAGES.NO_MANAGE_PERMISSION)
         return

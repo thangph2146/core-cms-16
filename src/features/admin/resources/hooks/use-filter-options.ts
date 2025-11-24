@@ -29,28 +29,28 @@ export function useFilterOptions({
   // Debounce search query để tránh quá nhiều requests
   const debouncedQuery = useDebounce(searchQuery, 300)
 
-  // Sử dụng createAdminQueryOptions nhưng override staleTime cho filter options
   // Filter options có thể cache ngắn hạn để tránh quá nhiều requests
-  const { data: options = [], isLoading } = useQuery(
-    createAdminQueryOptions<ColumnFilterSelectOption[]>({
-      queryKey: ["filter-options", optionsEndpoint, debouncedQuery, limit],
-      queryFn: async () => {
-        const params = new URLSearchParams({
-          limit: limit.toString(),
-          ...(debouncedQuery && { search: debouncedQuery }),
-        })
+  // Không sử dụng createAdminQueryOptions vì cần override staleTime và gcTime
+  const { data: options = [], isLoading } = useQuery<ColumnFilterSelectOption[]>({
+    queryKey: ["filter-options", optionsEndpoint, debouncedQuery, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        ...(debouncedQuery && { search: debouncedQuery }),
+      })
 
-        // optionsEndpoint đã có column parameter, chỉ cần thêm search và limit
-        const url = `${optionsEndpoint}${optionsEndpoint.includes("?") ? "&" : "?"}${params}`
-        const response = await apiClient.get<{ data: ColumnFilterSelectOption[] }>(url)
-        
-        return response.data.data || []
-      },
-      staleTime: 5 * 60 * 1000, // Override: Cache 5 phút cho filter options
-      gcTime: 10 * 60 * 1000, // Override: Keep in cache 10 phút
-      enabled: !!optionsEndpoint, // Chỉ fetch khi có endpoint
-    })
-  )
+      // optionsEndpoint đã có column parameter, chỉ cần thêm search và limit
+      const url = `${optionsEndpoint}${optionsEndpoint.includes("?") ? "&" : "?"}${params}`
+      const response = await apiClient.get<{ data: ColumnFilterSelectOption[] }>(url)
+      
+      return response.data.data || []
+    },
+    staleTime: 5 * 60 * 1000, // Cache 5 phút cho filter options
+    gcTime: 10 * 60 * 1000, // Keep in cache 10 phút
+    enabled: !!optionsEndpoint, // Chỉ fetch khi có endpoint
+    refetchOnWindowFocus: false, // Không refetch khi window focus
+    refetchOnReconnect: false, // Không refetch khi reconnect
+  })
 
   return { options, isLoading }
 }

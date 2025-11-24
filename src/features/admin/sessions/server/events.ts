@@ -7,7 +7,6 @@ import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapSessionRecord, serializeSessionForTable } from "./helpers"
 import type { SessionRow } from "../types"
-import { resourceLogger } from "@/lib/config"
 
 const SUPER_ADMIN_ROOM = "role:super_admin"
 

@@ -5,7 +5,7 @@
  * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
  */
 
-import { getActiveRolesForSelect } from "../server/queries"
+import { getActiveRoles } from "../server/queries"
 import { UserCreateClient } from "./user-create.client"
 
 export interface UserCreateProps {
@@ -13,7 +13,7 @@ export interface UserCreateProps {
 }
 
 export async function UserCreate({ backUrl = "/admin/users" }: UserCreateProps) {
-  const roles = await getActiveRolesForSelect()
+  const roles = await getActiveRoles()
 
   return <UserCreateClient backUrl={backUrl} roles={roles} />
 }

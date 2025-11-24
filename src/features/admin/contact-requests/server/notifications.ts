@@ -55,7 +55,7 @@ export async function notifySuperAdminsOfContactRequestAction(
   }
 ) {
   try {
-    const actor = await getActorInfo(actorId)
+    const _actor = await getActorInfo(actorId)
 
     let title = ""
     let description = ""

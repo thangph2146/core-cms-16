@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { logger } from "@/lib/config"
 import type { SessionRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminSessionsListParams } from "@/lib/query-keys"
@@ -70,7 +69,7 @@ export function useSessionsSocketBridge() {
 
     // Handle session:upsert event (for updates, creates, restores)
     const detachUpsert = on<[SessionUpsertPayload]>("session:upsert", (payload) => {
-      const { session: sessionRow, previousStatus, newStatus } = payload as SessionUpsertPayload
+      const { session: sessionRow, previousStatus } = payload as SessionUpsertPayload
       // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
       const rowStatus: "active" | "deleted" = sessionRow.isActive ? "active" : "deleted"
 

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { resourceLogger } from "@/lib/config"
 import type { StudentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminStudentsListParams } from "@/lib/query-keys"
@@ -89,23 +88,19 @@ function handleStudentUpsert(
 
   let total = data.total
   let rows = data.rows
-  let action: "insert" | "update" | "remove" | null = null
 
   if (shouldInclude) {
     if (existingIndex >= 0) {
       rows = rows.map((row) => (row.id === student.id ? student : row))
-      action = "update"
     } else if (params.page === 1) {
       rows = insertRowIntoPage(rows, student, data.limit)
       total = total + 1
-      action = "insert"
     }
   } else if (existingIndex >= 0) {
     const result = removeRowFromPage(rows, student.id)
     rows = result.rows
     if (result.removed) {
       total = Math.max(0, total - 1)
-      action = "remove"
     }
   } else {
     return null
@@ -209,7 +204,7 @@ export function useStudentsSocketBridge() {
     setupKeyRef.current = currentSetupKey
 
     const detachUpsert = on<[StudentUpsertPayload]>("student:upsert", (payload) => {
-      const { student, previousStatus, newStatus } = payload as StudentUpsertPayload
+      const { student } = payload as StudentUpsertPayload
 
       const updated = updateStudentQueries(queryClient, ({ params, data }) => {
         return handleStudentUpsert(student, params, data)
@@ -247,7 +242,7 @@ export function useStudentsSocketBridge() {
     })
 
     const detachRemove = on<[StudentRemovePayload]>("student:remove", (payload) => {
-      const { id, previousStatus } = payload as StudentRemovePayload
+      const { id } = payload as StudentRemovePayload
       
       const updated = updateStudentQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)

@@ -350,7 +350,7 @@ export function RolesTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  const buildInitialParams = useCallback(
+  const _buildInitialParams = useCallback(
     (data: DataTableResult<RoleRow>): AdminRolesListParams => ({
       status: "active",
       page: data.page,

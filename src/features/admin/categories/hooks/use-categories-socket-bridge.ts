@@ -68,7 +68,7 @@ export function useCategoriesSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[CategoryUpsertPayload]>("category:upsert", (payload) => {
-      const { category } = payload as CategoryUpsertPayload
+      const { category, previousStatus } = payload as CategoryUpsertPayload
       const rowStatus: "active" | "deleted" = category.deletedAt ? "deleted" : "active"
 
       const updated = updateCategoryQueries(queryClient, ({ params, data }) => {

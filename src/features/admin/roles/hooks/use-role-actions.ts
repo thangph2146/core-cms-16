@@ -91,7 +91,7 @@ export function useRoleActions({
 
   // Giữ lại handleToggleStatus riêng vì là logic đặc biệt
   const handleToggleStatus = useCallback(
-    async (row: RoleRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
+    async (row: RoleRow, newStatus: boolean, _refresh: ResourceRefreshHandler) => {
       if (!canManage) {
         showFeedback("error", ROLE_MESSAGES.NO_PERMISSION, ROLE_MESSAGES.NO_MANAGE_PERMISSION)
         return

@@ -27,11 +27,8 @@ export const ADMIN_QUERY_DEFAULTS = {
 /**
  * Default mutation options cho admin features
  */
-export const ADMIN_MUTATION_DEFAULTS: Pick<
-  UseMutationOptions<unknown, Error, unknown>,
-  "retry"
-> = {
-  retry: 1, // Retry 1 lần khi failed
+export const ADMIN_MUTATION_DEFAULTS = {
+  retry: 1 as const, // Retry 1 lần khi failed
 }
 
 /**
@@ -80,7 +77,7 @@ export function createAdminMutationOptions<TData = unknown, TError = Error, TVar
   return {
     ...ADMIN_MUTATION_DEFAULTS,
     ...options,
-  }
+  } as UseMutationOptions<TData, TError, TVariables>
 }
 
 /**

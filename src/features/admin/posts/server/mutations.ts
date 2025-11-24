@@ -527,7 +527,7 @@ export async function bulkPostsAction(
     })
 
     const foundIds = posts.map(p => p.id)
-    const notFoundIds = postIds.filter(id => !foundIds.includes(id))
+    const _notFoundIds = postIds.filter(id => !foundIds.includes(id))
 
     // Kiểm tra nếu không có post nào để restore
     if (posts.length === 0) {

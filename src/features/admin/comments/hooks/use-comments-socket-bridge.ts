@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { resourceLogger } from "@/lib/config"
 import type { CommentRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminCommentsListParams } from "@/lib/query-keys"
@@ -223,7 +222,7 @@ export function useCommentsSocketBridge() {
       // Invalidate detail query cache
       queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.detail(id) })
       
-      const updated = updateCommentQueries(queryClient, ({ params, data }) => {
+      const updated = updateCommentQueries(queryClient, ({ data }) => {
         const result = removeRowFromPage(data.rows, id)
         if (!result.removed) {
           return null

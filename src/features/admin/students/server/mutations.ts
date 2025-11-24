@@ -3,7 +3,7 @@
 import type { Prisma } from "@prisma/client"
 import { PERMISSIONS, canPerformAnyAction, isSuperAdmin } from "@/lib/permissions"
 import { prisma } from "@/lib/database"
-import { mapStudentRecord, type StudentWithRelations } from "./helpers"
+import { mapStudentRecord } from "./helpers"
 import type { ListedStudent } from "../types"
 import {
   CreateStudentSchema,
@@ -315,7 +315,7 @@ export async function bulkSoftDeleteStudents(ctx: AuthContext, ids: string[]): P
   })
 
   const foundIds = students.map(s => s.id)
-  const notFoundIds = ids.filter(id => !foundIds.includes(id))
+  const _notFoundIds = ids.filter(id => !foundIds.includes(id))
 
   if (students.length === 0) {
     const allStudents = await prisma.student.findMany({

@@ -60,9 +60,9 @@ export function PostsTableClient({
   const {
     executeSingleAction,
     executeBulkAction,
-    deletingPosts,
-    restoringPosts,
-    hardDeletingPosts,
+    deletingIds,
+    restoringIds,
+    hardDeletingIds,
     bulkState,
   } = usePostActions({
     canDelete,
@@ -72,7 +72,7 @@ export function PostsTableClient({
   })
 
   const handleTogglePublished = useCallback(
-    async (row: PostRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
+    async (row: PostRow, newStatus: boolean, _refresh: ResourceRefreshHandler) => {
       if (!canToggleStatus) {
         showFeedback("error", "Không có quyền", "Bạn không có quyền thay đổi trạng thái xuất bản")
         return
@@ -204,9 +204,9 @@ export function PostsTableClient({
     onDelete: handleDeleteSingle,
     onHardDelete: handleHardDeleteSingle,
     onRestore: handleRestoreSingle,
-    deletingPosts,
-    restoringPosts,
-    hardDeletingPosts,
+    deletingIds,
+    restoringIds,
+    hardDeletingIds,
   })
 
   const fetchPosts = useCallback(
@@ -338,7 +338,7 @@ export function PostsTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  const buildInitialParams = useCallback(
+  const _buildInitialParams = useCallback(
     (data: DataTableResult<PostRow>): AdminPostsListParams => ({
       status: "active",
       page: data.page,
@@ -630,10 +630,10 @@ export function PostsTableClient({
             bulkState.isProcessing ||
             (deleteConfirm.row
               ? deleteConfirm.type === "restore"
-                ? restoringPosts.has(deleteConfirm.row.id)
+                ? restoringIds.has(deleteConfirm.row.id)
                 : deleteConfirm.type === "hard"
-                ? hardDeletingPosts.has(deleteConfirm.row.id)
-                : deletingPosts.has(deleteConfirm.row.id)
+                ? hardDeletingIds.has(deleteConfirm.row.id)
+                : deletingIds.has(deleteConfirm.row.id)
               : false)
           }
         />

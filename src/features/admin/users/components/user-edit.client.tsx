@@ -7,6 +7,7 @@
 
 "use client"
 
+import { useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
@@ -63,7 +64,7 @@ export function UserEditClient({
   // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
   // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = userId || initialUser?.id
-  const { data: userData, isFetching } = useResourceDetailData({
+  const { data: userData } = useResourceDetailData({
     initialData: initialUser || ({} as UserEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminUsers.detail,
@@ -72,8 +73,20 @@ export function UserEditClient({
     fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
   })
 
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  const user = (userData as UserEditData | null) || initialUser
+  // Transform data từ API response sang form format
+  // API trả về roles array nhưng form cần roleIds string (single select)
+  // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi userData thay đổi
+  const user = useMemo(() => {
+    if (userData) {
+      const userDataTyped = userData as UserEditData
+      // Transform roles array thành roleIds string (lấy role đầu tiên vì form là single select)
+      return {
+        ...userDataTyped,
+        roleIds: userDataTyped.roles && userDataTyped.roles.length > 0 ? userDataTyped.roles[0].id : "",
+      }
+    }
+    return initialUser || null
+  }, [userData, initialUser])
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: (id) => apiRoutes.users.update(id),
@@ -118,14 +131,8 @@ export function UserEditClient({
     return null
   }
 
-  const userForEdit: UserEditData | null = user
-    ? {
-        ...user,
-        roleIds: user.roles && user.roles.length > 0 ? user.roles[0].id : "",
-      }
-    : null
-
-  const roleDefaultValue = typeof userForEdit?.roleIds === "string" ? userForEdit.roleIds : ""
+  // roleIds đã được transform trong useMemo ở trên
+  const roleDefaultValue = typeof user?.roleIds === "string" ? user.roleIds : ""
   const baseFields = getBaseUserFields(roles, roleDefaultValue) as unknown as ResourceFormField<UserEditData>[]
   
   // Điều chỉnh isActive field: disable nếu là super admin và đang active
@@ -148,7 +155,7 @@ export function UserEditClient({
 
   return (
     <ResourceForm<UserEditData>
-      data={userForEdit}
+      data={user}
       fields={finalEditFields}
       onSubmit={handleSubmit}
       open={open}

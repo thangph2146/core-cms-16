@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { logger } from "@/lib/config"
 import type { RoleRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminRolesListParams } from "@/lib/query-keys"
@@ -69,7 +68,7 @@ export function useRolesSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[RoleUpsertPayload]>("role:upsert", (payload) => {
-      const { role, previousStatus, newStatus } = payload as RoleUpsertPayload
+      const { role, previousStatus } = payload as RoleUpsertPayload
       const rowStatus: "active" | "deleted" = role.deletedAt ? "deleted" : "active"
 
       const updated = updateRoleQueries(queryClient, ({ params, data }) => {

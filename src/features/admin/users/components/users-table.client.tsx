@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useEffect, useRef, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
 
@@ -44,7 +44,7 @@ export function UsersTableClient({
 }: UsersTableClientProps) {
   const queryClient = useQueryClient()
   const router = useResourceRouter()
-  const { cacheVersion, isSocketConnected } = useUsersSocketBridge()
+  const { cacheVersion } = useUsersSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useUserFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useUserDeleteConfirm()
 
@@ -275,7 +275,7 @@ export function UsersTableClient({
     [executeBulkAction, setDeleteConfirm],
   )
 
-  const buildInitialParams = useCallback(
+  const _buildInitialParams = useCallback(
     (data: DataTableResult<UserRow>): AdminUsersListParams => ({
       status: "active",
       page: data.page,

@@ -7,24 +7,7 @@
 
 import type { DataTableResult } from "@/components/tables"
 import { logger } from "@/lib/config"
-
-/**
- * Generic pagination response structure
- */
-export interface ResourcePagination {
-  page: number
-  limit: number
-  total: number
-  totalPages: number
-}
-
-/**
- * Generic API response structure for resource lists
- */
-export interface ResourceResponse<T> {
-  data: T[]
-  pagination: ResourcePagination
-}
+import type { ResourcePagination, ResourceResponse } from "../types"
 
 /**
  * Serialize date to ISO string

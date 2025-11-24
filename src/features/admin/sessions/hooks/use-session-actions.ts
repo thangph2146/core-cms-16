@@ -62,7 +62,7 @@ export function useSessionActions({
 
   // Giữ lại handleToggleStatus riêng vì là logic đặc biệt
   const handleToggleStatus = useCallback(
-    async (row: SessionRow, newStatus: boolean, refresh: ResourceRefreshHandler) => {
+    async (row: SessionRow, newStatus: boolean, _refresh: ResourceRefreshHandler) => {
       if (!canManage) {
         showFeedback("error", SESSION_MESSAGES.NO_PERMISSION, SESSION_MESSAGES.NO_MANAGE_PERMISSION)
         return

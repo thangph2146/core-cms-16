@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSocket } from "@/hooks/use-socket"
-import { resourceLogger } from "@/lib/config"
 import type { PostRow } from "../types"
 import type { DataTableResult } from "@/components/tables"
 import { queryKeys, type AdminPostsListParams } from "@/lib/query-keys"
@@ -30,7 +29,7 @@ interface PostRemovePayload {
 function updatePostQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   updater: (args: { key: unknown[]; params: AdminPostsListParams; data: DataTableResult<PostRow> }) => DataTableResult<PostRow> | null,
-  logUpdates = true,
+  _logUpdates = true,
 ): boolean {
   let updated = false
   const queries = queryClient.getQueriesData<DataTableResult<PostRow>>({
@@ -68,7 +67,7 @@ export function usePostsSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[PostUpsertPayload]>("post:upsert", (payload) => {
-      const { post, previousStatus, newStatus } = payload as PostUpsertPayload
+      const { post } = payload as PostUpsertPayload
       const rowStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
 
       const updated = updatePostQueries(queryClient, ({ params, data }) => {
@@ -118,7 +117,7 @@ export function usePostsSocketBridge() {
       const { posts } = payload as { posts: PostUpsertPayload[] }
 
       let anyUpdated = false
-      for (const { post, previousStatus } of posts) {
+      for (const { post } of posts) {
         const rowStatus: "active" | "deleted" = post.deletedAt ? "deleted" : "active"
         const updated = updatePostQueries(
           queryClient,

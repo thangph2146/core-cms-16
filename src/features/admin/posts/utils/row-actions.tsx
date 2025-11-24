@@ -33,9 +33,9 @@ interface UseRowActionsOptions {
   onDelete: (row: PostRow) => void
   onHardDelete: (row: PostRow) => void
   onRestore: (row: PostRow) => void
-  deletingPosts?: Set<string>
-  restoringPosts?: Set<string>
-  hardDeletingPosts?: Set<string>
+  deletingIds?: Set<string>
+  restoringIds?: Set<string>
+  hardDeletingIds?: Set<string>
 }
 
 export function renderRowActions(actions: RowActionConfig[]) {
@@ -109,9 +109,9 @@ export function usePostRowActions({
   onDelete,
   onHardDelete,
   onRestore,
-  deletingPosts = new Set(),
-  restoringPosts = new Set(),
-  hardDeletingPosts = new Set(),
+  deletingIds = new Set(),
+  restoringIds = new Set(),
+  hardDeletingIds = new Set(),
 }: UseRowActionsOptions) {
   const router = useResourceRouter()
 
@@ -134,26 +134,26 @@ export function usePostRowActions({
       }
 
       if (canDelete) {
-        const isDeleting = deletingPosts.has(row.id)
+        const isDeleting = deletingIds.has(row.id)
         actions.push({
           label: POST_LABELS.DELETE,
           icon: Trash2,
           onSelect: () => onDelete(row),
           destructive: true,
-          disabled: isDeleting || restoringPosts.has(row.id) || hardDeletingPosts.has(row.id),
+          disabled: isDeleting || restoringIds.has(row.id) || hardDeletingIds.has(row.id),
           isLoading: isDeleting,
           loadingLabel: POST_LABELS.DELETING,
         })
       }
 
       if (canManage) {
-        const isHardDeleting = hardDeletingPosts.has(row.id)
+        const isHardDeleting = hardDeletingIds.has(row.id)
         actions.push({
           label: POST_LABELS.HARD_DELETE,
           icon: AlertTriangle,
           onSelect: () => onHardDelete(row),
           destructive: true,
-          disabled: deletingPosts.has(row.id) || restoringPosts.has(row.id) || isHardDeleting,
+          disabled: deletingIds.has(row.id) || restoringIds.has(row.id) || isHardDeleting,
           isLoading: isHardDeleting,
           loadingLabel: POST_LABELS.HARD_DELETING,
         })
@@ -161,7 +161,7 @@ export function usePostRowActions({
 
       return renderRowActions(actions)
     },
-    [canDelete, canManage, onDelete, onHardDelete, router, deletingPosts, restoringPosts, hardDeletingPosts],
+    [canDelete, canManage, onDelete, onHardDelete, router, deletingIds, restoringIds, hardDeletingIds],
   )
 
   const renderDeletedRowActions = useCallback(
@@ -175,25 +175,25 @@ export function usePostRowActions({
       ]
 
       if (canRestore) {
-        const isRestoring = restoringPosts.has(row.id)
+        const isRestoring = restoringIds.has(row.id)
         actions.push({
           label: POST_LABELS.RESTORE,
           icon: RotateCcw,
           onSelect: () => onRestore(row),
-          disabled: deletingPosts.has(row.id) || isRestoring || hardDeletingPosts.has(row.id),
+          disabled: deletingIds.has(row.id) || isRestoring || hardDeletingIds.has(row.id),
           isLoading: isRestoring,
           loadingLabel: POST_LABELS.RESTORING,
         })
       }
 
       if (canManage) {
-        const isHardDeleting = hardDeletingPosts.has(row.id)
+        const isHardDeleting = hardDeletingIds.has(row.id)
         actions.push({
           label: POST_LABELS.HARD_DELETE,
           icon: AlertTriangle,
           onSelect: () => onHardDelete(row),
           destructive: true,
-          disabled: deletingPosts.has(row.id) || restoringPosts.has(row.id) || isHardDeleting,
+          disabled: deletingIds.has(row.id) || restoringIds.has(row.id) || isHardDeleting,
           isLoading: isHardDeleting,
           loadingLabel: POST_LABELS.HARD_DELETING,
         })
@@ -201,7 +201,7 @@ export function usePostRowActions({
 
       return renderRowActions(actions)
     },
-    [canManage, canRestore, onHardDelete, onRestore, router, deletingPosts, restoringPosts, hardDeletingPosts],
+    [canManage, canRestore, onHardDelete, onRestore, router, deletingIds, restoringIds, hardDeletingIds],
   )
 
   return {

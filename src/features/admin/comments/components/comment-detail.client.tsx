@@ -153,7 +153,7 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
         setIsToggling(false)
       }
     },
-    [canApprove, commentId, isToggling, detailData.authorName, queryClient],
+    [canApprove, commentId, isToggling, detailData, queryClient],
   )
 
   const detailFields: ResourceDetailField<CommentDetailData>[] = []

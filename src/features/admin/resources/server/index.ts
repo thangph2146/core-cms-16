@@ -27,9 +27,10 @@ export {
   applyBooleanFilter,
   applyStringFilter,
   applyStatusFilterFromFilters,
-  type ResourcePagination,
-  type ResourceResponse,
 } from "./helpers"
+
+// Re-export types from types for backward compatibility
+export type { ResourcePagination, ResourceResponse } from "../types"
 
 // Error classes
 export {

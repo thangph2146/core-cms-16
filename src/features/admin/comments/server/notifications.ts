@@ -7,7 +7,6 @@ import { resourceLogger } from "@/lib/config"
 import { getSocketServer, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
-import type { CommentWithRelations } from "./helpers"
 
 /**
  * Helper function để lấy thông tin actor (người thực hiện action)
