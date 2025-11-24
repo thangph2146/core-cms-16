@@ -114,6 +114,9 @@ export function TagEditClient({
       onOpenChange={onOpenChange}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : undefined}
+      resourceName="tags"
+      resourceId={tag?.id}
+      action="update"
     />
   )
 }

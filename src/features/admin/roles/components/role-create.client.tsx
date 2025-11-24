@@ -71,6 +71,8 @@ export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permis
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="roles"
+      action="create"
     />
   )
 }

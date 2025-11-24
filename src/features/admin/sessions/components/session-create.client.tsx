@@ -51,6 +51,8 @@ export function SessionCreateClient({ backUrl = "/admin/sessions", users: usersF
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="sessions"
+      action="create"
     />
   )
 }

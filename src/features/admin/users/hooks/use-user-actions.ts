@@ -109,7 +109,7 @@ export function useUserActions({
 
   // Giữ lại executeToggleActive riêng vì là logic đặc biệt
   const executeToggleActive = useCallback(
-    async (row: UserRow, newStatus: boolean, refresh: ResourceRefreshHandler): Promise<void> => {
+    async (row: UserRow, newStatus: boolean, _refresh: ResourceRefreshHandler): Promise<void> => {
       if (!canManage) {
         showFeedback("error", USER_MESSAGES.NO_PERMISSION, USER_MESSAGES.NO_MANAGE_PERMISSION)
         return

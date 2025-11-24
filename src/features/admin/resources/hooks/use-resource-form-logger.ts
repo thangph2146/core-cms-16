@@ -51,8 +51,23 @@ export function useResourceFormLogger<T extends Record<string, unknown>>({
   useEffect(() => {
     if (!formData || isSubmitting) return
 
-    // Tạo unique key từ form data
-    const formDataKey = JSON.stringify(formData)
+    // Tạo unique key từ form data - sort keys để đảm bảo consistent
+    // Loại bỏ các field không quan trọng cho comparison (như content editor state)
+    const normalizedData = Object.keys(formData)
+      .sort()
+      .reduce((acc, key) => {
+        const value = formData[key]
+        // Chỉ include các giá trị primitive và array, skip complex objects như editor content
+        if (value === null || value === undefined || typeof value !== "object" || Array.isArray(value)) {
+          acc[key] = value
+        } else {
+          // Với object phức tạp, chỉ lưu type để tránh duplicate do thứ tự properties
+          acc[key] = `[object:${typeof value}]`
+        }
+        return acc
+      }, {} as Record<string, unknown>)
+    
+    const formDataKey = JSON.stringify(normalizedData)
 
     // Nếu đã log cho form data này rồi, skip
     if (loggedFormDataKeyRef.current === formDataKey) return

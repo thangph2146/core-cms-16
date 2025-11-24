@@ -127,6 +127,9 @@ export function StudentEditClient({
       onOpenChange={onOpenChange}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : undefined}
+      resourceName="students"
+      resourceId={student?.id}
+      action="update"
     />
   )
 }

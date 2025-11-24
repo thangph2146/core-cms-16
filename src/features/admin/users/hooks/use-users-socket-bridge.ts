@@ -96,7 +96,7 @@ export function useUsersSocketBridge() {
     if (!session?.user?.id) return
 
     const detachUpsert = on<[UserUpsertPayload]>("user:upsert", (payload) => {
-      const { user, previousStatus, newStatus } = payload as UserUpsertPayload
+      const { user } = payload as UserUpsertPayload
       const rowStatus: "active" | "deleted" = user.deletedAt ? "deleted" : "active"
 
       const updated = updateUserQueries(queryClient, ({ params, data }) => {
@@ -128,10 +128,6 @@ export function useUsersSocketBridge() {
             total = total + 1
           } else {
             // On pages > 1 we only adjust total if user previously existed
-            if (previousStatus && previousStatus !== rowStatus) {
-              // If moved to this status from different view and this page is not 1, we can't insert accurately
-              // Leave as is until manual refresh
-            }
           }
         } else if (existingIndex >= 0) {
           // User đang ở trong list nhưng không match với view hiện tại (ví dụ: chuyển từ active sang deleted)
@@ -169,7 +165,7 @@ export function useUsersSocketBridge() {
       const { users } = payload as { users: UserUpsertPayload[] }
 
       let anyUpdated = false
-      for (const { user, previousStatus } of users) {
+      for (const { user } of users) {
         const rowStatus: "active" | "deleted" = user.deletedAt ? "deleted" : "active"
         const updated = updateUserQueries(
           queryClient,

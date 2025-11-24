@@ -64,6 +64,8 @@ export function StudentCreateClient({
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="students"
+      action="create"
     />
   )
 }

@@ -218,6 +218,8 @@ export function PostCreateClient({
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="posts"
+      action="create"
     />
   )
 }

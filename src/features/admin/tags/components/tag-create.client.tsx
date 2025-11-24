@@ -76,6 +76,8 @@ export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProp
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="tags"
+      action="create"
     />
   )
 }

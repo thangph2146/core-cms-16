@@ -141,6 +141,9 @@ export function RoleEditClient({
       onOpenChange={onOpenChange}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : undefined}
+      resourceName="roles"
+      resourceId={role?.id}
+      action="update"
     />
   )
 }

@@ -76,6 +76,8 @@ export function CategoryCreateClient({ backUrl = "/admin/categories" }: Category
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="categories"
+      action="create"
     />
   )
 }

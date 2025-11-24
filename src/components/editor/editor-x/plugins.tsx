@@ -189,7 +189,7 @@ export function Plugins({
       <ScrollArea
         className={cn(
           "relative w-full",
-          readOnly ? "" : "h-[calc(68dvh)] overflow-y-auto"
+          readOnly ? "" : "h-[calc(60dvh)] overflow-y-auto"
         )}
         style={constrainedWidthStyle}
       >

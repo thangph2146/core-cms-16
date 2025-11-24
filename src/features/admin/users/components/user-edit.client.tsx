@@ -163,6 +163,9 @@ export function UserEditClient({
       onSuccess={onSuccess}
       showCard={false}
       className="max-w-[100%]"
+      resourceName="users"
+      resourceId={user?.id}
+      action="update"
     />
   )
 }

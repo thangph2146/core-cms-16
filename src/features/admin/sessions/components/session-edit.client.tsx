@@ -112,6 +112,9 @@ export function SessionEditClient({
       onOpenChange={onOpenChange}
       showCard={variant === "page" ? false : true}
       className={variant === "page" ? "max-w-[100%]" : undefined}
+      resourceName="sessions"
+      resourceId={session?.id}
+      action="update"
     />
   )
 }

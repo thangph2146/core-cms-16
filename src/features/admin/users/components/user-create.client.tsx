@@ -88,6 +88,8 @@ export function UserCreateClient({ backUrl = "/admin/users", roles: rolesFromSer
       variant="page"
       showCard={false}
       className="max-w-[100%]"
+      resourceName="users"
+      action="create"
     />
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ResourceForm, type ResourceFormField, type ResourceFormSection } from "@/features/admin/resources/components"
@@ -70,8 +71,99 @@ export function PostEditClient({
       fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
     })
 
-    // Sử dụng fresh data từ API nếu có, fallback về initial data
-    const post = (postData as PostEditData | null) || initialPost
+    // Transform data từ API response sang form format
+    // API trả về author, categories, tags nhưng form cần authorId, categoryIds, tagIds
+    const transformPostData = (data: unknown): PostEditData | null => {
+      if (!data || typeof data !== "object") return null
+      
+      const post = data as Record<string, unknown>
+      const transformed: PostEditData = {
+        ...post,
+      } as PostEditData
+
+      // Transform author object thành authorId string
+      if (post.author && typeof post.author === "object" && post.author !== null && "id" in post.author) {
+        transformed.authorId = String(post.author.id)
+      } else if (post.authorId && post.authorId !== "") {
+        transformed.authorId = String(post.authorId)
+      } else {
+        // Nếu không có author hoặc authorId, để empty string (sẽ được validate)
+        transformed.authorId = ""
+      }
+
+      // Transform categories array thành categoryIds array
+      if (Array.isArray(post.categories)) {
+        // Xử lý cả array rỗng và array có phần tử
+        if (post.categories.length > 0) {
+          transformed.categoryIds = post.categories
+            .map((c) => {
+              if (typeof c === "object" && c !== null && "id" in c) {
+                return String(c.id)
+              }
+              return String(c)
+            })
+            .filter(Boolean)
+        } else {
+          // Array rỗng
+          transformed.categoryIds = []
+        }
+      } else if (post.categoryIds !== undefined) {
+        // Nếu đã có categoryIds, giữ nguyên (có thể là array hoặc string)
+        if (Array.isArray(post.categoryIds)) {
+          transformed.categoryIds = post.categoryIds.length > 0 
+            ? post.categoryIds.map(String).filter(Boolean)
+            : []
+        } else if (typeof post.categoryIds === "string" && post.categoryIds !== "") {
+          transformed.categoryIds = post.categoryIds
+        } else {
+          transformed.categoryIds = []
+        }
+      } else {
+        transformed.categoryIds = []
+      }
+
+      // Transform tags array thành tagIds array
+      if (Array.isArray(post.tags)) {
+        // Xử lý cả array rỗng và array có phần tử
+        if (post.tags.length > 0) {
+          transformed.tagIds = post.tags
+            .map((t) => {
+              if (typeof t === "object" && t !== null && "id" in t) {
+                return String(t.id)
+              }
+              return String(t)
+            })
+            .filter(Boolean)
+        } else {
+          // Array rỗng
+          transformed.tagIds = []
+        }
+      } else if (post.tagIds !== undefined) {
+        // Nếu đã có tagIds, giữ nguyên (có thể là array hoặc string)
+        if (Array.isArray(post.tagIds)) {
+          transformed.tagIds = post.tagIds.length > 0
+            ? post.tagIds.map(String).filter(Boolean)
+            : []
+        } else if (typeof post.tagIds === "string" && post.tagIds !== "") {
+          transformed.tagIds = post.tagIds
+        } else {
+          transformed.tagIds = []
+        }
+      } else {
+        transformed.tagIds = []
+      }
+
+      return transformed
+    }
+
+    // Sử dụng fresh data từ API nếu có, transform và fallback về initial data
+    // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi postData thay đổi
+    const post = useMemo(() => {
+      if (postData) {
+        return transformPostData(postData)
+      }
+      return initialPost || null
+    }, [postData, initialPost])
 
     const handleBack = async () => {
         // Invalidate React Query cache để đảm bảo list page có data mới nhất
@@ -251,6 +343,9 @@ export function PostEditClient({
             onSuccess={onSuccess}
             showCard={false}
             className="max-w-[100%]"
+            resourceName="posts"
+            resourceId={post?.id}
+            action="update"
         />
     )
 }

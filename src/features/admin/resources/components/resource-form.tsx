@@ -7,9 +7,9 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
-import { useResourceNavigation } from "../hooks"
+import { useResourceNavigation, useResourceFormLogger } from "../hooks"
 import { Loader2, Save, ArrowLeft, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -93,6 +93,11 @@ export interface ResourceFormProps<T extends Record<string, unknown>> {
   variant?: "page" | "dialog" | "sheet"
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  
+  // Logging (optional - tự động detect từ data)
+  resourceName?: string
+  resourceId?: string
+  action?: "create" | "update"
 }
 
 export function ResourceForm<T extends Record<string, unknown>>({
@@ -116,6 +121,9 @@ export function ResourceForm<T extends Record<string, unknown>>({
   variant = "page",
   open = true,
   onOpenChange,
+  resourceName,
+  resourceId,
+  action,
 }: ResourceFormProps<T>) {
   const resourceSegment = useResourceSegment()
   const resolvedBackUrl = backUrl ? applyResourceSegmentToPath(backUrl, resourceSegment) : undefined
@@ -131,12 +139,127 @@ export function ResourceForm<T extends Record<string, unknown>>({
     const initial: Partial<T> = {}
     fields.forEach((field) => {
       const key = field.name as keyof T
-      initial[key] = (data?.[key] ?? field.defaultValue) as T[keyof T]
+      const dataValue = data?.[key]
+      
+      // Xử lý default value theo type
+      // Kiểm tra cả undefined và null, nhưng cho phép array rỗng và empty string
+      if (dataValue !== undefined && dataValue !== null) {
+        // Nếu là array (kể cả array rỗng), giữ nguyên
+        if (Array.isArray(dataValue)) {
+          initial[key] = dataValue as T[keyof T]
+        } else {
+          initial[key] = dataValue as T[keyof T]
+        }
+      } else if (field.defaultValue !== undefined) {
+        initial[key] = field.defaultValue as T[keyof T]
+      } else if (field.type === "multiple-select") {
+        // Multiple select default là array rỗng
+        initial[key] = [] as T[keyof T]
+      } else if (field.type === "checkbox" || field.type === "switch") {
+        // Checkbox/Switch default là false
+        initial[key] = false as T[keyof T]
+      } else if (field.type === "number") {
+        // Number có thể để undefined nếu không có default
+        // Không set gì cả
+      } else {
+        // Text, textarea, select, etc default là empty string
+        initial[key] = "" as T[keyof T]
+      }
     })
     return initial
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Auto-detect action và resourceId từ data
+  const detectedAction: "create" | "update" = action || (data?.id ? "update" : "create")
+  const detectedResourceId = resourceId || (data?.id as string | undefined)
+  const detectedResourceName = resourceName || "resource"
+
+  // Sync data prop vào formData khi data thay đổi (ví dụ khi fetch từ API xong)
+  useEffect(() => {
+    if (!data) return
+
+    setFormData((prev) => {
+      const updated: Partial<T> = { ...prev }
+      let hasChanges = false
+
+      fields.forEach((field) => {
+        const key = field.name as keyof T
+        const dataValue = data[key]
+        const currentValue = prev[key]
+
+        // Xử lý theo type của field
+        if (field.type === "multiple-select") {
+          // Multiple-select: luôn là array
+          const newValue = Array.isArray(dataValue) 
+            ? dataValue 
+            : (dataValue !== undefined && dataValue !== null ? [dataValue] : [])
+          
+          // So sánh array
+          const currentArray = Array.isArray(currentValue) ? currentValue : []
+          if (JSON.stringify(newValue) !== JSON.stringify(currentArray)) {
+            updated[key] = newValue as T[keyof T]
+            hasChanges = true
+          }
+        } else if (field.type === "checkbox" || field.type === "switch") {
+          // Checkbox/Switch: boolean
+          const newValue = dataValue !== undefined && dataValue !== null ? Boolean(dataValue) : false
+          if (newValue !== currentValue) {
+            updated[key] = newValue as T[keyof T]
+            hasChanges = true
+          }
+        } else if (field.type === "number") {
+          // Number: có thể là undefined
+          if (dataValue !== undefined && dataValue !== null) {
+            const newValue = typeof dataValue === "number" ? dataValue : Number(dataValue)
+            if (newValue !== currentValue && !isNaN(newValue)) {
+              updated[key] = newValue as T[keyof T]
+              hasChanges = true
+            }
+          }
+        } else {
+          // Text, textarea, select, etc: string hoặc các giá trị khác
+          // Xử lý cả undefined, null, empty string, và các giá trị khác
+          if (dataValue !== undefined) {
+            // Cho phép null, empty string, và các giá trị khác
+            const newValue = dataValue === null ? "" : dataValue
+            
+            // So sánh để tránh update không cần thiết
+            if (Array.isArray(newValue) && Array.isArray(currentValue)) {
+              if (JSON.stringify(newValue) !== JSON.stringify(currentValue)) {
+                updated[key] = newValue as T[keyof T]
+                hasChanges = true
+              }
+            } else if (newValue !== currentValue) {
+              updated[key] = newValue as T[keyof T]
+              hasChanges = true
+            }
+          } else if (currentValue === undefined && field.type !== undefined) {
+            // Nếu chưa có giá trị và field có type, set empty string
+            // Number đã được xử lý ở trên, các field khác set empty string
+            updated[key] = "" as T[keyof T]
+            hasChanges = true
+          }
+        }
+      })
+
+      return hasChanges ? updated : prev
+    })
+  }, [data, fields])
+
+  // Log form data khi thay đổi
+  useResourceFormLogger({
+    resourceName: detectedResourceName,
+    resourceId: detectedResourceId,
+    action: detectedAction,
+    formData: formData as T | null,
+    isSubmitting: isPending,
+    submitSuccess,
+    submitError,
+  })
 
   const handleFieldChange = (fieldName: string, value: unknown) => {
     setFormData((prev) => ({
@@ -161,14 +284,51 @@ export function ResourceForm<T extends Record<string, unknown>>({
       const fieldName = String(field.name)
       const value = formData[field.name as keyof T]
       
-      // Required check
-      if (field.required && (value === undefined || value === null || value === "")) {
-        newErrors[fieldName] = `${field.label} là bắt buộc`
-        return
+      // Skip validation nếu field không required và không có value
+      if (!field.required) {
+        // Chỉ validate custom validation nếu có value
+        if (field.validate && value !== undefined && value !== null && value !== "") {
+          const validation = field.validate(value)
+          if (!validation.valid && validation.error) {
+            newErrors[fieldName] = validation.error
+          }
+        }
+        return // Skip required check
       }
 
-      // Custom validation
-      if (field.validate && value !== undefined && value !== null && value !== "") {
+      // Required check - xử lý các loại field khác nhau
+      // Kiểm tra xem field có trong formData không (có thể chưa được khởi tạo)
+      const hasValue = field.name in formData
+      let isEmpty = false
+
+      if (!hasValue) {
+        // Field chưa được khởi tạo trong formData - coi như empty
+        isEmpty = true
+      } else if (field.type === "multiple-select") {
+        // Multiple select: check array rỗng
+        isEmpty = !Array.isArray(value) || value.length === 0
+      } else if (field.type === "select") {
+        // Select: check undefined, null, hoặc empty string
+        isEmpty = value === undefined || value === null || value === ""
+      } else if (field.type === "checkbox" || field.type === "switch") {
+        // Checkbox/Switch: nếu required thì phải là true
+        // (thường checkbox/switch không required, nhưng nếu có thì check)
+        isEmpty = value !== true
+      } else if (field.type === "number") {
+        // Number: check undefined, null, hoặc NaN
+        isEmpty = value === undefined || value === null || (typeof value === "number" && isNaN(value))
+      } else {
+        // Text, textarea, email, password, date, image, editor, slug
+        isEmpty = value === undefined || value === null || value === ""
+      }
+
+      if (isEmpty) {
+        newErrors[fieldName] = `${field.label} là bắt buộc`
+        return // Skip custom validation nếu đã có required error
+      }
+
+      // Custom validation - chỉ chạy nếu value không empty
+      if (field.validate) {
         const validation = field.validate(value)
         if (!validation.valid && validation.error) {
           newErrors[fieldName] = validation.error
@@ -177,7 +337,53 @@ export function ResourceForm<T extends Record<string, unknown>>({
     })
 
     setErrors(newErrors)
+    
+    // Scroll tới field đầu tiên có lỗi
+    if (Object.keys(newErrors).length > 0) {
+      const firstErrorField = Object.keys(newErrors)[0]
+      scrollToField(firstErrorField)
+    }
+    
     return Object.keys(newErrors).length === 0
+  }
+
+  // Helper function để scroll tới field có lỗi
+  const scrollToField = (fieldName: string) => {
+    // Sử dụng requestAnimationFrame để đảm bảo DOM đã render
+    requestAnimationFrame(() => {
+      const fieldElement = document.getElementById(fieldName)
+      if (!fieldElement) return
+
+      // Tìm scroll container (ScrollArea trong dialog/sheet hoặc window)
+      let scrollContainer: HTMLElement | null = null
+      
+      if (variant === "dialog") {
+        // Tìm ScrollArea trong Dialog
+        const dialog = fieldElement.closest('[role="dialog"]')
+        scrollContainer = dialog?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null
+      } else if (variant === "sheet") {
+        // Tìm ScrollArea trong Sheet
+        const sheet = fieldElement.closest('[data-state]')
+        scrollContainer = sheet?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null
+      }
+
+      if (scrollContainer) {
+        // Scroll trong ScrollArea
+        const elementRect = fieldElement.getBoundingClientRect()
+        const containerRect = scrollContainer.getBoundingClientRect()
+        const scrollTop = scrollContainer.scrollTop + (elementRect.top - containerRect.top) - 20 // 20px offset
+        scrollContainer.scrollTo({ top: scrollTop, behavior: "smooth" })
+      } else {
+        // Fallback: scroll window
+        fieldElement.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+
+      // Focus vào input field
+      const input = fieldElement.querySelector<HTMLElement>("input, textarea, select")
+      if (input) {
+        input.focus()
+      }
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,9 +395,12 @@ export function ResourceForm<T extends Record<string, unknown>>({
     }
 
     setIsPending(true)
+    setSubmitSuccess(false)
+    setSubmitError(null)
     try {
       const result = await onSubmit(formData)
       if (result.success) {
+        setSubmitSuccess(true)
         onSuccess?.()
         if (variant === "page") {
           // For page variant, call onOpenChange if provided (e.g., to close edit mode)
@@ -204,9 +413,11 @@ export function ResourceForm<T extends Record<string, unknown>>({
         }
       } else {
         setSubmitError(result.error ?? "Đã xảy ra lỗi khi lưu")
+        setSubmitSuccess(false)
       }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Đã xảy ra lỗi khi lưu")
+      setSubmitSuccess(false)
     } finally {
       setIsPending(false)
     }
@@ -258,6 +469,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
       return (
         <div
           key={fieldName}
+          id={fieldName}
           className={cn(
             "min-w-0",
             isFullWidth && "@md:col-span-full"
@@ -293,6 +505,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
     return (
       <div
         key={fieldName}
+        id={fieldName}
         className={cn(
           "min-w-0",
           isFullWidth && "@md:col-span-full"
@@ -366,7 +579,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
   const { grouped, ungrouped } = groupFieldsBySection()
 
   const formContent = (
-    <form id="resource-form" onSubmit={handleSubmit} className={cn("space-y-6", formClassName)}>
+    <form id="resource-form" ref={formRef} onSubmit={handleSubmit} className={cn("space-y-6", formClassName)}>
       {submitError && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
           {submitError}

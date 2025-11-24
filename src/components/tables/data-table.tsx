@@ -530,7 +530,7 @@ export function DataTable<T extends object>({
                                 </TableHead>
                             ))}
                             {actions ? (
-                                <TableHead className="w-[80px] sm:w-[120px] text-right px-2 sm:px-3">
+                                <TableHead className="min-w-[100px] text-right px-2 sm:px-3 sticky right-0 z-10 bg-background border-l border-border">
                                     <span className="text-xs sm:text-sm">Hành động</span>
                                 </TableHead>
                             ) : null}
@@ -551,7 +551,7 @@ export function DataTable<T extends object>({
                                         />
                                     </TableHead>
                                 ))}
-                                {actions ? <TableHead className="w-[80px] sm:w-[120px] bg-muted/40 px-2 sm:px-3" /> : null}
+                                {actions ? <TableHead className="min-w-[100px] bg-muted/40 px-2 sm:px-3 sticky right-0 z-10 border-l border-border" /> : null}
                             </TableRow>
                         )}
                     </TableHeader>
@@ -655,7 +655,7 @@ function TableBodyContent<T extends object>({
                 const rowSelectable = isRowSelectable(row)
                 const rowSelected = selectedIds.has(rowId)
                 return (
-                    <TableRow key={rowId}>
+                    <TableRow key={rowId} className="group">
                         {showSelection ? (
                             <TableCell className="w-8 sm:w-10 align-middle px-1 sm:px-3">
                                 <SelectionCheckbox
@@ -682,7 +682,7 @@ function TableBodyContent<T extends object>({
                                 </TableCell>
                             )
                         })}
-                        {actions ? <TableCell className="text-right whitespace-nowrap px-2 sm:px-3">{actions(row)}</TableCell> : null}
+                        {actions ? <TableCell className="min-w-[100px] text-center whitespace-nowrap px-2 sm:px-3 sticky right-0 z-10 bg-background group-hover:bg-muted/50 group-data-[state=selected]:bg-muted border-l border-border">{actions(row)}</TableCell> : null}
                     </TableRow>
                 )
             })}

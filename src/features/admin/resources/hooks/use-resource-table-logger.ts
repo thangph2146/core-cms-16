@@ -24,6 +24,7 @@ interface UseResourceTableLoggerOptions<T extends object> {
 /**
  * Hook để log table structure khi data thay đổi sau refetch
  * Track data từ React Query cache và log khi data mới được refetch
+ * Fix: Log ngay khi view thay đổi, không cần đợi data
  */
 export function useResourceTableLogger<T extends object>({
   resourceName,
@@ -38,6 +39,7 @@ export function useResourceTableLogger<T extends object>({
 }: UseResourceTableLoggerOptions<T>) {
   const lastLoggedKeyRef = useRef<string | null>(null)
   const lastViewIdRef = useRef<string | undefined>(undefined)
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Xác định view hiện tại và status tương ứng
   const currentViewStatus = useMemo(() => {
@@ -148,8 +150,27 @@ export function useResourceTableLogger<T extends object>({
     [resourceName, columns, getRowData]
   )
 
+  // Helper để check xem 2 query keys có giống nhau không
+  const isQueryKeyEqual = useCallback((key1: QueryKey, key2: QueryKey): boolean => {
+    if (key1 === key2) return true
+    if (key1.length !== key2.length) return false
+    return key1.every((item, index) => {
+      const item2 = key2[index]
+      if (typeof item === "object" && typeof item2 === "object" && item !== null && item2 !== null) {
+        return JSON.stringify(item) === JSON.stringify(item2)
+      }
+      return item === item2
+    })
+  }, [])
+
   // Log khi data thay đổi hoặc khi view thay đổi
   useEffect(() => {
+    // Clear previous retry timeout
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
+
     const viewChanged = lastViewIdRef.current !== currentViewId
     const isFirstMount = lastViewIdRef.current === undefined
 
@@ -162,27 +183,39 @@ export function useResourceTableLogger<T extends object>({
       logData(dataToLog, currentViewId || "active", currentViewStatus)
     } else if (viewChanged || isFirstMount) {
       // View thay đổi hoặc lần đầu mount nhưng chưa có data
-      // Đợi một chút để loader fetch data và update cache, sau đó log
-      // Retry nhiều lần để đảm bảo log được data
+      // Retry nhiều lần với interval ngắn hơn để đảm bảo log được data ngay
       let retryCount = 0
-      const maxRetries = 10
-      const retryInterval = 100 // 100ms mỗi lần retry
+      const maxRetries = 20 // Tăng số lần retry
+      const retryInterval = 50 // Giảm interval xuống 50ms để nhanh hơn
 
       const retryLog = () => {
         const retryCachedData = queryClient.getQueryData<DataTableResult<T>>(currentQueryKey)
         if (retryCachedData) {
           const logged = logData(retryCachedData, currentViewId || "active", currentViewStatus)
-          if (logged) return // Đã log thành công, dừng retry
+          if (logged) {
+            // Đã log thành công, dừng retry
+            retryTimeoutRef.current = null
+            return
+          }
         }
 
         if (retryCount < maxRetries) {
           retryCount++
-          setTimeout(retryLog, retryInterval)
+          retryTimeoutRef.current = setTimeout(retryLog, retryInterval)
+        } else {
+          retryTimeoutRef.current = null
         }
       }
 
-      const timeoutId = setTimeout(retryLog, retryInterval)
-      return () => clearTimeout(timeoutId)
+      // Bắt đầu retry ngay lập tức
+      retryTimeoutRef.current = setTimeout(retryLog, retryInterval)
+    }
+
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
     }
   }, [currentQueryKey, queryClient, currentInitialData, currentViewId, currentViewStatus, logData])
 
@@ -190,11 +223,9 @@ export function useResourceTableLogger<T extends object>({
   useEffect(() => {
     // Subscribe vào query cache để detect khi data được fetch và update cache
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event?.query?.queryKey && event.type === "updated") {
+      if (event?.query?.queryKey && (event.type === "updated" || event.type === "added")) {
         // Check xem có phải query key của view hiện tại không
-        const queryKeyStr = JSON.stringify(event.query.queryKey)
-        const currentQueryKeyStr = JSON.stringify(currentQueryKey)
-        if (queryKeyStr === currentQueryKeyStr) {
+        if (isQueryKeyEqual(event.query.queryKey, currentQueryKey)) {
           const data = event.query.state.data as DataTableResult<T> | undefined
           if (data) {
             // Data đã được fetch và update cache, log ngay
@@ -205,5 +236,6 @@ export function useResourceTableLogger<T extends object>({
     })
 
     return unsubscribe
-  }, [currentQueryKey, queryClient, currentViewId, currentViewStatus, logData])
+  }, [currentQueryKey, queryClient, currentViewId, currentViewStatus, logData, isQueryKeyEqual])
 }
+
