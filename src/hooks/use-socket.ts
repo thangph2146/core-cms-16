@@ -76,6 +76,7 @@ class SocketManager {
   private lastConnectionErrorAt = 0
   private lastAuth: SocketAuthOptions | null = null
   private isDisconnecting = false
+  private lastReuseLogAt = 0
 
   getSocket(): Socket | null {
     return this.socket
@@ -150,6 +151,15 @@ class SocketManager {
 
     // Nếu socket đã connected và cùng auth, giữ nguyên
     if (this.socket && this.socket.connected && this.isSameAuth(auth)) {
+      // Chỉ log mỗi 5 giây một lần để tránh spam
+      const now = Date.now()
+      if (now - this.lastReuseLogAt > 5000) {
+        logger.debug("Socket đã connected với cùng auth, giữ nguyên", {
+          userId: auth.userId,
+          socketId: this.socket.id,
+        })
+        this.lastReuseLogAt = now
+      }
       return this.socket
     }
 
@@ -163,8 +173,32 @@ class SocketManager {
       return this.socket
     }
 
+    // Nếu đang có socket đang connecting, đợi nó hoàn thành
+    if (this.connectPromise) {
+      const existingSocket = await this.connectPromise
+      // Kiểm tra lại sau khi connect xong
+      if (existingSocket && existingSocket.connected && this.isSameAuth(auth)) {
+        return existingSocket
+      }
+    }
+
+    // Nếu có socket nhưng chưa connected, đợi một chút rồi kiểm tra lại
+    if (this.socket && !this.socket.connected) {
+      // Đợi tối đa 5s để socket connect
+      for (let i = 0; i < 10; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        if (this.socket && this.socket.connected) {
+          if (this.isSameAuth(auth)) {
+            return this.socket
+          }
+          break
+        }
+      }
+    }
+
     this.lastAuth = { userId: auth.userId, role: auth.role ?? null }
 
+    // Nếu vẫn chưa có socket hoặc socket không connected, tạo mới
     if (this.connectPromise) {
       return this.connectPromise
     }
@@ -273,29 +307,21 @@ class SocketManager {
   private replaceActiveSocket(nextSocket: Socket) {
     const previous = this.socket
     if (previous && previous !== nextSocket) {
-      // Chỉ disconnect socket cũ nếu đang disconnect (đăng xuất)
-      // Nếu không, giữ socket cũ để đảm bảo connection không bị ngắt
-      if (this.isDisconnecting) {
-        try {
-          previous.removeAllListeners()
-          previous.disconnect()
-        } catch (error) {
-          logger.warn(
-            "Không thể thu hồi socket cũ",
-            error instanceof Error ? error : new Error(String(error)),
-          )
-        }
-      } else {
-        // Nếu socket cũ vẫn connected, chỉ remove listeners để tránh duplicate handlers
-        // Giữ connection để đảm bảo không bị ngắt
-        try {
-          previous.removeAllListeners()
-        } catch (error) {
-          logger.warn(
-            "Không thể remove listeners từ socket cũ",
-            error instanceof Error ? error : new Error(String(error)),
-          )
-        }
+      // Luôn disconnect socket cũ để đảm bảo chỉ có 1 socket instance
+      // Trừ khi đang đăng xuất (đã được xử lý ở disconnect())
+      try {
+        logger.info("Disconnecting socket cũ để thay thế bằng socket mới", {
+          oldSocketId: previous.id,
+          newSocketId: nextSocket.id,
+          oldConnected: previous.connected,
+        })
+        previous.removeAllListeners()
+        previous.disconnect()
+      } catch (error) {
+        logger.warn(
+          "Không thể thu hồi socket cũ",
+          error instanceof Error ? error : new Error(String(error)),
+        )
       }
     }
     this.socket = nextSocket
