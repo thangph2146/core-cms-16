@@ -75,6 +75,7 @@ class SocketManager {
   private lastConnectionErrorKey: string | null = null
   private lastConnectionErrorAt = 0
   private lastAuth: SocketAuthOptions | null = null
+  private isDisconnecting = false
 
   getSocket(): Socket | null {
     return this.socket
@@ -82,9 +83,33 @@ class SocketManager {
 
   withSocket(callback: (socket: Socket) => void): boolean {
     const active = this.socket
-    if (!active) return false
+    if (!active || !active.connected) return false
     callback(active)
     return true
+  }
+
+  /**
+   * Disconnect socket - chỉ gọi khi đăng xuất
+   */
+  disconnect(): void {
+    this.isDisconnecting = true
+    const active = this.socket
+    if (active) {
+      try {
+        logger.info("Đang disconnect socket do đăng xuất")
+        active.removeAllListeners()
+        active.disconnect()
+      } catch (error) {
+        logger.warn(
+          "Lỗi khi disconnect socket",
+          error instanceof Error ? error : new Error(String(error)),
+        )
+      }
+      this.socket = null
+    }
+    this.lastAuth = null
+    this.connectPromise = null
+    this.isDisconnecting = false
   }
 
   on<Args extends unknown[]>(event: string, handler: (...args: Args) => void): () => void {
@@ -118,7 +143,23 @@ class SocketManager {
   async connect(auth: SocketAuthOptions): Promise<Socket | null> {
     if (!auth.userId) return null
 
+    // Nếu đang disconnect (đăng xuất), không connect lại
+    if (this.isDisconnecting) {
+      return null
+    }
+
+    // Nếu socket đã connected và cùng auth, giữ nguyên
     if (this.socket && this.socket.connected && this.isSameAuth(auth)) {
+      return this.socket
+    }
+
+    // Nếu socket đã connected nhưng auth khác, chỉ cập nhật auth (không disconnect)
+    if (this.socket && this.socket.connected && !this.isSameAuth(auth)) {
+      logger.info("Auth thay đổi, giữ socket connection và cập nhật auth", {
+        oldUserId: this.lastAuth?.userId,
+        newUserId: auth.userId,
+      })
+      this.lastAuth = { userId: auth.userId, role: auth.role ?? null }
       return this.socket
     }
 
@@ -160,30 +201,23 @@ class SocketManager {
     const { apiRoutes } = await import("@/lib/api/routes")
     const socketPath = withApiBase(apiRoutes.socket)
 
-    const host = typeof window !== "undefined" ? window.location.host : ""
-    const isVercel = /\.vercel\.app$/i.test(host)
-
-    const selectedTransports = isVercel
-      ? (["polling"] as const)
-      : (["websocket", "polling"] as const)
-
-    logger.info("Đang tạo socket connection", {
+    logger.info("Đang tạo socket connection (WebSocket only)", {
       userId: auth.userId,
       role: auth.role,
       path: socketPath,
-      transports: selectedTransports,
+      transport: "websocket",
     })
 
     const socket = io({
       path: socketPath,
-      transports: selectedTransports as unknown as ("websocket" | "polling")[],
-      upgrade: true,
+      transports: ["websocket"],
+      upgrade: false,
       withCredentials: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 5000,
-      timeout: 10000,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      timeout: 20000,
       forceNew: false,
       auth: {
         userId: auth.userId,
@@ -191,19 +225,21 @@ class SocketManager {
       },
     })
 
+    let connectTimeout: NodeJS.Timeout | null = null
+
     socket.on("connect", () => {
+      if (connectTimeout) {
+        clearTimeout(connectTimeout)
+        connectTimeout = null
+      }
       const engine = socket.io.engine
-      logger.success("Đã kết nối thành công", {
+      logger.success("Đã kết nối thành công với WebSocket", {
         socketId: socket.id,
         transport: engine.transport.name,
         userId: auth.userId,
         role: auth.role,
       })
       this.hasLoggedUnavailable = false
-
-      engine.once("upgrade", () => {
-        logger.debug("Transport upgraded", { transport: engine.transport.name })
-      })
     })
 
     socket.on("connect_error", (err) => {
@@ -212,8 +248,21 @@ class SocketManager {
     })
 
     socket.on("disconnect", (reason) => {
-      logger.info("Đã ngắt kết nối", { reason })
+      if (connectTimeout) {
+        clearTimeout(connectTimeout)
+        connectTimeout = null
+      }
+      logger.info("Đã ngắt kết nối WebSocket", { reason })
     })
+
+    // Timeout để detect nếu connection không thành công
+    connectTimeout = setTimeout(() => {
+      if (!socket.connected) {
+        logger.warn("WebSocket connection timeout", {
+          userId: auth.userId,
+        })
+      }
+    }, 20000)
 
     this.replaceActiveSocket(socket)
     this.attachPendingHandlers(socket)
@@ -224,14 +273,29 @@ class SocketManager {
   private replaceActiveSocket(nextSocket: Socket) {
     const previous = this.socket
     if (previous && previous !== nextSocket) {
-      try {
-        previous.removeAllListeners()
-        previous.disconnect()
-      } catch (error) {
-        logger.warn(
-          "Không thể thu hồi socket cũ",
-          error instanceof Error ? error : new Error(String(error)),
-        )
+      // Chỉ disconnect socket cũ nếu đang disconnect (đăng xuất)
+      // Nếu không, giữ socket cũ để đảm bảo connection không bị ngắt
+      if (this.isDisconnecting) {
+        try {
+          previous.removeAllListeners()
+          previous.disconnect()
+        } catch (error) {
+          logger.warn(
+            "Không thể thu hồi socket cũ",
+            error instanceof Error ? error : new Error(String(error)),
+          )
+        }
+      } else {
+        // Nếu socket cũ vẫn connected, chỉ remove listeners để tránh duplicate handlers
+        // Giữ connection để đảm bảo không bị ngắt
+        try {
+          previous.removeAllListeners()
+        } catch (error) {
+          logger.warn(
+            "Không thể remove listeners từ socket cũ",
+            error instanceof Error ? error : new Error(String(error)),
+          )
+        }
       }
     }
     this.socket = nextSocket
@@ -269,32 +333,49 @@ class SocketManager {
   }
 
   private logConnectionIssue(error: Error) {
-  const normalizedMessage = error.message?.toLowerCase?.() ?? ""
-  const key = `${error.name}:${normalizedMessage}`
-  const now = Date.now()
+    const normalizedMessage = error.message?.toLowerCase?.() ?? ""
+    const key = `${error.name}:${normalizedMessage}`
+    const now = Date.now()
 
+    // Throttle logging để tránh spam
     if (this.lastConnectionErrorKey === key && now - this.lastConnectionErrorAt < 5000) {
-    return
-  }
+      return
+    }
 
     this.lastConnectionErrorKey = key
     this.lastConnectionErrorAt = now
 
-  const context = {
-    name: error.name,
-    message: error.message,
-    stack: error.stack,
-  }
+    const context = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    }
 
-  if (normalizedMessage.includes("timeout") || normalizedMessage.includes("xhr poll")) {
-    logger.warn("Socket connection chậm, sẽ thử lại", context)
-  } else {
-    logger.error("Socket connection thất bại", error)
+    // Log WebSocket errors với mức độ phù hợp
+    if (normalizedMessage.includes("timeout")) {
+      logger.warn("WebSocket connection timeout, sẽ thử lại", context)
+    } else if (
+      normalizedMessage.includes("websocket") &&
+      (normalizedMessage.includes("closed before") ||
+       normalizedMessage.includes("transport unknown") ||
+       normalizedMessage.includes("connection closed"))
+    ) {
+      logger.warn("WebSocket connection issue, sẽ tự động reconnect", context)
+    } else {
+      logger.error("WebSocket connection thất bại", error)
+    }
   }
-}
 }
 
 const socketManager = new SocketManager()
+
+/**
+ * Disconnect socket - chỉ gọi khi đăng xuất
+ * Export để có thể gọi từ bất kỳ đâu khi cần disconnect
+ */
+export function disconnectSocket(): void {
+  socketManager.disconnect()
+}
 
 export function useSocket({ userId, role }: UseSocketOptions) {
   const lastConversationRef = useRef<SocketConversationPair | null>(null)
@@ -302,7 +383,9 @@ export function useSocket({ userId, role }: UseSocketOptions) {
 
   useEffect(() => {
     if (!userId) {
-      // Use setTimeout to avoid calling setState synchronously in effect body
+      // Khi userId = null, không disconnect socket ngay lập tức
+      // Chỉ set state để UI biết, nhưng socket vẫn giữ connection
+      // Socket chỉ disconnect khi gọi socketManager.disconnect() (khi đăng xuất)
       const timeoutId = setTimeout(() => {
         setCurrentSocket(null)
       }, 0)
@@ -322,11 +405,14 @@ export function useSocket({ userId, role }: UseSocketOptions) {
           "[useSocket] Kết nối Socket.IO thất bại",
           error instanceof Error ? error : new Error(String(error)),
         )
-        setCurrentSocket(null)
+        // Không set null để tránh mất connection, chỉ log error
+        // Socket sẽ tự reconnect
       })
 
     return () => {
       cancelled = true
+      // KHÔNG disconnect socket ở đây - chỉ cleanup khi component unmount
+      // Socket sẽ tự disconnect khi đăng xuất
     }
   }, [userId, role])
 

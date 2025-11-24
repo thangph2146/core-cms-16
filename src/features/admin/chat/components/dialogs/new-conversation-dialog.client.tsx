@@ -152,7 +152,7 @@ export function NewConversationDialog({ onSelectUser, existingContactIds = [] }:
                     </Avatar>
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="text-sm font-medium truncate">{user.name || user.email}</span>
-                      {user.name && <span className="text-xs text-muted-foreground truncate">{user.email}</span>}
+                      {user.name && <span className="text-xs truncate">{user.email}</span>}
                     </div>
                   </CommandItem>
                 ))}

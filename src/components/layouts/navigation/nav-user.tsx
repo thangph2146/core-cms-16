@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { disconnectSocket } from "@/hooks/use-socket";
 import {
   BadgeCheck,
   ChevronsUpDown,
@@ -450,6 +451,8 @@ export function NavUser({ className }: { className?: string }) {
       <DropdownMenuSeparator />
       <DropdownMenuItem
         onClick={() => {
+          // Disconnect socket trước khi đăng xuất
+          disconnectSocket();
           signOut({
             callbackUrl: "/auth/sign-in",
           });
