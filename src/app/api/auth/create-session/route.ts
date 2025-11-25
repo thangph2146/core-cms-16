@@ -61,10 +61,21 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    logger.error("Error creating login session via API", error instanceof Error ? error : new Error(String(error)))
+    // Log chi tiết error để debug
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    logger.error("Error creating login session via API", {
+      error: errorMessage,
+      stack: errorStack,
+      userId: (await auth())?.user?.id,
+    })
     
     return NextResponse.json(
-      { error: "Failed to create session" },
+      { 
+        error: "Failed to create session",
+        message: process.env.NODE_ENV === "development" ? errorMessage : undefined,
+      },
       { status: 500 }
     )
   }

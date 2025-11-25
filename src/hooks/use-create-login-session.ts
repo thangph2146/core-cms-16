@@ -57,9 +57,27 @@ export function useCreateLoginSession() {
         logger.debug("Login session created successfully via hook", { userId })
       } catch (error) {
         // Log error nhưng không block app
+        // Extract error message từ axios response nếu có
+        let errorMessage = "Unknown error"
+        if (error instanceof Error) {
+          errorMessage = error.message
+        } else if (typeof error === "object" && error !== null && "response" in error) {
+          // Axios error response
+          const axiosError = error as { response?: { status?: number; data?: { error?: string; message?: string } } }
+          if (axiosError.response?.data?.error) {
+            errorMessage = axiosError.response.data.error
+          } else if (axiosError.response?.data?.message) {
+            errorMessage = axiosError.response.data.message
+          } else if (axiosError.response?.status) {
+            errorMessage = `Request failed with status code ${axiosError.response.status}`
+          }
+        } else {
+          errorMessage = String(error)
+        }
+        
         logger.error("Failed to create login session via hook", {
           userId,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
         })
       } finally {
         isCreatingRef.current = false

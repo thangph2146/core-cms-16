@@ -24,6 +24,16 @@ export async function createLoginSession({
   ipAddress,
 }: CreateLoginSessionParams) {
   try {
+    // Kiểm tra user tồn tại trước khi tạo session
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
+
+    if (!userExists) {
+      throw new Error(`User with id ${userId} does not exist`)
+    }
+
     // Generate random tokens
     const accessToken = `at_${randomBytes(32).toString("hex")}`
     const refreshToken = `rt_${randomBytes(32).toString("hex")}`
@@ -63,7 +73,16 @@ export async function createLoginSession({
     })
 
     // Emit socket event để realtime update
-    await emitSessionUpsert(session.id, null)
+    // Wrap trong try-catch để không làm fail request nếu socket có vấn đề
+    try {
+      await emitSessionUpsert(session.id, null)
+    } catch (socketError) {
+      // Log error nhưng không throw để không làm fail request
+      logger.warn("Failed to emit session upsert event", {
+        sessionId: session.id,
+        error: socketError instanceof Error ? socketError.message : String(socketError),
+      })
+    }
 
     return {
       id: session.id,

@@ -54,10 +54,18 @@ export function PostDetailClient({ post }: PostDetailClientProps) {
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 <span>
-                  {new Date(post.publishedAt).toLocaleTimeString("vi-VN", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {(() => {
+                    try {
+                      const date = new Date(post.publishedAt)
+                      if (isNaN(date.getTime())) return ""
+                      return date.toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    } catch {
+                      return ""
+                    }
+                  })()}
                 </span>
               </div>
             )}

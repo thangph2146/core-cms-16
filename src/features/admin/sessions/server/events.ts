@@ -38,8 +38,8 @@ async function fetchSessionRow(sessionId: string): Promise<SessionRow | null> {
   const listed = mapSessionRecord(session)
   return serializeSessionForTable({
     ...listed,
-    userName: session.user.name,
-    userEmail: session.user.email,
+    userName: session.user?.name || null,
+    userEmail: session.user?.email || "",
   })
 }
 
@@ -121,8 +121,8 @@ export async function emitSessionBatchUpsert(
     const listed = mapSessionRecord(session)
     const row = serializeSessionForTable({
       ...listed,
-      userName: session.user.name,
-      userEmail: session.user.email,
+      userName: session.user?.name || null,
+      userEmail: session.user?.email || "",
     })
     rows.push(row)
   }

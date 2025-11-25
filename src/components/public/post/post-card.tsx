@@ -62,7 +62,7 @@ export function PostCard({ post, className, priority = false }: PostCardProps) {
         {/* Content */}
         <div className="flex flex-col flex-1 p-6">
           {/* Category Badge */}
-          {primaryCategory && (
+          {primaryCategory && primaryCategory.name && (
             <Badge variant="secondary" className="w-fit mb-3 text-xs font-medium">
               {primaryCategory.name}
             </Badge>
