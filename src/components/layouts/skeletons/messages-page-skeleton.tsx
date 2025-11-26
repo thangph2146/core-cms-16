@@ -13,7 +13,7 @@ export function MessagesPageSkeleton() {
 
   return (
     <div
-      className="flex w-full overflow-hidden rounded-xl border bg-card"
+      className="flex w-full overflow-hidden border bg-card"
       style={{
         height: skeletonHeight,
         minHeight: "480px",

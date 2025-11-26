@@ -13,14 +13,14 @@ export interface UseChatMessagesHeightOptions {
 }
 
 const DEFAULT_MOBILE_BREAKPOINT = 768
-const DEFAULT_MOBILE_MESSAGES_HEIGHT = 717
+const DEFAULT_MOBILE_MESSAGES_HEIGHT = 737
 const ADMIN_HEADER_SELECTOR = '[data-admin-header="true"]'
 
 export function useChatMessagesHeight(options: UseChatMessagesHeightOptions = {}) {
   const {
     mobileBreakpoint = DEFAULT_MOBILE_BREAKPOINT,
     mobileFixedHeight = DEFAULT_MOBILE_MESSAGES_HEIGHT,
-    additionalOffsets = 20,
+    additionalOffsets = 0,
   } = options
 
   const adminHeaderSize = useElementSize<HTMLElement>()

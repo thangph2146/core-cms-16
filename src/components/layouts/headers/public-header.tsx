@@ -33,6 +33,7 @@ import { Logo } from "../../../../public/svg/Logo";
 import { appFeatures } from "@/lib/config/app-features";
 import { getResourceMainRoute } from "@/lib/permissions/route-helpers";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * Helper functions để lấy routes từ appFeatures
@@ -214,27 +215,27 @@ export function PublicHeader() {
                     link.href !== PUBLIC_ROUTES.home &&
                     link.href !== PUBLIC_ROUTES.blog
                 ).length > 0 && (
-                  <NavigationMenuItem>
-                    <NavigationMenuTrigger className="bg-transparent">
-                      Hỗ trợ
-                    </NavigationMenuTrigger>
-                    <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
-                      <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
-                        {publicLinks
-                          .filter(
-                            (link) =>
-                              link.href !== PUBLIC_ROUTES.home &&
-                              link.href !== PUBLIC_ROUTES.blog
-                          )
-                          .map((item, i) => (
-                            <li key={i}>
-                              <ListItem {...item} />
-                            </li>
-                          ))}
-                      </ul>
-                    </NavigationMenuContent>
-                  </NavigationMenuItem>
-                )}
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger className="bg-transparent">
+                        Hỗ trợ
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent className="bg-background p-1 pr-1.5 pb-1.5">
+                        <ul className="bg-popover grid w-lg grid-cols-2 gap-2">
+                          {publicLinks
+                            .filter(
+                              (link) =>
+                                link.href !== PUBLIC_ROUTES.home &&
+                                link.href !== PUBLIC_ROUTES.blog
+                            )
+                            .map((item, i) => (
+                              <li key={i}>
+                                <ListItem {...item} />
+                              </li>
+                            ))}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  )}
               </NavigationMenuList>
             </NavigationMenu>
           ) : (
@@ -283,8 +284,8 @@ export function PublicHeader() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-md bg-muted animate-pulse" />
-            <div className="h-9 w-24 rounded-md bg-muted animate-pulse" />
+            <Skeleton className="w-10 h-10 rounded-md" />
+            <Skeleton className="w-10 h-10 rounded-md" />
           </div>
         )}
       </nav>
@@ -379,40 +380,40 @@ export function PublicHeader() {
                     link.href !== PUBLIC_ROUTES.home &&
                     link.href !== PUBLIC_ROUTES.blog
                 ).length > 0 && (
-                  <>
-                    <span className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Hỗ trợ
-                    </span>
-                    {publicLinks
-                      .filter(
-                        (link) =>
-                          link.href !== PUBLIC_ROUTES.home &&
-                          link.href !== PUBLIC_ROUTES.blog
-                      )
-                      .map((link) => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
-                          onClick={() => setOpen(false)}
-                        >
-                          <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
-                            <link.icon className="text-foreground size-5" />
-                          </div>
-                          <div className="flex flex-col items-start justify-center min-w-0 flex-1">
-                            <span className="font-medium text-sm">
-                              {link.title}
-                            </span>
-                            {link.description && (
-                              <span className="text-xs leading-relaxed">
-                                {link.description}
+                    <>
+                      <span className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Hỗ trợ
+                      </span>
+                      {publicLinks
+                        .filter(
+                          (link) =>
+                            link.href !== PUBLIC_ROUTES.home &&
+                            link.href !== PUBLIC_ROUTES.blog
+                        )
+                        .map((link) => (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            className="w-full flex flex-row gap-x-3 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-lg p-3 transition-colors"
+                            onClick={() => setOpen(false)}
+                          >
+                            <div className="bg-background/40 flex aspect-square size-11 items-center justify-center rounded-lg border shadow-sm shrink-0">
+                              <link.icon className="text-foreground size-5" />
+                            </div>
+                            <div className="flex flex-col items-start justify-center min-w-0 flex-1">
+                              <span className="font-medium text-sm">
+                                {link.title}
                               </span>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                  </>
-                )}
+                              {link.description && (
+                                <span className="text-xs leading-relaxed">
+                                  {link.description}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        ))}
+                    </>
+                  )}
               </div>
             </div>
           </div>

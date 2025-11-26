@@ -24,6 +24,7 @@ import { filterContacts } from "@/components/chat/utils/contact-helpers"
 import { mapGroupListItemToContact, type GroupListItemLike, type MessageDetailLike } from "../utils/contact-transformers"
 import type { ChatWindowProps } from "@/components/chat/components/chat-window"
 import { logger } from "@/lib/config"
+import { useElementSize } from "@/hooks/use-element-size"
 
 export function ChatTemplate({
   contacts,
@@ -38,6 +39,9 @@ export function ChatTemplate({
   const [contactSearch, setContactSearch] = useState("")
   const [searchedContacts, setSearchedContacts] = useState<Contact[] | null>(null)
   const [isChatListOpen, setIsChatListOpen] = useState(false)
+  
+  // Lấy width của chat-list để truyền xuống ContactList
+  const { ref: chatListRef, width: chatListWidth } = useElementSize<HTMLDivElement>()
   
   const {
     contactsState,
@@ -401,7 +405,7 @@ export function ChatTemplate({
 
   // Chat List Content Component (reusable for both desktop and mobile)
   const chatListContent = (
-    <div className="flex flex-col h-full bg-background">
+    <div ref={chatListRef} className="flex flex-col h-full bg-background" id="chat-list">
       <ChatListHeader
         onNewConversation={handleNewConversation}
         existingContactIds={contactsState.map((c) => c.id)}
@@ -423,6 +427,7 @@ export function ChatTemplate({
         onContactSelect={handleContactSelect}
         searchValue={contactSearch}
         onSearchChange={setContactSearch}
+        width={chatListWidth}
       />
     </div>
   )

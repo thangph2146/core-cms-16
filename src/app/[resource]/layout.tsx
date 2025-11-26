@@ -86,9 +86,11 @@ export default async function AdminLayout({
           }
         />
         <SidebarInset className="flex flex-col w-full overflow-x-hidden">
-          <ScrollArea className="max-h-[calc(100dvh-20px)] overflow-y-auto">
+          <ScrollArea className="max-w-[100dvw] max-h-[calc(100dvh)] overflow-y-auto">
             <PermissionGate>
-              {children}
+              <div className="max-w-[100dvw] mx-auto">
+                {children}
+              </div>
             </PermissionGate>
           </ScrollArea>
         </SidebarInset>
