@@ -1,10 +1,3 @@
-/**
- * Server Component: Comments Table
- * 
- * Fetches initial data, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listComments } from "../server/queries"
 import { serializeCommentsList } from "../server/helpers"
 import { CommentsTableClient } from "./comments-table.client"

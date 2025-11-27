@@ -32,9 +32,6 @@ function sanitizeSession(session: SessionWithRelations): ListedSession {
   return mapSessionRecord(session)
 }
 
-/**
- * Helper để log table status cho sessions (sử dụng isActive thay vì deletedAt)
- */
 async function logSessionTableStatus(
   action: "delete" | "restore" | "bulk-delete" | "bulk-restore",
   affectedIds: string | string[],
@@ -296,10 +293,6 @@ export async function updateSession(ctx: AuthContext, id: string, input: UpdateS
   return sanitized
 }
 
-/**
- * Soft delete session: set isActive = false
- * Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
- */
 export async function softDeleteSession(ctx: AuthContext, id: string): Promise<void> {
   ensurePermission(ctx, PERMISSIONS.SESSIONS_DELETE, PERMISSIONS.SESSIONS_MANAGE)
 
@@ -405,10 +398,6 @@ export async function bulkSoftDeleteSessions(ctx: AuthContext, ids: string[]): P
   return { success: true, message: `Đã xóa ${result.count} session`, affectedCount: result.count }
 }
 
-/**
- * Restore session: set isActive = true
- * Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
- */
 export async function restoreSession(ctx: AuthContext, id: string): Promise<void> {
   ensurePermission(ctx, PERMISSIONS.SESSIONS_UPDATE, PERMISSIONS.SESSIONS_MANAGE)
 
@@ -512,10 +501,6 @@ export async function bulkRestoreSessions(ctx: AuthContext, ids: string[]): Prom
   return { success: true, message: `Đã khôi phục ${result.count} session`, affectedCount: result.count }
 }
 
-/**
- * Hard delete session: xóa vĩnh viễn khỏi database
- * Note: Chỉ hard delete khi isActive=false (đã bị soft delete)
- */
 export async function hardDeleteSession(ctx: AuthContext, id: string): Promise<void> {
   if (!canPerformAnyAction(ctx.permissions, ctx.roles, [PERMISSIONS.SESSIONS_MANAGE])) {
     throw new ForbiddenError()

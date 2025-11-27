@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Categories Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -20,9 +13,6 @@ import type { CategoryRow } from "../types"
 
 type CategoryWithRelations = Prisma.CategoryGetPayload<Record<string, never>>
 
-/**
- * Map Prisma category record to ListedCategory format
- */
 export function mapCategoryRecord(category: CategoryWithRelations): ListedCategory {
   return {
     id: category.id,
@@ -35,9 +25,6 @@ export function mapCategoryRecord(category: CategoryWithRelations): ListedCatego
   }
 }
 
-/**
- * Build Prisma where clause from ListCategoriesInput
- */
 export function buildWhereClause(params: ListCategoriesInput): Prisma.CategoryWhereInput {
   const where: Prisma.CategoryWhereInput = {}
 
@@ -73,9 +60,6 @@ export function buildWhereClause(params: ListCategoriesInput): Prisma.CategoryWh
   return where
 }
 
-/**
- * Serialize category data for DataTable format
- */
 export function serializeCategoryForTable(category: ListedCategory): CategoryRow {
   return {
     id: category.id,
@@ -88,9 +72,6 @@ export function serializeCategoryForTable(category: ListedCategory): CategoryRow
   }
 }
 
-/**
- * Serialize ListCategoriesResult to DataTable format
- */
 export function serializeCategoriesList(data: ListCategoriesResult): DataTableResult<CategoryRow> {
   return {
     page: data.pagination.page,
@@ -101,9 +82,6 @@ export function serializeCategoriesList(data: ListCategoriesResult): DataTableRe
   }
 }
 
-/**
- * Serialize CategoryDetail to client format
- */
 export function serializeCategoryDetail(category: CategoryDetail) {
   return {
     id: category.id,

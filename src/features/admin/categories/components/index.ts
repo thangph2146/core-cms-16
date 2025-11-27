@@ -1,7 +1,3 @@
-/**
- * Barrel export cho categories components
- */
-
 export * from "./categories-table"
 export * from "./categories-table.client"
 export * from "./category-detail"

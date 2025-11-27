@@ -1,14 +1,6 @@
-/**
- * Helper functions cho socket bridge
- * Tách ra để dễ test và tái sử dụng
- */
-
 import type { UserRow } from "../types"
 import type { AdminUsersListParams } from "@/lib/query-keys"
 
-/**
- * Kiểm tra xem user có match với search term không
- */
 export function matchesSearch(search: string | undefined, row: UserRow): boolean {
   if (!search || typeof search !== "string") return true
   const term = search.trim().toLowerCase()
@@ -16,9 +8,6 @@ export function matchesSearch(search: string | undefined, row: UserRow): boolean
   return [row.email, row.name].some((value) => value?.toLowerCase().includes(term) ?? false)
 }
 
-/**
- * Kiểm tra xem user có match với filters không
- */
 export function matchesFilters(
   filters: AdminUsersListParams["filters"],
   row: UserRow
@@ -43,9 +32,6 @@ export function matchesFilters(
   return true
 }
 
-/**
- * Kiểm tra xem user có nên được include trong status view không
- */
 export function shouldIncludeInStatus(
   paramsStatus: AdminUsersListParams["status"],
   rowStatus: "active" | "deleted"
@@ -55,9 +41,6 @@ export function shouldIncludeInStatus(
   return paramsStatus === rowStatus
 }
 
-/**
- * Insert hoặc update row vào page
- */
 export function insertRowIntoPage(
   rows: UserRow[],
   row: UserRow,
@@ -76,9 +59,6 @@ export function insertRowIntoPage(
   return next
 }
 
-/**
- * Remove row khỏi page
- */
 export function removeRowFromPage(
   rows: UserRow[],
   id: string

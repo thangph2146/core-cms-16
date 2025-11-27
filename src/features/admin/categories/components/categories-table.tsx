@@ -1,10 +1,3 @@
-/**
- * Server Component: Categories Table
- * 
- * Fetches initial data, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listCategories } from "../server/queries"
 import { serializeCategoriesList } from "../server/helpers"
 import { CategoriesTableClient } from "./categories-table.client"

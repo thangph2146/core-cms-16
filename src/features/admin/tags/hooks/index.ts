@@ -1,7 +1,3 @@
-/**
- * Hooks exports cho tags feature
- */
-
 export { useTagsSocketBridge } from "./use-tags-socket-bridge"
 export { useTagActions } from "./use-tag-actions"
 export { useTagFeedback } from "./use-tag-feedback"

@@ -1,17 +1,3 @@
-/**
- * Hook để quản lý Socket.IO real-time updates cho Chat
- * Pattern tương tự useNotificationsSocketBridge
- * 
- * Theo schema.prisma Message model:
- * - id: String (cuid)
- * - senderId: String? (nullable)
- * - receiverId: String (required)
- * - content: String
- * - type: MessageType (PERSONAL, NOTIFICATION, etc.)
- * - isRead: Boolean
- * - parentId: String? (for replies)
- */
-
 "use client"
 
 import { useEffect } from "react"

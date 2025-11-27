@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý feedback dialogs
- */
-
 import { useCallback, useState } from "react"
 import type { FeedbackVariant } from "@/components/dialogs"
 

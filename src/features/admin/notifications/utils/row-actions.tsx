@@ -1,7 +1,3 @@
-/**
- * Row actions utilities cho notifications table
- */
-
 import { useCallback } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Trash2, MoreHorizontal, Eye, Loader2 } from "lucide-react"

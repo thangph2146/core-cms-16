@@ -1,7 +1,3 @@
-/**
- * Barrel export cho tags components
- */
-
 export * from "./tags-table"
 export * from "./tags-table.client"
 export * from "./tag-detail"

@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong students feature
- */
-
 export const STUDENT_MESSAGES = {
   // Success messages
   TOGGLE_ACTIVE_SUCCESS: "Cập nhật thành công",

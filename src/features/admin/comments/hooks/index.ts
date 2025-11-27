@@ -1,7 +1,3 @@
-/**
- * Hooks exports cho comments feature
- */
-
 export { useCommentsSocketBridge } from "./use-comments-socket-bridge"
 export { useCommentActions } from "./use-comment-actions"
 export { useCommentFeedback } from "./use-comment-feedback"

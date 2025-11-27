@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong posts feature
- */
-
 export const POST_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa thành công",

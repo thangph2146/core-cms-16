@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho categories
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapCategoryRecord, serializeCategoryForTable } from "./helpers"
@@ -30,10 +25,6 @@ async function fetchCategoryRow(categoryId: string): Promise<CategoryRow | null>
   return serializeCategoryForTable(listed)
 }
 
-/**
- * Emit category:upsert event
- * Được gọi khi category được tạo, cập nhật, restore
- */
 export async function emitCategoryUpsert(
   categoryId: string,
   previousStatus: CategoryStatus | null,
@@ -65,10 +56,6 @@ export async function emitCategoryUpsert(
   })
 }
 
-/**
- * Emit category:remove event
- * Được gọi khi category bị hard delete
- */
 export function emitCategoryRemove(categoryId: string, previousStatus: CategoryStatus): void {
   const io = getSocketServer()
   if (!io) return

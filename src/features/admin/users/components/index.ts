@@ -1,12 +1,3 @@
-/**
- * Components Exports
- * 
- * Structure:
- * - Server Components: *.tsx (no "use client")
- * - Client Components: *.client.tsx ("use client")
- */
-
-// Server Components
 export { UsersTable } from "./users-table"
 export { UserDetail } from "./user-detail"
 export { UserCreate } from "./user-create"

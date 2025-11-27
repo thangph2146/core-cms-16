@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho tag forms
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateName, validateSlug } from "./utils"
 import React from "react"
@@ -13,9 +9,6 @@ export interface TagFormData {
   [key: string]: unknown
 }
 
-/**
- * Sections cho tag form
- */
 export function getTagFormSections(): ResourceFormSection[] {
   return [
     {
@@ -26,9 +19,6 @@ export function getTagFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho tag form (name, slug)
- */
 export function getBaseTagFields(): ResourceFormField<TagFormData>[] {
   return [
     {

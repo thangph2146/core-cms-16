@@ -1,16 +1,9 @@
-/**
- * Helper functions để emit notifications realtime cho sessions actions
- */
-
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
-/**
- * Helper function để lấy thông tin actor (người thực hiện action)
- */
 async function getActorInfo(actorId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
@@ -19,10 +12,6 @@ async function getActorInfo(actorId: string) {
   return actor
 }
 
-/**
- * Format session names cho bulk notifications
- * Rút gọn: chỉ hiển thị user name/email
- */
 export function formatSessionNames(
   sessions: Array<{ userName: string | null; userEmail: string }>,
   maxDisplay: number = 3
@@ -41,9 +30,6 @@ export function formatSessionNames(
   return `${names.join(", ")} và ${remaining} session khác`
 }
 
-/**
- * Helper function để tạo system notification cho super admin về session actions
- */
 export async function notifySuperAdminsOfSessionAction(
   action: "create" | "update" | "delete" | "restore" | "hard-delete",
   actorId: string,
@@ -214,10 +200,6 @@ export async function notifySuperAdminsOfSessionAction(
   }
 }
 
-/**
- * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
- * Để tránh timeout khi xử lý nhiều sessions
- */
 export async function notifySuperAdminsOfBulkSessionAction(
   action: "delete" | "restore" | "hard-delete",
   actorId: string,

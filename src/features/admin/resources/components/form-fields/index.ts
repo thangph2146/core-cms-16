@@ -1,9 +1,3 @@
-/**
- * Form Fields Components
- * 
- * Export tất cả các field components và utilities
- */
-
 export { TextField } from "./text-field"
 export { TextareaField } from "./textarea-field"
 export { NumberField } from "./number-field"

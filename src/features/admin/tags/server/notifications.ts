@@ -1,17 +1,9 @@
-/**
- * Helper functions để emit notifications realtime cho tags actions
- * Tối ưu theo chuẩn Next.js 16 với logging và caching
- */
-
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
-/**
- * Helper function để lấy thông tin actor (người thực hiện action)
- */
 async function getActorInfo(actorId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
@@ -20,10 +12,6 @@ async function getActorInfo(actorId: string) {
   return actor
 }
 
-/**
- * Format tag names cho notification description
- * Hiển thị tối đa 3 tên đầu tiên, nếu nhiều hơn sẽ hiển thị "... và X thẻ tag khác"
- */
 function formatTagNames(tags: Array<{ name: string }>, maxNames = 3): string {
   if (!tags || tags.length === 0) return ""
   
@@ -36,9 +24,6 @@ function formatTagNames(tags: Array<{ name: string }>, maxNames = 3): string {
   return displayNames.join(", ")
 }
 
-/**
- * Helper function để tạo system notification cho super admin về tag actions
- */
 export async function notifySuperAdminsOfTagAction(
   action: "create" | "update" | "delete" | "restore" | "hard-delete",
   actorId: string,
@@ -213,11 +198,6 @@ export async function notifySuperAdminsOfTagAction(
   }
 }
 
-/**
- * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
- * Tối ưu để tránh timeout khi xử lý nhiều tags và rút gọn thông báo
- * Đảm bảo hiển thị được tên records bị xóa/khôi phục
- */
 export async function notifySuperAdminsOfBulkTagAction(
   action: "delete" | "restore" | "hard-delete",
   actorId: string,

@@ -1,9 +1,3 @@
-/**
- * Helper Functions for Students Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -30,9 +24,6 @@ type StudentWithRelations = Prisma.StudentGetPayload<{
   }
 }>
 
-/**
- * Map Prisma student record to ListedStudent format
- */
 export function mapStudentRecord(student: StudentWithRelations): ListedStudent {
   return {
     id: student.id,
@@ -47,9 +38,6 @@ export function mapStudentRecord(student: StudentWithRelations): ListedStudent {
   }
 }
 
-/**
- * Build Prisma where clause from ListStudentsInput
- */
 export function buildWhereClause(params: ListStudentsInput): Prisma.StudentWhereInput {
   const where: Prisma.StudentWhereInput = {}
 
@@ -94,10 +82,6 @@ export function buildWhereClause(params: ListStudentsInput): Prisma.StudentWhere
   return where
 }
 
-/**
- * Serialize student data for DataTable format
- * Handles both Date objects and date strings (from cache serialization)
- */
 export function serializeStudentForTable(student: ListedStudent | { id: string; userId: string | null; name: string | null; email: string | null; studentCode: string; isActive: boolean; createdAt: Date | string; deletedAt: Date | string | null }): StudentRow {
   return {
     id: student.id,
@@ -111,9 +95,6 @@ export function serializeStudentForTable(student: ListedStudent | { id: string; 
   }
 }
 
-/**
- * Serialize ListStudentsResult to DataTable format
- */
 export function serializeStudentsList(data: ListStudentsResult): DataTableResult<StudentRow> {
   return {
     page: data.page,
@@ -124,9 +105,6 @@ export function serializeStudentsList(data: ListStudentsResult): DataTableResult
   }
 }
 
-/**
- * Serialize StudentDetail to client format
- */
 export function serializeStudentDetail(student: StudentDetail) {
   return {
     id: student.id,

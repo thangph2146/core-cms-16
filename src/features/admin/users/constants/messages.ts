@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong users feature
- */
-
 export const USER_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa thành công",

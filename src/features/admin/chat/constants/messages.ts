@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong chat groups feature
- */
-
 export const GROUP_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa nhóm thành công",

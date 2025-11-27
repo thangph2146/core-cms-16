@@ -73,11 +73,6 @@ export function emitCommentRemove(commentId: string, previousStatus: CommentStat
   })
 }
 
-/**
- * Emit batch comment:upsert events
- * Được gọi khi bulk operations để tối ưu performance
- * Thay vì emit từng event riêng lẻ, emit một batch event
- */
 export async function emitCommentBatchUpsert(
   commentIds: string[],
   previousStatus: CommentStatus | null,

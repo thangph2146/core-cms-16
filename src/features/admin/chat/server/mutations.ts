@@ -23,9 +23,6 @@ export interface MarkMessagesAsReadInput {
   userId: string
 }
 
-/**
- * Create a new message
- */
 export async function createMessage(ctx: AuthContext, input: CreateMessageInput): Promise<MessageWithRelations> {
   if (!input.content) {
     throw new ApplicationError("Content là bắt buộc", 400)
@@ -192,9 +189,6 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
   return message
 }
 
-/**
- * Mark a single message as read
- */
 export async function markMessageAsRead(ctx: AuthContext, messageId: string, userId: string) {
   if (!messageId || !userId) {
     throw new ApplicationError("Message ID and User ID are required", 400)
@@ -390,9 +384,6 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
   return updated
 }
 
-/**
- * Mark a single message as unread
- */
 export async function markMessageAsUnread(ctx: AuthContext, messageId: string, userId: string) {
   if (!messageId || !userId) {
     throw new ApplicationError("Message ID and User ID are required", 400)
@@ -494,9 +485,6 @@ export async function markMessageAsUnread(ctx: AuthContext, messageId: string, u
   return updated
 }
 
-/**
- * Mark messages as read (bulk)
- */
 export async function markMessagesAsRead(ctx: AuthContext, input: MarkMessagesAsReadInput): Promise<{ count: number }> {
   if (!input.messageIds || input.messageIds.length === 0) {
     return { count: 0 }
@@ -555,9 +543,6 @@ export async function markMessagesAsRead(ctx: AuthContext, input: MarkMessagesAs
   return { count: result.count }
 }
 
-/**
- * Mark all messages in a conversation as read (personal messages)
- */
 export async function markConversationAsRead(
   ctx: AuthContext,
   userId: string,
@@ -624,9 +609,6 @@ export async function markConversationAsRead(
   return { count: result.count }
 }
 
-/**
- * Mark all unread messages in a group as read for a user
- */
 export async function markGroupMessagesAsRead(
   ctx: AuthContext,
   userId: string,
@@ -742,9 +724,6 @@ export async function markGroupMessagesAsRead(
   return { count: messageIds.length }
 }
 
-/**
- * Create a new group
- */
 export interface CreateGroupInput {
   name: string
   description?: string
@@ -829,9 +808,6 @@ export async function createGroup(ctx: AuthContext, input: CreateGroupInput) {
   return group
 }
 
-/**
- * Add members to a group
- */
 export interface AddGroupMembersInput {
   groupId: string
   memberIds: string[]
@@ -963,9 +939,6 @@ export async function addGroupMembers(ctx: AuthContext, input: AddGroupMembersIn
   return { count: newMemberIds.length }
 }
 
-/**
- * Update group information
- */
 export interface UpdateGroupInput {
   groupId: string
   name?: string
@@ -1066,9 +1039,6 @@ export async function updateGroup(ctx: AuthContext, input: UpdateGroupInput) {
   return updated
 }
 
-/**
- * Delete group (soft delete)
- */
 export async function deleteGroup(ctx: AuthContext, groupId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
@@ -1115,9 +1085,6 @@ export async function deleteGroup(ctx: AuthContext, groupId: string) {
   return deleted
 }
 
-/**
- * Hard delete group (permanent delete)
- */
 export async function hardDeleteGroup(ctx: AuthContext, groupId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
@@ -1168,9 +1135,6 @@ export async function hardDeleteGroup(ctx: AuthContext, groupId: string) {
   return { success: true }
 }
 
-/**
- * Restore group (undo soft delete)
- */
 export async function restoreGroup(ctx: AuthContext, groupId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
@@ -1217,9 +1181,6 @@ export async function restoreGroup(ctx: AuthContext, groupId: string) {
   return restored
 }
 
-/**
- * Remove a member from group
- */
 export interface RemoveGroupMemberInput {
   groupId: string
   memberId: string
@@ -1323,9 +1284,6 @@ export async function removeGroupMember(ctx: AuthContext, input: RemoveGroupMemb
   return { success: true }
 }
 
-/**
- * Update member role (promote to admin or demote to member)
- */
 export interface UpdateGroupMemberRoleInput {
   groupId: string
   memberId: string
@@ -1430,9 +1388,6 @@ export async function updateGroupMemberRole(ctx: AuthContext, input: UpdateGroup
   return { success: true }
 }
 
-/**
- * Soft delete message
- */
 export async function softDeleteMessage(ctx: AuthContext, messageId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
@@ -1508,9 +1463,6 @@ export async function softDeleteMessage(ctx: AuthContext, messageId: string) {
   return deleted
 }
 
-/**
- * Hard delete message (permanent delete)
- */
 export async function hardDeleteMessage(ctx: AuthContext, messageId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)
@@ -1580,9 +1532,6 @@ export async function hardDeleteMessage(ctx: AuthContext, messageId: string) {
   return { success: true }
 }
 
-/**
- * Restore message (undo soft delete)
- */
 export async function restoreMessage(ctx: AuthContext, messageId: string) {
   if (!ctx.actorId) {
     throw new ApplicationError("Unauthorized", 401)

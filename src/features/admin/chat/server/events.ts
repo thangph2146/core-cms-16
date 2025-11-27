@@ -1,16 +1,7 @@
-/**
- * Socket events emission cho groups
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { logger } from "@/lib/config"
 
-/**
- * Emit group:deleted event
- * Được gọi khi group bị soft delete
- */
 export async function emitGroupDeleted(groupId: string): Promise<void> {
   const io = getSocketServer()
   if (!io) return
@@ -34,11 +25,6 @@ export async function emitGroupDeleted(groupId: string): Promise<void> {
   }
 }
 
-/**
- * Emit group:hard-deleted event
- * Được gọi khi group bị hard delete
- * Note: memberIds phải được truyền vào vì group đã bị xóa
- */
 export async function emitGroupHardDeleted(groupId: string, memberIds: string[]): Promise<void> {
   const io = getSocketServer()
   if (!io) return
@@ -53,10 +39,6 @@ export async function emitGroupHardDeleted(groupId: string, memberIds: string[])
   }
 }
 
-/**
- * Emit group:restored event
- * Được gọi khi group được restore
- */
 export async function emitGroupRestored(groupId: string): Promise<void> {
   const io = getSocketServer()
   if (!io) return

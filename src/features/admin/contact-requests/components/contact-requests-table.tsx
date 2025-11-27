@@ -1,10 +1,3 @@
-/**
- * Server Component: Contact Requests Table
- * 
- * Fetches initial data và users options, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listContactRequests } from "../server/queries"
 import { serializeContactRequestsList } from "../server/helpers"
 import { ContactRequestsTableClient } from "./contact-requests-table.client"

@@ -1,10 +1,3 @@
-/**
- * Server Component: Roles Table
- * 
- * Fetches initial data và permissions, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listRoles, getAllPermissionsOptions } from "../server/queries"
 import { serializeRolesList } from "../server/helpers"
 import { RolesTableClient } from "./roles-table.client"

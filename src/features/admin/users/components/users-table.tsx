@@ -1,14 +1,3 @@
-/**
- * Server Component: Users Table
- * 
- * Fetches initial data và roles, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- * 
- * Theo Next.js 16 best practices:
- * - Sử dụng Promise.all để fetch multiple data sources song song
- * - Data được stream progressive với Suspense boundaries ở page level
- * - Promise.all cho phép fetch usersData và roles đồng thời, không block lẫn nhau
- */
 
 import { listUsers, getActiveRoles } from "../server/queries"
 import { serializeUsersList } from "../server/helpers"

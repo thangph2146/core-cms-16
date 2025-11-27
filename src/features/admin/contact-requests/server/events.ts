@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho contact requests
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapContactRequestRecord, serializeContactRequestForTable } from "./helpers"
@@ -39,10 +34,6 @@ async function fetchContactRequestRow(contactRequestId: string): Promise<Contact
   return serializeContactRequestForTable(listed)
 }
 
-/**
- * Emit contact-request:upsert event
- * Được gọi khi contact request được tạo, cập nhật, restore
- */
 export async function emitContactRequestUpsert(
   contactRequestId: string,
   previousStatus: ContactRequestStatus | null,
@@ -71,10 +62,6 @@ export async function emitContactRequestUpsert(
   io.to(SUPER_ADMIN_ROOM).emit("contact-request:upsert", upsertPayload)
 }
 
-/**
- * Emit contact-request:remove event
- * Được gọi khi contact request bị hard delete
- */
 export function emitContactRequestRemove(contactRequestId: string, previousStatus: ContactRequestStatus): void {
   const io = getSocketServer()
   if (!io) return
@@ -85,10 +72,6 @@ export function emitContactRequestRemove(contactRequestId: string, previousStatu
   })
 }
 
-/**
- * Emit contact-request:assigned event
- * Được gọi khi contact request được assign cho user
- */
 export async function emitContactRequestAssigned(
   contactRequestId: string,
   assignedToId: string | null,
@@ -112,10 +95,6 @@ export async function emitContactRequestAssigned(
   }
 }
 
-/**
- * Emit contact-request:new event
- * Được gọi khi contact request mới được tạo (từ public form)
- */
 export async function emitContactRequestNew(contactRequest: ListedContactRequest): Promise<void> {
   const io = getSocketServer()
   if (!io) return
@@ -140,11 +119,6 @@ export async function emitContactRequestNew(contactRequest: ListedContactRequest
   io.to(SUPER_ADMIN_ROOM).emit("contact-request:new", payload)
 }
 
-/**
- * Emit batch contact-request:upsert events
- * Được gọi khi bulk operations để tối ưu performance
- * Thay vì emit từng event riêng lẻ, emit một batch event
- */
 export async function emitContactRequestBatchUpsert(
   contactRequestIds: string[],
   previousStatus: ContactRequestStatus | null,

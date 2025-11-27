@@ -1,9 +1,3 @@
-/**
- * Render Field Input
- * 
- * Main function để render các field types khác nhau
- */
-
 "use client"
 
 import { FieldContent, FieldError } from "@/components/ui/field"

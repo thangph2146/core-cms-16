@@ -1,22 +1,9 @@
-/**
- * Helper functions cho socket bridge
- * Tách ra để dễ test và tái sử dụng
- * 
- * @module socket-helpers
- */
-
 import { resourceLogger } from "@/lib/config"
 import type { StudentRow } from "../types"
 import type { AdminStudentsListParams } from "@/lib/query-keys"
 
-/**
- * Searchable fields cho student
- */
 const SEARCHABLE_FIELDS: Array<keyof StudentRow> = ["studentCode", "name", "email"]
 
-/**
- * Kiểm tra xem student có match với search term không
- */
 export function matchesSearch(search: string | undefined, row: StudentRow): boolean {
   if (!search?.trim()) return true
   
@@ -27,9 +14,6 @@ export function matchesSearch(search: string | undefined, row: StudentRow): bool
   })
 }
 
-/**
- * Filter matchers map - dễ scale khi thêm filter mới
- */
 const FILTER_MATCHERS = {
   isActive: (row: StudentRow, value: string) => row.isActive === (value === "true"),
   studentCode: (row: StudentRow, value: string) => row.studentCode === value,
@@ -39,9 +23,6 @@ const FILTER_MATCHERS = {
 
 type FilterKey = keyof typeof FILTER_MATCHERS
 
-/**
- * Kiểm tra xem student có match với filters không
- */
 export function matchesFilters(
   filters: AdminStudentsListParams["filters"],
   row: StudentRow
@@ -66,9 +47,6 @@ export function matchesFilters(
   })
 }
 
-/**
- * Kiểm tra xem student có nên được include trong status view không
- */
 export function shouldIncludeInStatus(
   paramsStatus: AdminStudentsListParams["status"],
   rowStatus: "active" | "deleted"
@@ -77,14 +55,6 @@ export function shouldIncludeInStatus(
   return (paramsStatus ?? "active") === rowStatus
 }
 
-/**
- * Insert hoặc update row vào page
- * 
- * @param rows - Mảng rows hiện tại
- * @param row - Row cần insert/update
- * @param limit - Giới hạn số lượng rows
- * @returns Mảng rows mới
- */
 export function insertRowIntoPage(
   rows: StudentRow[],
   row: StudentRow,
@@ -131,13 +101,6 @@ export function insertRowIntoPage(
   return result
 }
 
-/**
- * Remove row khỏi page
- * 
- * @param rows - Mảng rows hiện tại
- * @param id - ID của row cần remove
- * @returns Object chứa rows mới và flag removed
- */
 export function removeRowFromPage(
   rows: StudentRow[],
   id: string

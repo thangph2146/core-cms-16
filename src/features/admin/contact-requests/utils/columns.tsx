@@ -1,7 +1,3 @@
-/**
- * Column definitions cho contact-requests table
- */
-
 import { useMemo } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"

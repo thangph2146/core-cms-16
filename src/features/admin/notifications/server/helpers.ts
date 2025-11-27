@@ -1,19 +1,9 @@
-/**
- * Helper Functions for Notifications Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries và components
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { DataTableResult } from "@/components/tables"
 import { logger } from "@/lib/config"
 import { serializeDate } from "@/features/admin/resources/server"
 import type { ListNotificationsResult, ListedNotification } from "./queries"
 import type { NotificationRow } from "../types"
 
-/**
- * Serialize notification data for DataTable format
- */
 export function serializeNotificationForTable(notification: ListedNotification): NotificationRow {
   // Ensure createdAt is always a valid string (required field)
   const createdAt = notification.createdAt
@@ -36,10 +26,6 @@ export function serializeNotificationForTable(notification: ListedNotification):
   }
 }
 
-/**
- * Serialize ListNotificationsResult to DataTable format
- * Sử dụng pattern từ resources/server nhưng customize cho notifications
- */
 export function serializeNotificationsList(data: ListNotificationsResult): DataTableResult<NotificationRow> {
   try {
     return {
@@ -83,9 +69,6 @@ export function serializeNotificationsList(data: ListNotificationsResult): DataT
   }
 }
 
-/**
- * Serialize ListedNotification to client format (for detail page)
- */
 export function serializeNotificationDetail(notification: ListedNotification) {
   return {
     id: notification.id,

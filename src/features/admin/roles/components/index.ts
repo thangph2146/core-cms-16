@@ -1,8 +1,3 @@
-/**
- * Components exports for Roles feature
- */
-
-// Server Components
 export { RolesTable, type RolesTableProps } from "./roles-table"
 export { RoleDetail, type RoleDetailProps } from "./role-detail"
 export { RoleCreate, type RoleCreateProps } from "./role-create"

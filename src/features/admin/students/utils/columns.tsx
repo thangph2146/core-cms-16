@@ -1,14 +1,10 @@
-/**
- * Column definitions cho students table
- */
-
 import { useMemo } from "react"
 import { Switch } from "@/components/ui/switch"
 import type { DataTableColumn } from "@/components/tables"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"
 import { apiRoutes } from "@/lib/api/routes"
 import type { StudentRow } from "../types"
-import { STUDENT_LABELS } from "../constants"
+import { STUDENT_LABELS } from "../constants/messages"
 
 interface UseStudentColumnsOptions {
   togglingStudents: Set<string>

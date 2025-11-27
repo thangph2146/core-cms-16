@@ -1,9 +1,3 @@
-/**
- * Image Field Component với preview
- * 
- * Component để hiển thị input URL hình ảnh kèm preview
- */
-
 "use client"
 
 import { useState } from "react"

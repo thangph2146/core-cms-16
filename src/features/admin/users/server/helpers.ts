@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Users Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -35,9 +28,6 @@ type UserWithRoles = Prisma.UserGetPayload<{
   }
 }>
 
-/**
- * Map Prisma user record to ListedUser format
- */
 export function mapUserRecord(user: UserWithRoles): ListedUser {
   return {
     id: user.id,
@@ -51,9 +41,6 @@ export function mapUserRecord(user: UserWithRoles): ListedUser {
   }
 }
 
-/**
- * Build Prisma where clause from ListUsersInput
- */
 export function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput {
   const where: Prisma.UserWhereInput = {}
 
@@ -99,9 +86,6 @@ export function buildWhereClause(params: ListUsersInput): Prisma.UserWhereInput 
   return where
 }
 
-/**
- * Serialize user data for DataTable format
- */
 export function serializeUserForTable(user: ListedUser): UserRow {
   return {
     id: user.id,
@@ -118,10 +102,6 @@ export function serializeUserForTable(user: ListedUser): UserRow {
   }
 }
 
-/**
- * Serialize ListUsersResult to DataTable format
- * Sử dụng pattern từ resources/server nhưng customize cho users
- */
 export function serializeUsersList(data: ListUsersResult): DataTableResult<UserRow> {
   return {
     page: data.pagination.page,
@@ -132,9 +112,6 @@ export function serializeUsersList(data: ListUsersResult): DataTableResult<UserR
   }
 }
 
-/**
- * Serialize UserDetail to client format
- */
 export function serializeUserDetail(user: UserDetail) {
   return {
     id: user.id,

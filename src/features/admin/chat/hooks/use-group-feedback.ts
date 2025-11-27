@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý feedback dialogs cho groups
- */
-
 "use client"
 
 import { useCallback, useState } from "react"

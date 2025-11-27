@@ -1,9 +1,3 @@
-/**
- * Select Combobox Component
- * 
- * Reusable combobox component cho select fields
- */
-
 "use client"
 
 import { useState } from "react"

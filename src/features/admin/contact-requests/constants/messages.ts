@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong contact-requests feature
- */
-
 export const CONTACT_REQUEST_MESSAGES = {
   // Success messages
   MARK_READ_SUCCESS: "Đã đánh dấu đã đọc",

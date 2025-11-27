@@ -1,7 +1,3 @@
-/**
- * Barrel export cho students components
- */
-
 export * from "./students-table"
 export * from "./students-table.client"
 export * from "./student-detail"

@@ -1,13 +1,5 @@
-/**
- * Helper functions cho socket bridge
- * Tách ra để dễ test và tái sử dụng
- */
-
 import type { NotificationRow } from "../types"
 
-/**
- * Kiểm tra xem notification có match với search term không
- */
 export function matchesSearch(search: string | undefined, row: NotificationRow): boolean {
   if (!search) return true
   const term = search.trim().toLowerCase()
@@ -22,9 +14,6 @@ export function matchesSearch(search: string | undefined, row: NotificationRow):
     .some((value) => value.toLowerCase().includes(term))
 }
 
-/**
- * Kiểm tra xem notification có match với filters không
- */
 export function matchesFilters(
   filters: Record<string, string> | undefined,
   row: NotificationRow
@@ -51,9 +40,6 @@ export function matchesFilters(
   return true
 }
 
-/**
- * Insert hoặc update row vào page
- */
 export function insertRowIntoPage(
   rows: NotificationRow[],
   row: NotificationRow,
@@ -72,9 +58,6 @@ export function insertRowIntoPage(
   return next
 }
 
-/**
- * Remove row khỏi page
- */
 export function removeRowFromPage(
   rows: NotificationRow[],
   id: string
@@ -86,9 +69,6 @@ export function removeRowFromPage(
   return { rows: next, removed: true }
 }
 
-/**
- * Convert socket notification payload to NotificationRow
- */
 export function convertSocketPayloadToRow(
   payload: {
     id: string

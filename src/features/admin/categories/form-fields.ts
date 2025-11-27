@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho category forms
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateCategoryName, validateCategorySlug, validateDescription } from "./utils"
 import React from "react"
@@ -14,9 +10,6 @@ export interface CategoryFormData {
   [key: string]: unknown
 }
 
-/**
- * Sections cho category form
- */
 export function getCategoryFormSections(): ResourceFormSection[] {
   return [
     {
@@ -27,9 +20,6 @@ export function getCategoryFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho category form (name, slug, description)
- */
 export function getBaseCategoryFields(): ResourceFormField<CategoryFormData>[] {
   return [
     {

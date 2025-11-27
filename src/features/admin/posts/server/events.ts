@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho posts
- * Tối ưu với batch updates cho bulk operations
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapPostRecord, serializePostForTable } from "./helpers"
@@ -59,9 +54,6 @@ async function fetchPostRow(postId: string): Promise<PostRow | null> {
   return serializePostForTable(listed)
 }
 
-/**
- * Emit post:upsert event (single)
- */
 export async function emitPostUpsert(
   postId: string,
   previousStatus: PostStatus | null,
@@ -86,9 +78,6 @@ export async function emitPostUpsert(
   })
 }
 
-/**
- * Emit batch post:upsert events (tối ưu cho bulk operations)
- */
 export async function emitBatchPostUpsert(
   postIds: string[],
   previousStatus: PostStatus | null,
@@ -131,9 +120,6 @@ export async function emitBatchPostUpsert(
   }
 }
 
-/**
- * Emit post:remove event
- */
 export function emitPostRemove(postId: string, previousStatus: PostStatus): void {
   const io = getSocketServer()
   if (!io) return

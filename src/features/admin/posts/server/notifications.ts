@@ -1,16 +1,9 @@
-/**
- * Helper functions để emit notifications realtime cho posts actions
- */
-
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
-/**
- * Helper function để lấy thông tin actor (người thực hiện action)
- */
 async function getActorInfo(actorId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
@@ -19,10 +12,6 @@ async function getActorInfo(actorId: string) {
   return actor
 }
 
-/**
- * Format post titles cho notification description
- * Hiển thị tối đa 3 tiêu đề đầu tiên, nếu nhiều hơn sẽ hiển thị "... và X bài viết khác"
- */
 function formatPostTitles(posts: Array<{ title: string }>, maxTitles = 3): string {
   if (!posts || posts.length === 0) return ""
   
@@ -35,9 +24,6 @@ function formatPostTitles(posts: Array<{ title: string }>, maxTitles = 3): strin
   return displayTitles.join(", ")
 }
 
-/**
- * Helper function để tạo system notification cho super admin về post actions
- */
 export async function notifySuperAdminsOfPostAction(
   action: "create" | "update" | "delete" | "restore" | "hard-delete",
   actorId: string,
@@ -170,10 +156,6 @@ export async function notifySuperAdminsOfPostAction(
   }
 }
 
-/**
- * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
- * Để tránh timeout khi xử lý nhiều posts và rút gọn thông báo
- */
 export async function notifySuperAdminsOfBulkPostAction(
   action: "delete" | "restore" | "hard-delete",
   actorId: string,

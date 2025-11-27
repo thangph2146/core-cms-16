@@ -1,7 +1,3 @@
-/**
- * Components exports cho sessions feature
- */
-
 export { SessionsTable } from "./sessions-table"
 export { SessionsTableClient } from "./sessions-table.client"
 export { SessionDetail } from "./session-detail"

@@ -1,7 +1,3 @@
-/**
- * Multiple Select Field Component
- */
-
 "use client"
 
 import { FieldContent, FieldError } from "@/components/ui/field"

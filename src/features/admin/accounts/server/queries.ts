@@ -1,9 +1,3 @@
-/**
- * Database Queries for Accounts
- * 
- * Queries để lấy thông tin tài khoản cá nhân của user hiện tại
- */
-
 import { prisma } from "@/lib/database"
 import type { AccountProfile } from "../types"
 import type { Prisma } from "@prisma/client"
@@ -24,9 +18,6 @@ type _UserWithRoles = Prisma.UserGetPayload<{
   }
 }>
 
-/**
- * Get current user's account profile
- */
 export async function getCurrentUserProfile(userId: string): Promise<AccountProfile | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

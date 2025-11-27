@@ -1,16 +1,9 @@
-/**
- * Helper functions để emit notifications realtime cho categories actions
- */
-
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
-/**
- * Helper function để lấy thông tin actor (người thực hiện action)
- */
 async function getActorInfo(actorId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
@@ -19,10 +12,6 @@ async function getActorInfo(actorId: string) {
   return actor
 }
 
-/**
- * Format category names cho notification description
- * Hiển thị tối đa 3 tên đầu tiên, nếu nhiều hơn sẽ hiển thị "... và X danh mục khác"
- */
 function formatCategoryNames(categories: Array<{ name: string }>, maxNames = 3): string {
   if (!categories || categories.length === 0) return ""
   
@@ -35,9 +24,6 @@ function formatCategoryNames(categories: Array<{ name: string }>, maxNames = 3):
   return displayNames.join(", ")
 }
 
-/**
- * Helper function để tạo system notification cho super admin về category actions
- */
 export async function notifySuperAdminsOfCategoryAction(
   action: "create" | "update" | "delete" | "restore" | "hard-delete",
   actorId: string,
@@ -202,10 +188,6 @@ export async function notifySuperAdminsOfCategoryAction(
   }
 }
 
-/**
- * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
- * Để tránh timeout khi xử lý nhiều categories và rút gọn thông báo
- */
 export async function notifySuperAdminsOfBulkCategoryAction(
   action: "delete" | "restore" | "hard-delete",
   actorId: string,

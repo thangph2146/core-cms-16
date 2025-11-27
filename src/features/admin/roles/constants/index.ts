@@ -1,6 +1,2 @@
-/**
- * Constants exports cho roles feature
- */
-
 export { ROLE_MESSAGES, ROLE_LABELS, ROLE_CONFIRM_MESSAGES } from "./messages"
 

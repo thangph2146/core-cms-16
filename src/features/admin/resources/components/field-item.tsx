@@ -1,10 +1,3 @@
-/**
- * Reusable Field Item Component for Detail Pages
- * 
- * Component hiển thị field với icon, label và content
- * Sử dụng trong detail pages để đảm bảo UI/UX nhất quán
- */
-
 import * as React from "react"
 import { cn } from "@/lib/utils"
 

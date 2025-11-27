@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong categories feature
- */
-
 export const CATEGORY_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa thành công",

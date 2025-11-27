@@ -1,7 +1,3 @@
-/**
- * Hooks exports cho roles feature
- */
-
 export { useRolesSocketBridge } from "./use-roles-socket-bridge"
 export { useRoleActions } from "./use-role-actions"
 export { useRoleFeedback } from "./use-role-feedback"

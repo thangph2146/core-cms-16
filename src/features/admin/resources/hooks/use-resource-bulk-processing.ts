@@ -11,9 +11,6 @@ interface UseResourceBulkProcessingResult {
   stopBulkProcessing: () => void
 }
 
-/**
- * Hook chia sẻ để quản lý trạng thái bulk actions giữa các resource hooks
- */
 export function useResourceBulkProcessing(): UseResourceBulkProcessingResult {
   const [isProcessing, setIsProcessing] = useState(false)
   const processingRef = useRef(false)

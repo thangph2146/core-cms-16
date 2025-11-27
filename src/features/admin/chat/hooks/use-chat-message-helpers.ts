@@ -1,15 +1,7 @@
-/**
- * Helper functions cho message operations trong useChat
- * Tách logic để code ngắn gọn và dễ test
- */
-
 import type { Contact, Message } from "@/components/chat/types"
 import { MAX_MESSAGES_IN_STATE } from "@/components/chat/constants"
 import { calculateUnreadCount } from "./use-chat-helpers"
 
-/**
- * Create optimistic message
- */
 export function createOptimisticMessage(params: {
   content: string
   senderId: string
@@ -33,10 +25,6 @@ export function createOptimisticMessage(params: {
   }
 }
 
-/**
- * Update contact messages (add, update, or remove)
- * Internal helper - not exported
- */
 function updateContactMessages(
   contacts: Contact[],
   contactId: string,
@@ -49,9 +37,6 @@ function updateContactMessages(
   )
 }
 
-/**
- * Update contact message by ID
- */
 export function updateContactMessage(
   contacts: Contact[],
   contactId: string,
@@ -63,9 +48,6 @@ export function updateContactMessage(
   )
 }
 
-/**
- * Remove message from contact
- */
 export function removeContactMessage(
   contacts: Contact[],
   contactId: string,
@@ -76,10 +58,6 @@ export function removeContactMessage(
   )
 }
 
-/**
- * Add message to contact
- * Tự động giới hạn số lượng tin nhắn để tránh performance issues
- */
 export function addContactMessage(
   contacts: Contact[],
   contactId: string,
@@ -104,10 +82,6 @@ export function addContactMessage(
   })
 }
 
-/**
- * Update message read status with optimistic update
- * Handles both group (readers array) and personal (isRead boolean) messages
- */
 export function updateMessageReadStatusOptimistic(
   contacts: Contact[],
   contactId: string,
@@ -124,9 +98,6 @@ export function updateMessageReadStatusOptimistic(
   })
 }
 
-/**
- * Shared helper: apply read status changes (socket or optimistic)
- */
 export function applyReadStatus(
   contacts: Contact[],
   params: {

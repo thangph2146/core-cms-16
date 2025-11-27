@@ -1,8 +1,3 @@
-/**
- * Custom hook để xử lý các actions của groups
- * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
- */
-
 "use client"
 
 import { useCallback, useState } from "react"

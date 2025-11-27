@@ -1,16 +1,9 @@
-/**
- * Helper functions để emit notifications realtime cho roles actions
- */
-
 import { prisma } from "@/lib/database"
 import { logger, resourceLogger } from "@/lib/config"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
-/**
- * Helper function để lấy thông tin actor (người thực hiện action)
- */
 async function getActorInfo(actorId: string) {
   const actor = await prisma.user.findUnique({
     where: { id: actorId },
@@ -19,9 +12,6 @@ async function getActorInfo(actorId: string) {
   return actor
 }
 
-/**
- * Helper function để tạo system notification cho super admin về role actions
- */
 export async function notifySuperAdminsOfRoleAction(
   action: "create" | "update" | "delete" | "restore" | "hard-delete",
   actorId: string,
@@ -220,10 +210,6 @@ export async function notifySuperAdminsOfRoleAction(
   }
 }
 
-/**
- * Format role names cho notification description
- * Hiển thị tối đa 3 tên đầu tiên, nếu nhiều hơn sẽ hiển thị "... và X vai trò khác"
- */
 function formatRoleNames(roles: Array<{ displayName: string }>, maxNames = 3): string {
   if (!roles || roles.length === 0) return ""
   
@@ -236,11 +222,6 @@ function formatRoleNames(roles: Array<{ displayName: string }>, maxNames = 3): s
   return displayNames.join(", ")
 }
 
-/**
- * Bulk notification cho bulk operations - emit một notification tổng hợp thay vì từng cái một
- * Tối ưu để tránh timeout khi xử lý nhiều roles và rút gọn thông báo
- * Đảm bảo hiển thị được tên records bị xóa/khôi phục
- */
 export async function notifySuperAdminsOfBulkRoleAction(
   action: "delete" | "restore" | "hard-delete",
   actorId: string,

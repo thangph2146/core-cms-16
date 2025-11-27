@@ -1,12 +1,3 @@
-/**
- * Components Exports
- * 
- * Structure:
- * - Server Components: *.tsx (no "use client")
- * - Client Components: *.client.tsx hoặc *.tsx với "use client"
- */
-
-// Server Components
 export { NotificationsTable } from "./notifications-table"
 export { NotificationDetail } from "./notification-detail"
 

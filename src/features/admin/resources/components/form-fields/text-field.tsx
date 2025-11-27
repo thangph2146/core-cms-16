@@ -1,7 +1,3 @@
-/**
- * Text Field Component
- */
-
 "use client"
 
 import * as React from "react"

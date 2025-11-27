@@ -1,7 +1,3 @@
-/**
- * Column definitions cho tags table
- */
-
 import { useMemo } from "react"
 import type { DataTableColumn } from "@/components/tables"
 import { useDynamicFilterOptions } from "@/features/admin/resources/hooks/use-dynamic-filter-options"

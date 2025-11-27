@@ -1,11 +1,3 @@
-/**
- * Helper Functions for Sessions Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * 
- * Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -28,9 +20,6 @@ type SessionWithRelations = Prisma.SessionGetPayload<{
   }
 }>
 
-/**
- * Map Prisma session record to ListedSession format
- */
 export function mapSessionRecord(session: SessionWithRelations): ListedSession {
   return {
     id: session.id,
@@ -49,10 +38,6 @@ export function mapSessionRecord(session: SessionWithRelations): ListedSession {
   }
 }
 
-/**
- * Build Prisma where clause from ListSessionsInput
- * Note: Session không có deletedAt, sử dụng isActive để phân biệt active/deleted
- */
 export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhereInput {
   const where: Prisma.SessionWhereInput = {}
   const status = params.status ?? "active"
@@ -114,9 +99,6 @@ export function buildWhereClause(params: ListSessionsInput): Prisma.SessionWhere
   return where
 }
 
-/**
- * Serialize session data for DataTable format
- */
 export function serializeSessionForTable(session: ListedSession & { userName?: string | null; userEmail?: string }): SessionRow {
   return {
     id: session.id,
@@ -135,9 +117,6 @@ export function serializeSessionForTable(session: ListedSession & { userName?: s
   }
 }
 
-/**
- * Serialize ListSessionsResult to DataTable format
- */
 export function serializeSessionsList(data: ListSessionsResult & { rows: Array<ListedSession & { userName?: string | null; userEmail?: string }> }): DataTableResult<SessionRow> {
   return {
     page: data.page,
@@ -148,9 +127,6 @@ export function serializeSessionsList(data: ListSessionsResult & { rows: Array<L
   }
 }
 
-/**
- * Serialize SessionDetail to client format
- */
 export function serializeSessionDetail(session: SessionDetail) {
   return {
     id: session.id,

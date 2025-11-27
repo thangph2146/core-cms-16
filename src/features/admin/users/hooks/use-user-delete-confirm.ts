@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý delete confirmation dialogs cho users
- */
-
 import { useCallback, useState } from "react"
 import type { UserRow } from "../types"
 

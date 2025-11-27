@@ -1,10 +1,3 @@
-/**
- * Responsive Selection Actions Wrapper
- * 
- * Wrapper component để đảm bảo selection actions responsive trên mọi thiết bị
- * Pattern: flex-col trên mobile, flex-row trên desktop với buttons tự động wrap
- */
-
 import type { ReactNode } from "react"
 
 interface SelectionActionsWrapperProps {

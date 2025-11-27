@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho tags
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapTagRecord, serializeTagForTable } from "./helpers"
@@ -30,10 +25,6 @@ async function fetchTagRow(tagId: string): Promise<TagRow | null> {
   return serializeTagForTable(listed)
 }
 
-/**
- * Emit tag:upsert event
- * Được gọi khi tag được tạo, cập nhật, restore
- */
 export async function emitTagUpsert(
   tagId: string,
   previousStatus: TagStatus | null,
@@ -65,10 +56,6 @@ export async function emitTagUpsert(
   })
 }
 
-/**
- * Emit tag:remove event
- * Được gọi khi tag bị hard delete
- */
 export function emitTagRemove(tagId: string, previousStatus: TagStatus): void {
   const io = getSocketServer()
   if (!io) return

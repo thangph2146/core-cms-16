@@ -1,8 +1,3 @@
-/**
- * Custom hook để xử lý các actions của notifications
- * Tách logic xử lý actions ra khỏi component chính để code sạch hơn
- */
-
 import { useCallback, useState } from "react"
 import { useSession } from "next-auth/react"
 import { apiClient } from "@/lib/api/axios"

@@ -1,9 +1,3 @@
-/**
- * Multiple Select Combobox Component
- * 
- * Reusable combobox component cho multiple select fields
- */
-
 "use client"
 
 import { useState } from "react"

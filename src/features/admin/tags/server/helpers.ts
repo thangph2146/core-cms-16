@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Tags Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -20,9 +13,6 @@ import type { TagRow } from "../types"
 
 type TagWithRelations = Prisma.TagGetPayload<Record<string, never>>
 
-/**
- * Map Prisma tag record to ListedTag format
- */
 export function mapTagRecord(tag: TagWithRelations): ListedTag {
   return {
     id: tag.id,
@@ -34,9 +24,6 @@ export function mapTagRecord(tag: TagWithRelations): ListedTag {
   }
 }
 
-/**
- * Build Prisma where clause from ListTagsInput
- */
 export function buildWhereClause(params: ListTagsInput): Prisma.TagWhereInput {
   const where: Prisma.TagWhereInput = {}
 
@@ -72,10 +59,6 @@ export function buildWhereClause(params: ListTagsInput): Prisma.TagWhereInput {
   return where
 }
 
-/**
- * Serialize tag data for DataTable format
- * Handles both Date objects and date strings (from cache serialization)
- */
 export function serializeTagForTable(tag: ListedTag | { id: string; name: string; slug: string; createdAt: Date | string; updatedAt?: Date | string; deletedAt: Date | string | null }): TagRow {
   return {
     id: tag.id,
@@ -87,9 +70,6 @@ export function serializeTagForTable(tag: ListedTag | { id: string; name: string
   }
 }
 
-/**
- * Serialize ListTagsResult to DataTable format
- */
 export function serializeTagsList(data: ListTagsResult): DataTableResult<TagRow> {
   return {
     page: data.pagination.page,
@@ -100,9 +80,6 @@ export function serializeTagsList(data: ListTagsResult): DataTableResult<TagRow>
   }
 }
 
-/**
- * Serialize TagDetail to client format
- */
 export function serializeTagDetail(tag: TagDetail) {
   return {
     id: tag.id,

@@ -1,7 +1,3 @@
-/**
- * Utils exports cho tags feature
- */
-
 export {
   matchesSearch,
   matchesFilters,

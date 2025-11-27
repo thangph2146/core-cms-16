@@ -1,7 +1,3 @@
-/**
- * Utils exports cho comments feature
- */
-
 export { useCommentColumns } from "./columns"
 export { useCommentRowActions, renderRowActions, type RowActionConfig } from "./row-actions"
 export {

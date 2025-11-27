@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Posts Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -51,9 +44,6 @@ type PostWithAuthor = Prisma.PostGetPayload<{
   }
 }>
 
-/**
- * Map Prisma post record to ListedPost format
- */
 export function mapPostRecord(post: PostWithAuthor): ListedPost {
   return {
     id: post.id,
@@ -78,9 +68,6 @@ export function mapPostRecord(post: PostWithAuthor): ListedPost {
   }
 }
 
-/**
- * Build Prisma where clause from ListPostsInput
- */
 export function buildWhereClause(params: ListPostsInput): Prisma.PostWhereInput {
   const where: Prisma.PostWhereInput = {}
 
@@ -123,9 +110,6 @@ export function buildWhereClause(params: ListPostsInput): Prisma.PostWhereInput 
   return where
 }
 
-/**
- * Serialize post data for DataTable format
- */
 export function serializePostForTable(post: ListedPost): PostRow {
   return {
     id: post.id,
@@ -144,9 +128,6 @@ export function serializePostForTable(post: ListedPost): PostRow {
   }
 }
 
-/**
- * Serialize ListPostsResult to DataTable format
- */
 export function serializePostsList(data: ListPostsResult): DataTableResult<PostRow> {
   return {
     page: data.pagination.page,
@@ -157,9 +138,6 @@ export function serializePostsList(data: ListPostsResult): DataTableResult<PostR
   }
 }
 
-/**
- * Serialize PostDetail to client format
- */
 export function serializePostDetail(post: PostDetail) {
   return {
     id: post.id,

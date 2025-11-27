@@ -1,12 +1,3 @@
-/**
- * Server mutations for notifications
- * 
- * Best Practices:
- * - Chỉ user sở hữu notification mới có thể đánh dấu đã đọc/xóa
- * - Tất cả operations đều có permission checks
- * - Emit socket events sau khi tạo/cập nhật notification
- * - Structured logging cho debugging và monitoring
- */
 import { prisma } from "@/lib/database"
 import { NotificationKind, Prisma } from "@prisma/client"
 import { DEFAULT_ROLES } from "@/lib/permissions"
@@ -20,10 +11,6 @@ import {
   emitNotificationsDeleted,
 } from "./events"
 
-/**
- * Create notification for a specific user
- * Không cần check permission - dùng cho system notifications
- */
 export async function createNotificationForUser(
   userId: string,
   title: string,
@@ -76,10 +63,6 @@ export async function createNotificationForUser(
   return notification
 }
 
-/**
- * Create notification for all super admins
- * Used for system-wide notifications that only super admins should see
- */
 export async function createNotificationForSuperAdmins(
   title: string,
   description?: string | null,
@@ -145,11 +128,6 @@ export async function createNotificationForSuperAdmins(
   return { count: notifications.count }
 }
 
-/**
- * Emit socket notification to super admins after creating notifications in database
- * Helper function để emit realtime notification sau khi đã tạo notification trong DB
- * @deprecated Sử dụng emitNotificationNewForSuperAdmins từ events.ts thay thế
- */
 export async function emitNotificationToSuperAdminsAfterCreate(
   title: string,
   description?: string | null,
@@ -215,10 +193,6 @@ export async function emitNotificationToSuperAdminsAfterCreate(
   }
 }
 
-/**
- * Mark notification as read - chỉ cho phép user đánh dấu notification của chính mình
- * Best Practice: Ownership verification trước khi update
- */
 export async function markNotificationAsRead(notificationId: string, userId: string) {
   // Validate input
   if (!notificationId || !userId) {
@@ -272,10 +246,6 @@ export async function markNotificationAsRead(notificationId: string, userId: str
   return updated
 }
 
-/**
- * Mark notification as unread - chỉ cho phép user đánh dấu notification của chính mình
- * Best Practice: Ownership verification trước khi update
- */
 export async function markNotificationAsUnread(notificationId: string, userId: string) {
   // Validate input
   if (!notificationId || !userId) {
@@ -329,11 +299,6 @@ export async function markNotificationAsUnread(notificationId: string, userId: s
   return updated
 }
 
-/**
- * Delete notification - chỉ cho phép user xóa notification cá nhân của chính mình
- * Thông báo hệ thống (SYSTEM) không bao giờ được xóa
- * Best Practice: Ownership verification và kind check trước khi delete
- */
 export async function deleteNotification(notificationId: string, userId: string) {
   // Validate input
   if (!notificationId || !userId) {
@@ -386,10 +351,6 @@ export async function deleteNotification(notificationId: string, userId: string)
   return deleted
 }
 
-/**
- * Bulk mark notifications as read - chỉ cho phép user đánh dấu notifications của chính mình
- * Best Practice: Ownership verification và batch update với userId filter
- */
 export async function bulkMarkAsRead(notificationIds: string[], userId: string) {
   // Validate input
   if (!notificationIds || notificationIds.length === 0) {
@@ -451,10 +412,6 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
   return { count: result.count }
 }
 
-/**
- * Bulk mark notifications as unread - chỉ cho phép user cập nhật notifications của chính mình
- * Best Practice: Ownership verification và batch update với userId filter
- */
 export async function bulkMarkAsUnread(notificationIds: string[], userId: string) {
   if (!notificationIds || notificationIds.length === 0) {
     return { count: 0 }
@@ -513,11 +470,6 @@ export async function bulkMarkAsUnread(notificationIds: string[], userId: string
   return { count: result.count }
 }
 
-/**
- * Bulk delete notifications - chỉ cho phép user xóa notifications cá nhân của chính mình
- * Thông báo hệ thống (SYSTEM) không bao giờ được xóa
- * Best Practice: Ownership verification và kind check trước khi delete
- */
 export async function bulkDelete(notificationIds: string[], userId: string) {
   // Validate input
   if (!notificationIds || notificationIds.length === 0) {

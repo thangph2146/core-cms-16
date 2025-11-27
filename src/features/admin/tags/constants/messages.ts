@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong tags feature
- */
-
 export const TAG_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa thành công",

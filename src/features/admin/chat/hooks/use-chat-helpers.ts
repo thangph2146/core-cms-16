@@ -1,8 +1,3 @@
-/**
- * Helper functions cho useChat hook
- * Tách logic để code ngắn gọn và dễ maintain
- */
-
 import type { Contact, Message } from "@/components/chat/types"
 import { TEXTAREA_MIN_HEIGHT, BASE_OFFSET_REM, REM_TO_PX } from "@/components/chat/constants"
 import { isMessageUnreadByUser, isMessageReadByUser } from "@/components/chat/utils/message-helpers"
@@ -14,29 +9,15 @@ const ADJUSTMENT_PX = 5
 const MARK_AS_READ_DEBOUNCE_MS = 300
 const MOBILE_BREAKPOINT = 768
 
-/**
- * Check if current viewport is mobile
- * Uses same logic as useIsMobile hook
- * Internal helper - not exported
- */
 function isMobileViewport(): boolean {
   if (typeof window === "undefined") return false
   return window.innerWidth < MOBILE_BREAKPOINT
 }
 
-/**
- * Tính toán base height cho messages area
- * Internal helper - not exported
- */
 function calculateBaseHeight(): number {
   return window.innerHeight - (BASE_OFFSET_REM * REM_TO_PX)
 }
 
-/**
- * Tính toán height cho messages area
- * Automatically detects mobile using same logic as useIsMobile hook
- * Can use measured heights from useChatElementsHeight hook for more accurate calculations
- */
 export function calculateMessagesHeight(params: {
   textareaHeight: number
   replyingTo: Message | null
@@ -104,11 +85,6 @@ export function calculateMessagesHeight(params: {
   return { maxHeight: height, minHeight: height }
 }
 
-/**
- * Mark conversation as read via API
- * Internal helper - not exported
- * Handles both personal conversations and groups
- */
 async function markConversationAsReadAPI(contactId: string, contactType?: "PERSONAL" | "GROUP"): Promise<void> {
   try {
     const { apiRoutes } = await import("@/lib/api/routes")
@@ -133,17 +109,10 @@ async function markConversationAsReadAPI(contactId: string, contactType?: "PERSO
   }
 }
 
-/**
- * Debounced mark conversation as read
- */
 export function debouncedMarkAsRead(contactId: string, contactType?: "PERSONAL" | "GROUP"): void {
   setTimeout(() => markConversationAsReadAPI(contactId, contactType), MARK_AS_READ_DEBOUNCE_MS)
 }
 
-/**
- * Get unread messages for a contact
- * Uses isMessageUnreadByUser helper for consistent logic
- */
 export function getUnreadMessages(contact: Contact, currentUserId: string): Message[] {
   return contact.messages.filter((msg) => {
     // For personal messages: also check receiverId
@@ -152,17 +121,10 @@ export function getUnreadMessages(contact: Contact, currentUserId: string): Mess
   })
 }
 
-/**
- * Calculate unread count for a contact
- * Uses getUnreadMessages for consistent logic
- */
 export function calculateUnreadCount(contact: Contact, currentUserId: string): number {
   return getUnreadMessages(contact, currentUserId).length
 }
 
-/**
- * Check if messages changed (including isRead status and readers array)
- */
 export function hasMessagesChanged(oldMessages: Message[], newMessages: Message[], currentUserId?: string): boolean {
   if (oldMessages.length !== newMessages.length) return true
   if (oldMessages[oldMessages.length - 1]?.id !== newMessages[newMessages.length - 1]?.id) return true

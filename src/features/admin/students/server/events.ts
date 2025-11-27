@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho students
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapStudentRecord, serializeStudentForTable } from "./helpers"
@@ -38,10 +33,6 @@ async function fetchStudentRow(studentId: string): Promise<StudentRow | null> {
   return serializeStudentForTable(listed)
 }
 
-/**
- * Emit student:upsert event
- * Được gọi khi student được tạo, cập nhật, restore
- */
 export async function emitStudentUpsert(
   studentId: string,
   previousStatus: StudentStatus | null,
@@ -66,10 +57,6 @@ export async function emitStudentUpsert(
   })
 }
 
-/**
- * Emit student:remove event
- * Được gọi khi student bị hard delete
- */
 export function emitStudentRemove(studentId: string, previousStatus: StudentStatus): void {
   const io = getSocketServer()
   if (!io) return
@@ -80,11 +67,6 @@ export function emitStudentRemove(studentId: string, previousStatus: StudentStat
   })
 }
 
-/**
- * Emit batch student:upsert events
- * Được gọi khi bulk operations để tối ưu performance
- * Thay vì emit từng event riêng lẻ, emit một batch event
- */
 export async function emitStudentBatchUpsert(
   studentIds: string[],
   previousStatus: StudentStatus | null,

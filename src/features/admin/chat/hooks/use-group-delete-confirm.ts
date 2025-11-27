@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý delete confirmation dialogs cho groups
- */
-
 "use client"
 
 import { useCallback, useState } from "react"

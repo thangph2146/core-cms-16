@@ -1,7 +1,3 @@
-/**
- * Constants cho messages và labels trong sessions feature
- */
-
 export const SESSION_MESSAGES = {
   // Success messages
   DELETE_SUCCESS: "Xóa thành công",

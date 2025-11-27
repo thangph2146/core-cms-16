@@ -1,17 +1,8 @@
-/**
- * Socket events emission cho notifications
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
 import { logger } from "@/lib/config"
 import type { Notification } from "@prisma/client"
 
-/**
- * Emit notification:new event
- * Được gọi khi notification mới được tạo
- */
 export async function emitNotificationNew(notification: Notification): Promise<void> {
   const io = getSocketServer()
   if (!io) return
@@ -29,10 +20,6 @@ export async function emitNotificationNew(notification: Notification): Promise<v
   }
 }
 
-/**
- * Emit notification:new event cho tất cả super admins
- * Được gọi khi tạo notification cho super admins
- */
 export async function emitNotificationNewForSuperAdmins(
   notifications: Notification[],
 ): Promise<void> {
@@ -71,10 +58,6 @@ export async function emitNotificationNewForSuperAdmins(
   }
 }
 
-/**
- * Emit notification:updated event
- * Được gọi khi notification được cập nhật (mark as read/unread)
- */
 export function emitNotificationUpdated(notification: Notification): void {
   const io = getSocketServer()
   if (!io) return
@@ -91,10 +74,6 @@ export function emitNotificationUpdated(notification: Notification): void {
   }
 }
 
-/**
- * Emit notification:deleted event
- * Được gọi khi notification bị xóa
- */
 export function emitNotificationDeleted(notificationId: string, userId: string): void {
   const io = getSocketServer()
   if (!io) return
@@ -107,10 +86,6 @@ export function emitNotificationDeleted(notificationId: string, userId: string):
   }
 }
 
-/**
- * Emit notifications:sync event
- * Được gọi khi bulk mark as read/unread để sync nhiều notifications
- */
 export async function emitNotificationsSync(
   notificationIds: string[],
   userId: string,
@@ -139,10 +114,6 @@ export async function emitNotificationsSync(
   }
 }
 
-/**
- * Emit notifications:deleted event
- * Được gọi khi bulk delete notifications
- */
 export function emitNotificationsDeleted(notificationIds: string[], userId: string): void {
   const io = getSocketServer()
   if (!io || notificationIds.length === 0) return

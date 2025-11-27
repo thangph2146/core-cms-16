@@ -1,7 +1,3 @@
-/**
- * Row actions utilities cho users table
- */
-
 import { useCallback } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Pencil, Loader2 } from "lucide-react"

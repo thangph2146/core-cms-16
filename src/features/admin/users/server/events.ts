@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho users
- * Tối ưu với batch updates cho bulk operations
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapUserRecord, serializeUserForTable } from "./helpers"
@@ -43,9 +38,6 @@ async function fetchUserRow(userId: string): Promise<UserRow | null> {
   return serializeUserForTable(listed)
 }
 
-/**
- * Emit user:upsert event (single)
- */
 export async function emitUserUpsert(
   userId: string,
   previousStatus: UserStatus | null,
@@ -108,9 +100,6 @@ export async function emitUserUpsert(
   })
 }
 
-/**
- * Emit batch user:upsert events (tối ưu cho bulk operations)
- */
 export async function emitBatchUserUpsert(
   userIds: string[],
   previousStatus: UserStatus | null,
@@ -176,9 +165,6 @@ export async function emitBatchUserUpsert(
   }
 }
 
-/**
- * Emit user:remove event
- */
 export function emitUserRemove(userId: string, previousStatus: UserStatus): void {
   const io = getSocketServer()
   if (!io) return

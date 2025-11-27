@@ -1,7 +1,3 @@
-/**
- * Row actions utilities cho students table
- */
-
 import { useCallback } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { RotateCcw, Trash2, MoreHorizontal, AlertTriangle, Eye, Pencil, Loader2 } from "lucide-react"
@@ -14,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { StudentRow } from "../types"
-import { STUDENT_LABELS } from "../constants"
+import { STUDENT_LABELS } from "../constants/messages"
 
 export interface RowActionConfig {
   label: string

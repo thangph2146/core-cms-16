@@ -1,6 +1,2 @@
-/**
- * Constants exports cho contact-requests feature
- */
-
 export { CONTACT_REQUEST_MESSAGES, CONTACT_REQUEST_LABELS, CONTACT_REQUEST_CONFIRM_MESSAGES } from "./messages"
 

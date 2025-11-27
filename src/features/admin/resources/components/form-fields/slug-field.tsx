@@ -1,9 +1,3 @@
-/**
- * Slug Field Component
- * 
- * Component để hiển thị input slug với tính năng auto-generate từ field khác (như title)
- */
-
 "use client"
 
 import { useEffect, useRef, useState } from "react"

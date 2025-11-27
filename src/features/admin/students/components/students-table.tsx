@@ -1,10 +1,3 @@
-/**
- * Server Component: Students Table
- * 
- * Fetches initial data, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listStudents } from "../server/queries"
 import { serializeStudentsList } from "../server/helpers"
 import { StudentsTableClient } from "./students-table.client"

@@ -1,10 +1,3 @@
-/**
- * Server Component: Sessions Table
- * 
- * Fetches initial data, sau đó pass xuống client component
- * Pattern: Server Component (data fetching) → Client Component (UI/interactions)
- */
-
 import { listSessions } from "../server/queries"
 import { serializeSessionsList } from "../server/helpers"
 import { SessionsTableClient } from "./sessions-table.client"

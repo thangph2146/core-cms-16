@@ -1,7 +1,3 @@
-/**
- * Column definitions cho comments table
- */
-
 import { useMemo } from "react"
 import { Switch } from "@/components/ui/switch"
 import type { DataTableColumn } from "@/components/tables"

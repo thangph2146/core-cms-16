@@ -6,14 +6,6 @@ import type { ChatFilterType, Contact, Message } from "@/components/chat/types"
 import { requestJson } from "@/lib/api/client"
 import { withApiBase } from "@/lib/config/api-paths"
 
-/**
- * Messages Page Client Component
- * 
- * Client component wrapper cho ChatTemplate
- * - Nhận initial data từ server component
- * - Xử lý client-side logic, loading states, error handling
- * - Fetch thêm data khi cần (pagination, search, etc.)
- */
 interface MessagesPageClientProps {
   initialContacts: Contact[]
   currentUserId: string

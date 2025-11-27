@@ -1,10 +1,3 @@
-/**
- * Editor Field Component
- * 
- * Component để hiển thị Lexical Editor cho rich text content
- * Sử dụng debounce để tránh gọi onChange quá thường xuyên khi user đang gõ
- */
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"

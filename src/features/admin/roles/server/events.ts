@@ -1,8 +1,3 @@
-/**
- * Socket events emission cho roles
- * Tách logic emit socket events ra khỏi mutations để code sạch hơn
- */
-
 import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapRoleRecord, serializeRoleForTable } from "./helpers"
@@ -30,10 +25,6 @@ async function fetchRoleRow(roleId: string): Promise<RoleRow | null> {
   return serializeRoleForTable(listed)
 }
 
-/**
- * Emit role:upsert event
- * Được gọi khi role được tạo, cập nhật, restore
- */
 export async function emitRoleUpsert(
   roleId: string,
   previousStatus: RoleStatus | null,
@@ -59,10 +50,6 @@ export async function emitRoleUpsert(
   logger.debug("Socket role:upsert emitted", { roleId, previousStatus, newStatus })
 }
 
-/**
- * Emit role:remove event
- * Được gọi khi role bị hard delete
- */
 export function emitRoleRemove(roleId: string, previousStatus: RoleStatus): void {
   const io = getSocketServer()
   if (!io) return

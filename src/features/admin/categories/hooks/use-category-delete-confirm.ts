@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý delete confirmation dialogs
- */
-
 import { useCallback, useState } from "react"
 import type { CategoryRow } from "../types"
 

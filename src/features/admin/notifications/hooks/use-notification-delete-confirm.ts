@@ -1,7 +1,3 @@
-/**
- * Custom hook để quản lý confirmation dialog cho notification actions
- */
-
 import { useCallback, useState } from "react"
 import type { NotificationRow } from "../types"
 

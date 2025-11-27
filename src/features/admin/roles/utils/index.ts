@@ -1,7 +1,3 @@
-/**
- * Utils exports cho roles feature
- */
-
 export {
   matchesSearch,
   matchesFilters,

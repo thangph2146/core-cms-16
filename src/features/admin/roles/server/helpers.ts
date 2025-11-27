@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Roles Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -21,9 +14,6 @@ import type { RoleRow } from "../types"
 
 type RoleWithRelations = Prisma.RoleGetPayload<Record<string, never>>
 
-/**
- * Map Prisma role record to ListedRole format
- */
 export function mapRoleRecord(role: RoleWithRelations): ListedRole {
   return {
     id: role.id,
@@ -38,9 +28,6 @@ export function mapRoleRecord(role: RoleWithRelations): ListedRole {
   }
 }
 
-/**
- * Build Prisma where clause from ListRolesInput
- */
 export function buildWhereClause(params: ListRolesInput): Prisma.RoleWhereInput {
   const where: Prisma.RoleWhereInput = {}
 
@@ -79,10 +66,6 @@ export function buildWhereClause(params: ListRolesInput): Prisma.RoleWhereInput 
   return where
 }
 
-/**
- * Serialize role data for DataTable format
- * Handles both Date objects and date strings (from cache serialization)
- */
 export function serializeRoleForTable(role: ListedRole | { id: string; name: string; displayName: string; description: string | null; permissions: string[]; isActive: boolean; createdAt: Date | string; updatedAt?: Date | string; deletedAt: Date | string | null }): RoleRow {
   return {
     id: role.id,
@@ -97,10 +80,6 @@ export function serializeRoleForTable(role: ListedRole | { id: string; name: str
   }
 }
 
-/**
- * Serialize ListRolesResult to DataTable format
- * Sử dụng pattern từ resources/server nhưng customize cho roles
- */
 export function serializeRolesList(data: ListRolesResult): DataTableResult<RoleRow> {
   return {
     page: data.pagination.page,
@@ -111,9 +90,6 @@ export function serializeRolesList(data: ListRolesResult): DataTableResult<RoleR
   }
 }
 
-/**
- * Serialize RoleDetail to client format
- */
 export function serializeRoleDetail(role: RoleDetail) {
   return {
     id: role.id,

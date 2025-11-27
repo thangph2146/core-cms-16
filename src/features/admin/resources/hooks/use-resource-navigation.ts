@@ -1,42 +1,18 @@
-/**
- * Hook chia sẻ để xử lý navigation với backUrl và Breadcrumb
- * Đảm bảo data được load lại đúng khi quay lại list page
- */
-
 import { useCallback } from "react"
 import type { QueryClient, QueryKey } from "@tanstack/react-query"
 import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
 
 export interface UseResourceNavigationOptions {
-  /**
-   * QueryClient để invalidate cache
-   */
   queryClient?: QueryClient
-  /**
-   * QueryKey để invalidate (optional)
-   */
   invalidateQueryKey?: QueryKey
 }
 
 export interface UseResourceNavigationResult {
-  /**
-   * Navigate về backUrl với cache invalidation
-   */
   navigateBack: (backUrl: string, onBack?: () => Promise<void> | void) => Promise<void>
-  /**
-   * Router instance với resource segment support
-   */
   router: ReturnType<typeof useResourceRouter>
 }
 
-/**
- * Hook để xử lý navigation với backUrl và Breadcrumb
- * Đảm bảo:
- * 1. Invalidate React Query cache trước khi navigate
- * 2. Refresh router để invalidate Router Cache
- * 3. Force Server Component refetch với cache-busting parameter
- */
 export function useResourceNavigation({
   queryClient,
   invalidateQueryKey,
