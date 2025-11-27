@@ -32,9 +32,6 @@ export interface ResourceTableLoader<T extends object> {
   (query: DataTableQueryState, view: ResourceViewMode<T>): Promise<DataTableResult<T>>
 }
 
-/**
- * Generic pagination response structure
- */
 export interface ResourcePagination {
   page: number
   limit: number
@@ -42,18 +39,11 @@ export interface ResourcePagination {
   totalPages: number
 }
 
-/**
- * Generic API response structure for resource lists
- */
 export interface ResourceResponse<T> {
   data: T[]
   pagination: ResourcePagination
 }
 
-/**
- * Base table client props with common permissions
- * Use this for extending in specific resource table client props
- */
 export interface BaseResourceTableClientProps<T extends object> {
   canDelete?: boolean
   canRestore?: boolean
@@ -64,9 +54,6 @@ export interface BaseResourceTableClientProps<T extends object> {
   initialData?: DataTableResult<T>
 }
 
-/**
- * Generic bulk action result structure
- */
 export interface BulkActionResult {
   success: boolean
   message: string

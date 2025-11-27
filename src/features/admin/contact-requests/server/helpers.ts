@@ -1,10 +1,3 @@
-/**
- * Helper Functions for Contact Requests Server Logic
- * 
- * Chứa các helper functions được dùng chung bởi queries, cache, và mutations
- * Sử dụng generic helpers từ resources/server khi có thể
- */
-
 import type { Prisma } from "@prisma/client"
 import type { DataTableResult } from "@/components/tables"
 import {
@@ -31,9 +24,6 @@ type ContactRequestWithRelations = Prisma.ContactRequestGetPayload<{
   }
 }>
 
-/**
- * Map Prisma contact request record to ListedContactRequest format
- */
 export function mapContactRequestRecord(contactRequest: ContactRequestWithRelations): ListedContactRequest {
   return {
     id: contactRequest.id,
@@ -60,28 +50,19 @@ export function mapContactRequestRecord(contactRequest: ContactRequestWithRelati
   }
 }
 
-/**
- * Build Prisma where clause from ListContactRequestsInput
- */
 export function buildWhereClause(params: ListContactRequestsInput): Prisma.ContactRequestWhereInput {
   const where: Prisma.ContactRequestWhereInput = {}
   const status = params.status ?? "active"
 
-  // Handle status filter - có thể là active/deleted/all hoặc enum status
-  // Nếu là enum status (NEW, IN_PROGRESS, etc.), set status và chỉ lấy active items
   if (status === "NEW" || status === "IN_PROGRESS" || status === "RESOLVED" || status === "CLOSED") {
     where.status = status
-    // Enum status chỉ lấy active items (không bị xóa)
     applyStatusFilter(where, "active")
   } else {
-    // Nếu là active/deleted/all, dùng applyStatusFilter để nhất quán
     applyStatusFilter(where, status as "active" | "deleted" | "all")
   }
 
-  // Apply search filter
   applySearchFilter(where, params.search, ["name", "email", "phone", "subject", "content"])
 
-  // Apply custom filters
   if (params.filters) {
     const activeFilters = Object.entries(params.filters).filter(([, value]) => Boolean(value))
     for (const [key, rawValue] of activeFilters) {
@@ -119,7 +100,6 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
       }
     }
 
-    // Tự động xử lý relation filters - không cần check từng field
     applyRelationFilters(where, params.filters, {
       assignedTo: {
         idField: "assignedToId",
@@ -132,9 +112,6 @@ export function buildWhereClause(params: ListContactRequestsInput): Prisma.Conta
   return where
 }
 
-/**
- * Serialize contact request data for DataTable format
- */
 export function serializeContactRequestForTable(contactRequest: ListedContactRequest): ContactRequestRow {
   return {
     id: contactRequest.id,
@@ -152,9 +129,6 @@ export function serializeContactRequestForTable(contactRequest: ListedContactReq
   }
 }
 
-/**
- * Serialize ListContactRequestsResult to DataTable format
- */
 export function serializeContactRequestsList(data: ListContactRequestsResult): DataTableResult<ContactRequestRow> {
   return {
     page: data.pagination.page,
@@ -165,9 +139,6 @@ export function serializeContactRequestsList(data: ListContactRequestsResult): D
   }
 }
 
-/**
- * Serialize ContactRequestDetail to client format
- */
 export function serializeContactRequestDetail(contactRequest: ContactRequestDetail) {
   return {
     id: contactRequest.id,
@@ -185,7 +156,6 @@ export function serializeContactRequestDetail(contactRequest: ContactRequestDeta
     createdAt: serializeDate(contactRequest.createdAt)!,
     updatedAt: serializeDate(contactRequest.updatedAt)!,
     deletedAt: serializeDate(contactRequest.deletedAt),
-    // Add assignedToName for table compatibility
     assignedToName: contactRequest.assignedTo?.name || null,
   }
 }

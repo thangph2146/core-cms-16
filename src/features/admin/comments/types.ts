@@ -1,7 +1,3 @@
-/**
- * Types cho comments feature
- */
-
 import type { ResourceResponse, BaseResourceTableClientProps } from "@/features/admin/resources/types"
 
 export interface CommentRow {

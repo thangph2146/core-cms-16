@@ -210,11 +210,6 @@ function buildWhereClause(params: ListNotificationsInput): Prisma.NotificationWh
   return where
 }
 
-/**
- * Non-cached query: List notifications
- * 
- * Sử dụng cho API routes hoặc khi cần fresh data
- */
 export async function listNotifications(params: ListNotificationsInput = {}): Promise<ListNotificationsResult> {
   const { page, limit } = validatePagination(params.page, params.limit, 100)
   const where = buildWhereClause(params)
@@ -244,7 +239,7 @@ export async function listNotifications(params: ListNotificationsInput = {}): Pr
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       take: limit,
       skip: (page - 1) * limit,
     }),
@@ -294,9 +289,6 @@ export async function listNotifications(params: ListNotificationsInput = {}): Pr
   }
 }
 
-/**
- * Non-cached query: Get notification by ID
- */
 export async function getNotificationById(id: string): Promise<ListedNotification | null> {
   const notification = await prisma.notification.findUnique({
     where: { id },
@@ -329,10 +321,6 @@ export async function getNotificationById(id: string): Promise<ListedNotificatio
   } as ListedNotification
 }
 
-/**
- * Get unique values for a specific column (for filter options)
- * For notifications, we only support userEmail (from user relation)
- */
 export async function getNotificationColumnOptions(
   column: string,
   search?: string,

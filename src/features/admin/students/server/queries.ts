@@ -1,10 +1,3 @@
-/**
- * Non-cached Database Queries for Students
- * 
- * Chứa các database queries không có cache wrapper
- * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
- */
-
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { validatePagination, buildPagination } from "@/features/admin/resources/server"
@@ -27,7 +20,7 @@ export async function listStudents(params: ListStudentsInput = {}): Promise<List
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -45,9 +38,6 @@ export async function listStudents(params: ListStudentsInput = {}): Promise<List
   }
 }
 
-/**
- * Get unique values for a specific column (for filter options)
- */
 export async function getStudentColumnOptions(
   column: string,
   search?: string,

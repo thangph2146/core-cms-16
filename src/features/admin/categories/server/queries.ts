@@ -1,10 +1,3 @@
-/**
- * Non-cached Database Queries for Categories
- * 
- * Chứa các database queries không có cache wrapper
- * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
- */
-
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { validatePagination, buildPagination, applyColumnOptionsStatusFilter, applyColumnOptionsSearchFilter, mapToColumnOptions } from "@/features/admin/resources/server"
@@ -18,7 +11,7 @@ export async function listCategories(params: ListCategoriesInput = {}): Promise<
   const [data, total] = await Promise.all([
     prisma.category.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -31,9 +24,6 @@ export async function listCategories(params: ListCategoriesInput = {}): Promise<
   }
 }
 
-/**
- * Get unique values for a specific column (for filter options)
- */
 export async function getCategoryColumnOptions(
   column: string,
   search?: string,

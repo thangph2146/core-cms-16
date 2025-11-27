@@ -1,10 +1,3 @@
-/**
- * Client Component: Resource Table
- * 
- * Generic table component với view modes, selection, và actions
- * Pattern: Server Component → Client Component (UI/interactions)
- */
-
 "use client"
 
 import { useCallback, useState, useEffect, useMemo, useRef } from "react"
@@ -80,33 +73,26 @@ export function ResourceTableClient<T extends object>({
   const lastRefreshKeyRef = useRef(0)
   const lastRefreshTimeRef = useRef(0)
   
-  // Debounced refresh để tránh duplicate refreshes khi có nhiều events liên tiếp
   const debouncedRefresh = useDebouncedCallback(
     () => {
       const now = Date.now()
-      // Chỉ refresh nếu đã qua ít nhất 200ms từ lần refresh cuối
-      if (now - lastRefreshTimeRef.current < 200) {
-        return
-      }
+      if (now - lastRefreshTimeRef.current < 200) return
       lastRefreshTimeRef.current = now
-      
       setRefreshKey((prev) => {
         const next = prev + 1
-        // Chỉ update ref, không log ở đây - log sẽ được thực hiện trong useResourceTableLogger khi có data mới
         if (prev !== next && lastRefreshKeyRef.current !== next) {
           lastRefreshKeyRef.current = next
         }
         return next
       })
     },
-    200 // Debounce 200ms
+    200
   )
   
   const handleRefresh = useCallback(() => {
     debouncedRefresh()
   }, [debouncedRefresh])
 
-  // Expose refresh function to parent component (chỉ gọi một lần, tránh duplicate trong React Strict Mode)
   const onRefreshReadyRef = useRef(onRefreshReady)
   const exposedRefs = useRef<Set<string>>(new Set())
   useEffect(() => {
@@ -114,7 +100,6 @@ export function ResourceTableClient<T extends object>({
   }, [onRefreshReady])
 
   useEffect(() => {
-    // Sử dụng component instance ID để track (mỗi component instance có unique ID)
     const instanceId = `refresh-${handleRefresh.toString().slice(0, 20)}`
     if (exposedRefs.current.has(instanceId)) return
     exposedRefs.current.add(instanceId)
@@ -128,14 +113,12 @@ export function ResourceTableClient<T extends object>({
       setCurrentViewId(viewId)
       setSelectedIds([])
       setHasViewChanged(true)
-      // Force refresh khi view thay đổi để fetch data mới từ API
       handleRefresh()
       onViewChange?.(viewId)
     },
     [currentViewId, handleRefresh, onViewChange],
   )
   
-  // Reset hasViewChanged khi view ổn định (sử dụng timeout để tránh cascading renders)
   useEffect(() => {
     if (hasViewChanged) {
       const timeoutId = setTimeout(() => {
@@ -145,7 +128,6 @@ export function ResourceTableClient<T extends object>({
     }
   }, [hasViewChanged, currentViewId])
 
-  // Notify parent về view hiện tại khi mount hoặc khi view thay đổi
   useEffect(() => {
     onViewChange?.(currentViewId)
   }, [currentViewId, onViewChange])
@@ -185,8 +167,6 @@ export function ResourceTableClient<T extends object>({
         } satisfies ResourceRowActionContext<T>)
     : undefined
 
-  // Chỉ dùng initialData khi view chưa thay đổi (lần đầu mount)
-  // Khi view thay đổi, không dùng initialData để force fetch data mới từ API
   const initialData = useMemo(() => {
     if (hasViewChanged) return undefined
     return initialDataByView?.[activeView.id]
@@ -195,7 +175,6 @@ export function ResourceTableClient<T extends object>({
   const viewModeButtons = useMemo(() => {
     if (viewModes.length <= 1) return null
 
-    // On mobile: always use dropdown for better UX and space efficiency
     if (isMobile) {
       const currentView = viewModes.find((v) => v.id === currentViewId) ?? viewModes[0]
       return (
@@ -226,7 +205,6 @@ export function ResourceTableClient<T extends object>({
       )
     }
 
-    // Desktop/Tablet: use buttons with responsive sizing
     return (
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
         {viewModes.map((view) => (

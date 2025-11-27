@@ -53,7 +53,7 @@ export async function listRoles(params: ListRolesInput = {}): Promise<ListRolesR
       where,
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     }),
     prisma.role.count({ where }),
   ])

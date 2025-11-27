@@ -1,10 +1,3 @@
-/**
- * ResourceTableSkeleton Component
- * 
- * Skeleton loading state cho ResourceTable
- * Hiển thị cấu trúc table với skeleton rows
- */
-
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import {

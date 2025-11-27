@@ -44,11 +44,8 @@ export function CommentsTableClient({
   const { isSocketConnected, cacheVersion } = useCommentsSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useCommentFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useCommentDeleteConfirm()
-
-  // Track current view để log khi view thay đổi
   const [currentViewId, setCurrentViewId] = useState<string>("active")
 
-  // Log table structure khi data thay đổi sau refetch hoặc khi view thay đổi
   useResourceTableLogger<CommentRow>({
     resourceName: "comments",
     initialData,
@@ -99,7 +96,7 @@ export function CommentsTableClient({
     canManage,
     isSocketConnected,
     showFeedback,
-    refreshTable, // Pass refresh function để gọi sau actions
+    refreshTable,
   })
 
   const handleToggleApproveWithRefresh = useCallback(
@@ -223,8 +220,6 @@ export function CommentsTableClient({
         totalPages: payload.pagination?.totalPages ?? 0,
       }
 
-      // Log được xử lý bởi useResourceTableLogger, không cần log duplicate ở đây
-
       return result
     },
     [],
@@ -253,14 +248,9 @@ export function CommentsTableClient({
     buildQueryKey,
   })
 
-  // Theo chuẩn Next.js 16: không cache admin data - luôn fetch fresh data từ API
-  // Không cần useResourceInitialDataCache nữa
-
   const executeBulk = useCallback(
     (action: "delete" | "restore" | "hard-delete" | "approve" | "unapprove", ids: string[], clearSelection: () => void) => {
       if (ids.length === 0) return
-
-      // Tất cả actions đều cần confirmation
       setDeleteConfirm({
         open: true,
         type: action === "hard-delete" ? "hard" : action === "restore" ? "restore" : action === "approve" ? "approve" : action === "unapprove" ? "unapprove" : "soft",
@@ -479,7 +469,6 @@ export function CommentsTableClient({
     [initialData],
   )
 
-  // Helper để lấy title và description cho confirm dialog - Tối ưu: sử dụng mapping
   const deleteConfirmTitle = useMemo(() => {
     if (!deleteConfirm) return ""
     const count = deleteConfirm.bulkIds?.length ?? 1

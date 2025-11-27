@@ -60,7 +60,7 @@ export async function listUsers(params: ListUsersInput = {}): Promise<ListUsersR
       where,
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       include: {
         userRoles: {
           include: {

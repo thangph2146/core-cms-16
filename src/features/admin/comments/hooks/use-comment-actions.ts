@@ -74,8 +74,6 @@ export function useCommentActions({
     }),
   })
 
-  // Wrapper để gọi refreshTable sau khi action hoàn thành
-  // Comments sử dụng signature khác (không có refresh parameter)
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
@@ -87,7 +85,6 @@ export function useCommentActions({
     [baseExecuteSingleAction, refreshTable]
   )
 
-  // Giữ lại handleToggleApprove riêng vì là logic đặc biệt
   const handleToggleApprove = useCallback(
     async (row: CommentRow, newStatus: boolean) => {
       if (!canApprove) {

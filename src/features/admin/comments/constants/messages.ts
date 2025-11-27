@@ -1,51 +1,34 @@
-/**
- * Constants cho messages và labels trong comments feature
- */
-
 export const COMMENT_MESSAGES = {
-  // Success messages
   APPROVE_SUCCESS: "Duyệt thành công",
   UNAPPROVE_SUCCESS: "Hủy duyệt thành công",
   DELETE_SUCCESS: "Xóa thành công",
   RESTORE_SUCCESS: "Khôi phục thành công",
   HARD_DELETE_SUCCESS: "Xóa vĩnh viễn thành công",
-  
-  // Error messages
   APPROVE_ERROR: "Duyệt thất bại",
   UNAPPROVE_ERROR: "Hủy duyệt thất bại",
   DELETE_ERROR: "Xóa thất bại",
   RESTORE_ERROR: "Khôi phục thất bại",
   HARD_DELETE_ERROR: "Xóa vĩnh viễn thất bại",
-  
-  // Bulk action messages
   BULK_APPROVE_SUCCESS: "Duyệt hàng loạt thành công",
   BULK_UNAPPROVE_SUCCESS: "Hủy duyệt hàng loạt thành công",
   BULK_DELETE_SUCCESS: "Xóa hàng loạt thành công",
   BULK_RESTORE_SUCCESS: "Khôi phục hàng loạt thành công",
   BULK_HARD_DELETE_SUCCESS: "Xóa vĩnh viễn hàng loạt thành công",
-  
   BULK_APPROVE_ERROR: "Duyệt hàng loạt thất bại",
   BULK_UNAPPROVE_ERROR: "Hủy duyệt hàng loạt thất bại",
   BULK_DELETE_ERROR: "Xóa hàng loạt thất bại",
   BULK_RESTORE_ERROR: "Khôi phục hàng loạt thất bại",
   BULK_HARD_DELETE_ERROR: "Xóa vĩnh viễn hàng loạt thất bại",
-  
-  // Permission errors
   NO_PERMISSION: "Không có quyền",
   NO_APPROVE_PERMISSION: "Bạn không có quyền duyệt/hủy duyệt bình luận",
-  
-  // Generic errors
   UNKNOWN_ERROR: "Đã xảy ra lỗi không xác định",
   LOAD_ERROR: "Không thể tải danh sách bình luận",
 } as const
 
 export const COMMENT_LABELS = {
-  // Status labels
   APPROVED: "Đã duyệt",
   PENDING: "Chờ duyệt",
   DELETED: "Đã xóa",
-  
-  // Action labels
   VIEW_DETAIL: "Xem chi tiết",
   APPROVE: "Duyệt",
   UNAPPROVE: "Hủy duyệt",
@@ -53,23 +36,15 @@ export const COMMENT_LABELS = {
   RESTORE: "Khôi phục",
   HARD_DELETE: "Xóa vĩnh viễn",
   CLEAR_SELECTION: "Bỏ chọn",
-  
-  // Loading labels
   APPROVING: "Đang duyệt...",
   UNAPPROVING: "Đang hủy duyệt...",
   DELETING: "Đang xóa...",
   RESTORING: "Đang khôi phục...",
   HARD_DELETING: "Đang xóa vĩnh viễn...",
-  
-  // View mode labels
   ACTIVE_VIEW: "Đang hoạt động",
   DELETED_VIEW: "Đã xóa",
-  
-  // Empty messages
   NO_COMMENTS: "Không tìm thấy bình luận nào phù hợp",
   NO_DELETED_COMMENTS: "Không tìm thấy bình luận đã xóa nào",
-  
-  // Selection messages
   SELECTED_COMMENTS: (count: number) => `Đã chọn ${count} bình luận`,
   SELECTED_DELETED_COMMENTS: (count: number) => `Đã chọn ${count} bình luận (đã xóa)`,
   DELETE_SELECTED: (count: number) => `Xóa đã chọn (${count})`,
@@ -77,8 +52,6 @@ export const COMMENT_LABELS = {
   HARD_DELETE_SELECTED: (count: number) => `Xóa vĩnh viễn (${count})`,
   APPROVE_SELECTED: (count: number) => `Duyệt (${count})`,
   UNAPPROVE_SELECTED: (count: number) => `Hủy duyệt (${count})`,
-  
-  // Titles
   MANAGE_COMMENTS: "Quản lý bình luận",
 } as const
 

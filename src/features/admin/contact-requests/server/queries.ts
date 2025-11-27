@@ -1,10 +1,3 @@
-/**
- * Non-cached Database Queries for Contact Requests
- * 
- * Chứa các database queries không có cache wrapper
- * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
- */
-
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { validatePagination, buildPagination } from "@/features/admin/resources/server"
@@ -18,7 +11,7 @@ export async function listContactRequests(params: ListContactRequestsInput = {})
   const [data, total] = await Promise.all([
     prisma.contactRequest.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
       include: {
@@ -40,9 +33,6 @@ export async function listContactRequests(params: ListContactRequestsInput = {})
   }
 }
 
-/**
- * Get unique values for a specific column (for filter options)
- */
 export async function getContactRequestColumnOptions(
   column: string,
   search?: string,

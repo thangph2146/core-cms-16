@@ -176,9 +176,6 @@ export function applyStringFilter<T extends Record<string, unknown>>(
   where[field] = { contains: trimmedValue, mode: "insensitive" } as any
 }
 
-/**
- * Apply single relation filter (legacy - use applyRelationFilters for multiple filters)
- */
 export function applyRelationFilter<T extends Record<string, unknown>>(
   where: T,
   relationField: string,
@@ -190,17 +187,13 @@ export function applyRelationFilter<T extends Record<string, unknown>>(
 
   const trimmedValue = value.trim()
   if (trimmedValue.length === 0) return
-
-  // Import validateCUID dynamically để tránh circular dependency
   const { validateCUID } = require("@/lib/api/validation")
   const cuidValidation = validateCUID(trimmedValue)
 
   if (cuidValidation.valid) {
-    // Giá trị là ID (cuid format) - filter theo ID field trực tiếp
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(where as any)[idField] = trimmedValue
   } else {
-    // Giá trị là text - filter theo relation fields
     const relationConditions: Record<string, unknown> = {}
     for (const [field, operator] of Object.entries(relationFilters)) {
       if (operator === "contains") {

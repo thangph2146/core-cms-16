@@ -1,12 +1,3 @@
-/**
- * Non-cached Database Queries for Sessions
- * 
- * Chứa các database queries không có cache wrapper
- * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
- * 
- * Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
- */
-
 import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/database"
 import { validatePagination } from "@/features/admin/resources/server"
@@ -29,7 +20,7 @@ export async function listSessions(params: ListSessionsInput = {}): Promise<List
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -57,9 +48,6 @@ export async function listSessions(params: ListSessionsInput = {}): Promise<List
   }
 }
 
-/**
- * Get unique values for a specific column (for filter options)
- */
 export async function getSessionColumnOptions(
   column: string,
   search?: string,

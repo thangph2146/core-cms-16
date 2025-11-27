@@ -100,7 +100,7 @@ export async function listPosts(params: ListPostsInput = {}): Promise<ListPostsR
       where,
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       include: POST_INCLUDE,
     }),
     prisma.post.count({ where }),

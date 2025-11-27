@@ -24,7 +24,7 @@ export async function listComments(params: ListCommentsInput = {}): Promise<List
         author: { select: { id: true, name: true, email: true } },
         post: { select: { id: true, title: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),

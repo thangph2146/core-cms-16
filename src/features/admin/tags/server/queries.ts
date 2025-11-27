@@ -24,7 +24,7 @@ export async function listTags(params: ListTagsInput = {}): Promise<ListTagsResu
   const [data, total] = await Promise.all([
     prisma.tag.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),

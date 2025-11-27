@@ -668,8 +668,9 @@ function TableBodyContent<T extends object>({
                         ) : null}
                         {columns.map((column) => {
                             const rawValue = (row as UnknownRecord)[column.accessorKey]
+                            const hasCustomWidth = column.className?.includes("max-w-") || column.className?.includes("min-w-")
                             return (
-                                <TableCell key={column.accessorKey} className={cn("px-2 sm:px-3 max-w-[300px] break-words", column.className)}>
+                                    <TableCell key={column.accessorKey} className={cn("px-2 sm:px-3 break-words", !hasCustomWidth && "max-w-[300px]", column.className)}>
                                     {column.cell
                                         ? column.cell(row)
                                         : rawValue == null
