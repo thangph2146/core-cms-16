@@ -43,15 +43,12 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
     manage: "Quản lý",
   }
 
-  // Group permissions by resource
   const grouped: Record<string, Array<{ label: string; value: string }>> = {}
-  // Track unique permission values to avoid duplicates
   const seenValues = new Set<string>()
 
   Object.entries(PERMISSIONS).forEach(([_key, value]) => {
     const permissionValue = String(value)
     
-    // Skip if we've already seen this permission value
     if (seenValues.has(permissionValue)) {
       return
     }
@@ -61,7 +58,6 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
       grouped[resource] = []
     }
     
-    // Format label: "Action - Resource" (e.g., "Xem - Người dùng")
     const resourceLabel = resourceLabels[resource] || resource
     const actionLabel = actionLabels[action] || action
     const label = `${actionLabel} - ${resourceLabel}`
@@ -70,8 +66,6 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
       label,
       value: permissionValue,
     })
-    
-    // Mark this permission value as seen
     seenValues.add(permissionValue)
   })
 

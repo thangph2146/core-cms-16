@@ -89,8 +89,6 @@ export function useSessionsSocketBridge() {
 
         if (shouldInclude) {
           if (existingIndex >= 0) {
-            // Thay thế hoàn toàn với dữ liệu từ server (server là source of truth)
-            // Không merge để tránh conflict với optimistic updates
             const updatedRows = [...rows]
             updatedRows[existingIndex] = sessionRow
             rows = updatedRows

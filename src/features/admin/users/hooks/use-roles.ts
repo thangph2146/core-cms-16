@@ -15,7 +15,6 @@ export interface UseRolesOptions {
 
 export function useRoles(options: UseRolesOptions = {}) {
   const { initialRoles = [], enabled = true } = options
-  // Sử dụng length trực tiếp thay vì useMemo để tránh React Compiler warning
   const initialRolesProvided = initialRoles.length > 0
 
   const { data, isLoading, error } = useQuery(
@@ -26,11 +25,9 @@ export function useRoles(options: UseRolesOptions = {}) {
         return response.data
       },
       enabled: enabled && !initialRolesProvided,
-      initialData: initialRolesProvided ? { data: initialRoles } : undefined, // Sử dụng initialRoles nếu có
+      initialData: initialRolesProvided ? { data: initialRoles } : undefined,
     })
   )
-
-  // Ưu tiên: fetchedData > initialRoles
   const roles = useMemo(() => {
     if (data?.data) {
       return data.data

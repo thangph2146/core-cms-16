@@ -13,7 +13,7 @@ export interface CreateMessageInput {
   content: string
   subject?: string
   receiverId?: string | null // Nullable for group messages
-  groupId?: string | null // For group messages
+  groupId?: string | null
   parentId?: string | null
   type?: "NOTIFICATION" | "ANNOUNCEMENT" | "PERSONAL" | "SYSTEM"
 }
@@ -32,7 +32,6 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
     throw new ApplicationError("Unauthorized", 401)
   }
 
-  // Validate: either receiverId (personal) or groupId (group) must be provided
   if (!input.receiverId && !input.groupId) {
     throw new ApplicationError("receiverId hoặc groupId là bắt buộc", 400)
   }
@@ -136,7 +135,6 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
     },
   })
 
-  // Emit socket event (tương tự notifications pattern)
   const io = getSocketServer()
   if (io) {
     try {
@@ -151,7 +149,6 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
       }
 
       if (input.groupId) {
-        // Group message: emit đến tất cả members của group
         const groupMembers = await prisma.groupMember.findMany({
           where: {
             groupId: input.groupId,
@@ -171,7 +168,6 @@ export async function createMessage(ctx: AuthContext, input: CreateMessageInput)
           memberCount: memberIds.length,
         })
       } else if (input.receiverId) {
-        // Personal message: emit đến sender và receiver
         io.to(`user:${ctx.actorId}`).emit("message:new", payload)
         io.to(`user:${input.receiverId}`).emit("message:new", payload)
         
@@ -208,12 +204,10 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     throw new NotFoundError("Message not found")
   }
 
-  // For personal messages: check receiverId
   if (message.receiverId && message.receiverId !== userId) {
     throw new ApplicationError("Forbidden: You can only mark your own received messages as read", 403)
   }
 
-  // For group messages: check if user is a member of the group
   if (message.groupId) {
     const member = await prisma.groupMember.findFirst({
       where: {
@@ -233,9 +227,7 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     }
   }
 
-  // For group messages: use MessageRead table
   if (message.groupId) {
-    // Check if already read by this user
     const existingRead = await prisma.messageRead.findUnique({
       where: {
         messageId_userId: {
@@ -246,7 +238,6 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     })
 
     if (existingRead) {
-      // Already read, return message with reads
       return await prisma.message.findUnique({
         where: { id: messageId },
         include: {
@@ -283,7 +274,6 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
       },
     })
 
-    // Emit socket event with readers data
     const io = getSocketServer()
     if (io && messageWithReads) {
       try {
@@ -305,10 +295,9 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
           groupId: messageWithReads.groupId || undefined,
           timestamp: messageWithReads.createdAt.getTime(),
           isRead: messageWithReads.isRead,
-          readers, // Include readers array in payload
+          readers,
         }
 
-        // Emit to all group members
         if (!messageWithReads.groupId) return messageWithReads
         const members = await prisma.groupMember.findMany({
           where: { groupId: messageWithReads.groupId, leftAt: null },
@@ -326,8 +315,6 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     return messageWithReads
   }
 
-  // For personal messages: use legacy isRead field
-  // Skip update if already read
   if (message.isRead) {
     return await prisma.message.findUnique({
       where: { id: messageId },
@@ -347,7 +334,6 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
     },
   })
 
-  // Emit socket event (tương tự notifications)
   const io = getSocketServer()
   if (io) {
     try {
@@ -359,10 +345,9 @@ export async function markMessageAsRead(ctx: AuthContext, messageId: string, use
         toUserId: updated.receiverId,
         groupId: updated.groupId || undefined,
         timestamp: updated.createdAt.getTime(),
-        isRead: updated.isRead, // Include isRead status
+        isRead: updated.isRead,
       }
       
-      // Emit to user for personal messages, or to all group members for group messages
       if (updated.groupId) {
         const members = await prisma.groupMember.findMany({
           where: { groupId: updated.groupId, leftAt: null },
@@ -403,12 +388,10 @@ export async function markMessageAsUnread(ctx: AuthContext, messageId: string, u
     throw new NotFoundError("Message not found")
   }
 
-  // For personal messages: check receiverId
   if (message.receiverId && message.receiverId !== userId) {
     throw new ApplicationError("Forbidden: You can only mark your own received messages as unread", 403)
   }
 
-  // For group messages: check if user is a member of the group
   if (message.groupId) {
     const member = await prisma.groupMember.findFirst({
       where: {
@@ -428,7 +411,6 @@ export async function markMessageAsUnread(ctx: AuthContext, messageId: string, u
     }
   }
 
-  // Skip update if already unread
   if (!message.isRead) {
     return await prisma.message.findUnique({
       where: { id: messageId },
@@ -448,7 +430,6 @@ export async function markMessageAsUnread(ctx: AuthContext, messageId: string, u
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -460,10 +441,9 @@ export async function markMessageAsUnread(ctx: AuthContext, messageId: string, u
         toUserId: updated.receiverId,
         groupId: updated.groupId || undefined,
         timestamp: updated.createdAt.getTime(),
-        isRead: updated.isRead, // Include isRead status
+        isRead: updated.isRead,
       }
       
-      // Emit to user for personal messages, or to all group members for group messages
       if (updated.groupId) {
         const members = await prisma.groupMember.findMany({
           where: { groupId: updated.groupId, leftAt: null },
@@ -505,12 +485,10 @@ export async function markMessagesAsRead(ctx: AuthContext, input: MarkMessagesAs
     },
   })
 
-  // Emit socket events for updated messages
   if (result.count > 0) {
     const io = getSocketServer()
     if (io) {
       try {
-        // Fetch full messages với isRead status
         const fullMessages = await prisma.message.findMany({
           where: {
             id: { in: input.messageIds },
@@ -564,12 +542,10 @@ export async function markConversationAsRead(
     },
   })
 
-  // Emit socket events for updated messages
   if (result.count > 0) {
     const io = getSocketServer()
     if (io) {
       try {
-        // Fetch updated messages để emit
         const updatedMessages = await prisma.message.findMany({
           where: {
             senderId: otherUserId,
@@ -657,10 +633,9 @@ export async function markGroupMessagesAsRead(
       messageId,
       userId,
     })),
-    skipDuplicates: true, // Skip if already exists
+    skipDuplicates: true,
   })
 
-  // Fetch updated messages with reads to emit socket events
   const updatedMessages = await prisma.message.findMany({
     where: {
       id: { in: messageIds },
@@ -674,7 +649,6 @@ export async function markGroupMessagesAsRead(
     },
   })
 
-  // Emit socket events for updated messages
   const io = getSocketServer()
   if (io && updatedMessages.length > 0) {
     try {
@@ -702,10 +676,9 @@ export async function markGroupMessagesAsRead(
           groupId: msg.groupId || undefined,
           timestamp: msg.createdAt.getTime(),
           isRead: msg.isRead,
-          readers, // Include readers array
+          readers,
         }
 
-        // Emit to all group members
         members.forEach((member) => {
           io.to(`user:${member.userId}`).emit("message:updated", payload)
         })
@@ -878,7 +851,6 @@ export async function addGroupMembers(ctx: AuthContext, input: AddGroupMembersIn
     })),
   })
 
-  // Emit socket event for group update
   const io = getSocketServer()
   if (io) {
     try {
@@ -1007,7 +979,6 @@ export async function updateGroup(ctx: AuthContext, input: UpdateGroupInput) {
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -1079,7 +1050,6 @@ export async function deleteGroup(ctx: AuthContext, groupId: string) {
     },
   })
 
-  // Emit socket event
   await emitGroupDeleted(groupId)
 
   return deleted
@@ -1129,7 +1099,6 @@ export async function hardDeleteGroup(ctx: AuthContext, groupId: string) {
     where: { id: groupId },
   })
 
-  // Emit socket event (using cached memberIds)
   await emitGroupHardDeleted(groupId, memberIds)
 
   return { success: true }
@@ -1175,7 +1144,6 @@ export async function restoreGroup(ctx: AuthContext, groupId: string) {
     },
   })
 
-  // Emit socket event
   await emitGroupRestored(groupId)
 
   return restored
@@ -1230,7 +1198,6 @@ export async function removeGroupMember(ctx: AuthContext, input: RemoveGroupMemb
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -1335,7 +1302,6 @@ export async function updateGroupMemberRole(ctx: AuthContext, input: UpdateGroup
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -1434,7 +1400,6 @@ export async function softDeleteMessage(ctx: AuthContext, messageId: string) {
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -1503,7 +1468,6 @@ export async function hardDeleteMessage(ctx: AuthContext, messageId: string) {
     where: { id: messageId },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {
@@ -1578,7 +1542,6 @@ export async function restoreMessage(ctx: AuthContext, messageId: string) {
     },
   })
 
-  // Emit socket event
   const io = getSocketServer()
   if (io) {
     try {

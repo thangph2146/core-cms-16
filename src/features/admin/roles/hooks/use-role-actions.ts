@@ -61,7 +61,6 @@ export function useRoleActions({
     }),
   })
 
-  // Wrapper để thêm super_admin check
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",

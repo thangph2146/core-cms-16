@@ -30,13 +30,11 @@ export async function createNotificationForUser(
     return null
   }
 
-  // Validate input
   if (!title || title.trim().length === 0) {
     logger.warn("Invalid notification title", { userId, title })
     return null
   }
 
-  // Tạo notification cho user (không cần check permission - dùng cho system notifications)
   const notification = await prisma.notification.create({
     data: {
       userId,
@@ -57,7 +55,6 @@ export async function createNotificationForUser(
     kind: notification.kind,
   })
 
-  // Emit socket event
   await emitNotificationNew(notification)
 
   return notification
@@ -88,7 +85,6 @@ export async function createNotificationForSuperAdmins(
     select: { id: true, email: true },
   })
 
-  // Validate input
   if (!title || title.trim().length === 0) {
     logger.warn("Invalid notification title for super admins", { title })
     return { count: 0 }
@@ -159,7 +155,6 @@ export async function emitNotificationToSuperAdminsAfterCreate(
       return
     }
 
-    // Fetch notifications vừa tạo từ database (trong vòng 5 giây)
     const createdNotifications = await prisma.notification.findMany({
       where: {
         title: title.trim(),
@@ -185,16 +180,13 @@ export async function emitNotificationToSuperAdminsAfterCreate(
       title: title.trim(),
     })
 
-    // Sử dụng events.ts để emit
     await emitNotificationNewForSuperAdmins(createdNotifications)
   } catch (error) {
-    // Log error nhưng không throw để không ảnh hưởng đến main operation
     logger.error("Failed to emit notification to super admins", error instanceof Error ? error : new Error(String(error)))
   }
 }
 
 export async function markNotificationAsRead(notificationId: string, userId: string) {
-  // Validate input
   if (!notificationId || !userId) {
     throw new Error("Notification ID and User ID are required")
   }
@@ -219,7 +211,6 @@ export async function markNotificationAsRead(notificationId: string, userId: str
     throw new Error("Forbidden: You can only mark your own notifications as read")
   }
 
-  // Skip update if already read
   if (notification.isRead) {
     logger.debug("Notification already marked as read", { notificationId, userId })
     return await prisma.notification.findUnique({
@@ -240,14 +231,12 @@ export async function markNotificationAsRead(notificationId: string, userId: str
     userId,
   })
 
-  // Emit socket event
   emitNotificationUpdated(updated)
 
   return updated
 }
 
 export async function markNotificationAsUnread(notificationId: string, userId: string) {
-  // Validate input
   if (!notificationId || !userId) {
     throw new Error("Notification ID and User ID are required")
   }
@@ -272,7 +261,6 @@ export async function markNotificationAsUnread(notificationId: string, userId: s
     throw new Error("Forbidden: You can only mark your own notifications as unread")
   }
 
-  // Skip update if already unread
   if (!notification.isRead) {
     logger.debug("Notification already marked as unread", { notificationId, userId })
     return await prisma.notification.findUnique({
@@ -293,14 +281,12 @@ export async function markNotificationAsUnread(notificationId: string, userId: s
     userId,
   })
 
-  // Emit socket event
   emitNotificationUpdated(updated)
 
   return updated
 }
 
 export async function deleteNotification(notificationId: string, userId: string) {
-  // Validate input
   if (!notificationId || !userId) {
     throw new Error("Notification ID and User ID are required")
   }
@@ -325,7 +311,6 @@ export async function deleteNotification(notificationId: string, userId: string)
     throw new Error("Forbidden: You can only delete your own notifications")
   }
 
-  // Không cho phép xóa thông báo hệ thống
   if (notification.kind === NotificationKind.SYSTEM) {
     logger.warn("User attempted to delete system notification", {
       notificationId,
@@ -345,14 +330,12 @@ export async function deleteNotification(notificationId: string, userId: string)
     kind: notification.kind,
   })
 
-  // Emit socket event để remove từ cache
   emitNotificationDeleted(notificationId, userId)
 
   return deleted
 }
 
 export async function bulkMarkAsRead(notificationIds: string[], userId: string) {
-  // Validate input
   if (!notificationIds || notificationIds.length === 0) {
     return { count: 0 }
   }
@@ -367,7 +350,6 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
     select: { id: true, userId: true, isRead: true },
   })
 
-  // Filter chỉ notifications của user và chưa đọc
   const ownNotificationIds = notifications
     .filter((n) => n.userId === userId && !n.isRead)
     .map((n) => n.id)
@@ -390,7 +372,7 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
   const result = await prisma.notification.updateMany({
     where: { 
       id: { in: ownNotificationIds },
-      userId, // Double check: chỉ update notifications của user này
+      userId,
     },
     data: {
       isRead: true,
@@ -404,7 +386,6 @@ export async function bulkMarkAsRead(notificationIds: string[], userId: string) 
     totalRequested: notificationIds.length,
   })
 
-  // Emit socket event để sync
   if (result.count > 0) {
     await emitNotificationsSync(ownNotificationIds, userId)
   }
@@ -462,7 +443,6 @@ export async function bulkMarkAsUnread(notificationIds: string[], userId: string
     totalRequested: notificationIds.length,
   })
 
-  // Emit socket event để sync
   if (result.count > 0) {
     await emitNotificationsSync(ownNotificationIds, userId)
   }
@@ -471,7 +451,6 @@ export async function bulkMarkAsUnread(notificationIds: string[], userId: string
 }
 
 export async function bulkDelete(notificationIds: string[], userId: string) {
-  // Validate input
   if (!notificationIds || notificationIds.length === 0) {
     return { count: 0 }
   }
@@ -496,7 +475,6 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
     throw new Error("Forbidden: You can only delete your own notifications")
   }
 
-  // Filter out system notifications - không cho phép xóa
   const systemNotifications = notifications.filter((n) => n.kind === NotificationKind.SYSTEM)
   if (systemNotifications.length > 0) {
     logger.warn("User attempted to delete system notifications", {
@@ -516,8 +494,8 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
     const result = await prisma.notification.deleteMany({
       where: { 
         id: { in: deletableIds },
-        userId, // Double check: chỉ delete notifications của user này
-        kind: { not: NotificationKind.SYSTEM }, // Triple check: không xóa SYSTEM
+        userId,
+        kind: { not: NotificationKind.SYSTEM },
       },
     })
 
@@ -528,7 +506,6 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
       totalRequested: notificationIds.length,
     })
 
-    // Emit socket event để remove từ cache
     if (result.count > 0) {
       emitNotificationsDeleted(deletableIds, userId)
     }
@@ -536,14 +513,13 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
     return { count: result.count }
   }
 
-  // Nếu không có SYSTEM notifications, xóa bình thường
   const ownNotificationIds = notifications.map((n) => n.id)
 
   const result = await prisma.notification.deleteMany({
     where: { 
       id: { in: ownNotificationIds },
-      userId, // Double check: chỉ delete notifications của user này
-      kind: { not: NotificationKind.SYSTEM }, // Triple check: không xóa SYSTEM
+      userId,
+      kind: { not: NotificationKind.SYSTEM },
     },
   })
 
@@ -553,7 +529,6 @@ export async function bulkDelete(notificationIds: string[], userId: string) {
     totalRequested: notificationIds.length,
   })
 
-  // Emit socket event để remove từ cache
   if (result.count > 0) {
     emitNotificationsDeleted(ownNotificationIds, userId)
   }

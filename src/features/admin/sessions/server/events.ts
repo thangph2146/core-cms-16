@@ -54,8 +54,6 @@ export async function emitSessionUpsert(
 
   const newStatus = resolveStatusFromRow(row)
 
-  // Emit to role room (tất cả super admins đều ở trong role room)
-  // Không cần emit đến từng user room để tránh duplicate events
   io.to(SUPER_ADMIN_ROOM).emit("session:upsert", {
     session: row,
     previousStatus,
@@ -80,7 +78,6 @@ export async function emitSessionBatchUpsert(
   const io = getSocketServer()
   if (!io || sessionIds.length === 0) return
 
-  // Fetch tất cả sessions trong một query
   const sessions = await prisma.session.findMany({
     where: {
       id: { in: sessionIds },
@@ -108,9 +105,6 @@ export async function emitSessionBatchUpsert(
     rows.push(row)
   }
 
-  // Emit batch event với tất cả rows
-  // Emit to role room (tất cả super admins đều ở trong role room)
-  // Không cần emit đến từng user room để tránh duplicate events
   io.to(SUPER_ADMIN_ROOM).emit("session:batch-upsert", {
     sessions: rows.map((row) => ({
       session: row,

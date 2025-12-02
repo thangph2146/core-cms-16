@@ -27,7 +27,6 @@ export async function emitNotificationNewForSuperAdmins(
   if (!io || notifications.length === 0) return
 
   try {
-    // Group notifications by userId
     const notificationsByUser = new Map<string, Notification[]>()
     for (const notification of notifications) {
       const existing = notificationsByUser.get(notification.userId) || []
@@ -35,7 +34,6 @@ export async function emitNotificationNewForSuperAdmins(
       notificationsByUser.set(notification.userId, existing)
     }
 
-    // Emit to each user
     for (const [userId, userNotifications] of notificationsByUser.entries()) {
       for (const notification of userNotifications) {
         const socketNotification = mapNotificationToPayload(notification)

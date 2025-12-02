@@ -33,7 +33,7 @@ export async function getTotalUnreadMessagesCount(userId: string): Promise<numbe
     groupUnreadCount = await prisma.message.count({
       where: {
         groupId: { in: groupIds },
-        senderId: { not: userId }, // Không count messages của chính user
+        senderId: { not: userId },
         deletedAt: null,
         reads: {
           none: {

@@ -142,15 +142,11 @@ export function ResourceForm<T extends Record<string, unknown>>({
       } else if (field.defaultValue !== undefined) {
         initial[key] = field.defaultValue as T[keyof T]
       } else if (field.type === "multiple-select") {
-        // Multiple select default là array rỗng
         initial[key] = [] as T[keyof T]
       } else if (field.type === "checkbox" || field.type === "switch") {
         initial[key] = false as T[keyof T]
       } else if (field.type === "number") {
-        // Number có thể để undefined nếu không có default
-        // Không set gì cả
       } else {
-        // Text, textarea, select, etc default là empty string
         initial[key] = "" as T[keyof T]
       }
     })
@@ -197,7 +193,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
             hasChanges = true
           }
         } else if (field.type === "number") {
-          // Number: có thể là undefined
           if (dataValue !== undefined && dataValue !== null) {
             const newValue = typeof dataValue === "number" ? dataValue : Number(dataValue)
             if (newValue !== currentValue && !isNaN(newValue)) {
@@ -206,7 +201,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
             }
           }
         } else {
-          // Text, textarea, select, etc: string hoặc các giá trị khác
           if (dataValue !== undefined) {
             // Cho phép null, empty string, và các giá trị khác
             const newValue = dataValue === null ? "" : dataValue
@@ -222,7 +216,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
               hasChanges = true
             }
           } else if (currentValue === undefined && field.type !== undefined) {
-            // Number đã được xử lý ở trên, các field khác set empty string
             updated[key] = "" as T[keyof T]
             hasChanges = true
           }
@@ -389,8 +382,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
         setSubmitSuccess(true)
         onSuccess?.()
         if (variant === "page") {
-          // For page variant, call onOpenChange if provided (e.g., to close edit mode)
-          // Navigation sẽ được xử lý bởi useResourceFormSubmit, không cần refresh ở đây
           if (onOpenChange) {
             onOpenChange(false)
           }
@@ -421,8 +412,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
     }
   }
 
-
-  // Group fields by section
   const groupFieldsBySection = () => {
     const grouped: Record<string, ResourceFormField<T>[]> = {}
     const ungrouped: ResourceFormField<T>[] = []

@@ -47,9 +47,7 @@ export function useResourceTableLogger<T extends object>({
   }, [currentViewId, initialDataByView, initialData])
 
   // Build queryKey từ view hiện tại (không cần initialData)
-  // Fix: Build queryKey ngay khi view thay đổi, không cần đợi initialData
   const currentQueryKey = useMemo(() => {
-    // Ưu tiên dùng page/limit từ initialData nếu có, nếu không dùng mặc định
     const page = currentInitialData?.page ?? 1
     const limit = currentInitialData?.limit ?? 10
     return buildQueryKey({
@@ -154,7 +152,6 @@ export function useResourceTableLogger<T extends object>({
     const viewChanged = lastViewIdRef.current !== currentViewId
     const isFirstMount = lastViewIdRef.current === undefined
 
-    // Ưu tiên data từ cache (data mới nhất từ API sau khi fetch)
     const cachedData = queryClient.getQueryData<DataTableResult<T>>(currentQueryKey)
     const dataToLog = cachedData || currentInitialData
 

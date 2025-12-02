@@ -88,9 +88,7 @@ export function PostEditClient({
         transformed.authorId = ""
       }
 
-      // Transform categories array thành categoryIds array
       if (Array.isArray(post.categories)) {
-        // Xử lý cả array rỗng và array có phần tử
         if (post.categories.length > 0) {
           transformed.categoryIds = post.categories
             .map((c) => {
@@ -101,7 +99,6 @@ export function PostEditClient({
             })
             .filter(Boolean)
         } else {
-          // Array rỗng
           transformed.categoryIds = []
         }
       } else if (post.categoryIds !== undefined) {
@@ -118,9 +115,7 @@ export function PostEditClient({
         transformed.categoryIds = []
       }
 
-      // Transform tags array thành tagIds array
       if (Array.isArray(post.tags)) {
-        // Xử lý cả array rỗng và array có phần tử
         if (post.tags.length > 0) {
           transformed.tagIds = post.tags
             .map((t) => {
@@ -131,7 +126,6 @@ export function PostEditClient({
             })
             .filter(Boolean)
         } else {
-          // Array rỗng
           transformed.tagIds = []
         }
       } else if (post.tagIds !== undefined) {

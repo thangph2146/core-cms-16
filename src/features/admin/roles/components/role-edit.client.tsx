@@ -116,7 +116,6 @@ export function RoleEditClient({
   }
 
   const editFields = getBaseRoleFields(permissionsFromServer).map((field) => {
-    // Disable name field for super_admin
     if (field.name === "name" && role.name === "super_admin") {
       return {
         ...field,
@@ -124,7 +123,6 @@ export function RoleEditClient({
         description: "Không thể thay đổi tên vai trò super_admin",
       }
     }
-    // Disable all fields if deleted
     if (formDisabled) {
       return { ...field, disabled: true }
     }

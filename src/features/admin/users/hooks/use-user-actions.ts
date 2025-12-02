@@ -57,14 +57,12 @@ export function useUserActions({
     }),
   })
 
-  // Wrapper để thêm super admin check
   const executeSingleAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
       row: UserRow,
       _refresh: ResourceRefreshHandler
     ): Promise<void> => {
-      // Không cho phép xóa super admin
       if ((action === "delete" || action === "hard-delete") && row.email === PROTECTED_SUPER_ADMIN_EMAIL) {
         showFeedback("error", USER_MESSAGES.CANNOT_DELETE_SUPER_ADMIN, USER_MESSAGES.CANNOT_DELETE_SUPER_ADMIN)
         return
@@ -75,7 +73,6 @@ export function useUserActions({
     [baseExecuteSingleAction, showFeedback]
   )
 
-  // Wrapper cho bulk action với super admin filter
   const executeBulkAction = useCallback(
     async (
       action: "delete" | "restore" | "hard-delete",
@@ -84,7 +81,6 @@ export function useUserActions({
       _refresh: ResourceRefreshHandler,
       clearSelection: () => void
     ) => {
-      // Filter ra super admin từ danh sách đã chọn
       const deletableRows = rows.filter((row) => row.email !== PROTECTED_SUPER_ADMIN_EMAIL)
       const deletableIds = deletableRows.map((r) => r.id)
       const hasSuperAdmin = rows.some((row) => row.email === PROTECTED_SUPER_ADMIN_EMAIL)
@@ -108,7 +104,6 @@ export function useUserActions({
         return
       }
 
-      // Không cho phép vô hiệu hóa super admin
       if (row.email === PROTECTED_SUPER_ADMIN_EMAIL && newStatus === false) {
         showFeedback("error", USER_MESSAGES.CANNOT_DEACTIVATE_SUPER_ADMIN, USER_MESSAGES.CANNOT_DEACTIVATE_SUPER_ADMIN)
         return

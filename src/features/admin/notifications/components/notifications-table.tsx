@@ -8,11 +8,10 @@ import { NotificationsTableClient } from "./notifications-table.client"
 export interface NotificationsTableProps {
   canManage?: boolean
   userId?: string
-  isSuperAdmin?: boolean // Flag để biết user có phải super admin không
+  isSuperAdmin?: boolean
 }
 
 export async function NotificationsTable({ canManage, userId, isSuperAdmin }: NotificationsTableProps) {
-  // Fetch data với error handling
   let initialData: DataTableResult<NotificationRow> = {
     rows: [],
     page: 1,
@@ -31,10 +30,8 @@ export async function NotificationsTable({ canManage, userId, isSuperAdmin }: No
     initialData = serializeNotificationsList(initial)
   } catch (error) {
     logger.error("Error in NotificationsTable Server Component", error as Error)
-    // initialData đã được set với empty data mặc định
   }
 
-  // Return JSX sau khi đã có data an toàn (không wrap trong try/catch)
   return <NotificationsTableClient canManage={canManage} initialData={initialData} isSuperAdmin={isSuperAdmin} />
 }
 

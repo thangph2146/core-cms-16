@@ -11,7 +11,6 @@ export interface UsersTableProps {
 }
 
 export async function UsersTable({ canDelete, canRestore, canManage, canCreate }: UsersTableProps) {
-  // Fetch usersData và roles song song với Promise.all
   const [usersData, roles] = await Promise.all([
     listUsers({
       page: 1,

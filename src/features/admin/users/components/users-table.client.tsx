@@ -296,7 +296,6 @@ export function UsersTableClient({
         selectionEnabled: canDelete,
         selectionActions: canDelete
           ? ({ selectedIds, selectedRows, clearSelection, refresh }) => {
-              // Filter ra super admin từ danh sách đã chọn
               const deletableRows = selectedRows.filter((row) => row.email !== PROTECTED_SUPER_ADMIN_EMAIL)
               const hasSuperAdmin = selectedRows.some((row) => row.email === PROTECTED_SUPER_ADMIN_EMAIL)
               

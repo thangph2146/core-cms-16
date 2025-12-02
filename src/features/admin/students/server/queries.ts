@@ -49,7 +49,6 @@ export async function getStudentColumnOptions(
     deletedAt: null, // Only active students
   }
 
-  // Filter by userId if not super admin
   if (!isSuperAdmin && actorId) {
     where.userId = actorId
   }
@@ -136,7 +135,6 @@ export async function getStudentById(
     return null
   }
 
-  // Check permission: non-super admin can only access students with their userId
   if (!isSuperAdmin && actorId && student.userId !== actorId) {
     return null
   }
