@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import { resourceLogger } from "@/lib/config/resource-logger"
 import type { ResourceAction } from "@/lib/config/resource-logger"
 
-// Debounce delay cho form logging (ms)
 const FORM_LOG_DEBOUNCE_MS = 500
 
 interface UseResourceFormLoggerOptions<T extends Record<string, unknown>> {
@@ -44,7 +43,6 @@ export function useResourceFormLogger<T extends Record<string, unknown>>({
       clearTimeout(debounceTimeoutRef.current)
     }
 
-    // Debounce logging để tránh log quá nhiều khi user đang type
     debounceTimeoutRef.current = setTimeout(() => {
       // Tạo unique key từ form data - sort keys để đảm bảo consistent
       // Loại bỏ các field không quan trọng cho comparison (như content editor state)
@@ -52,7 +50,6 @@ export function useResourceFormLogger<T extends Record<string, unknown>>({
         .sort()
         .reduce((acc, key) => {
           const value = formData[key]
-          // Chỉ include các giá trị primitive và array, skip complex objects như editor content
           if (value === null || value === undefined || typeof value !== "object" || Array.isArray(value)) {
             acc[key] = value
           } else {

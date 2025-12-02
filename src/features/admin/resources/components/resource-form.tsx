@@ -180,8 +180,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
         const key = field.name as keyof T
         const dataValue = data[key]
         const currentValue = prev[key]
-
-        // Xử lý theo type của field
         if (field.type === "multiple-select") {
           // Multiple-select: luôn là array
           const newValue = Array.isArray(dataValue) 

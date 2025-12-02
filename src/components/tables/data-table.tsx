@@ -493,7 +493,7 @@ export function DataTable<T extends object>({
                     <TableHeader>
                         <TableRow>
                             {selectionEnabled ? (
-                                <TableHead className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3 sticky left-0 z-10 bg-background border-r border-border">
+                                <TableHead className="w-10 max-w-10 min-w-10 align-middle px-2 sticky left-0 z-10 bg-background border-r border-border">
                                     <SelectionCheckbox
                                         checked={allVisibleSelected}
                                         indeterminate={someVisibleSelected}
@@ -638,7 +638,7 @@ function TableBodyContent<T extends object>({
                 return (
                     <TableRow key={rowId} className="group">
                         {showSelection ? (
-                            <TableCell className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3 sticky left-0 z-10 bg-background group-data-[state=selected]:bg-muted border-r border-border">
+                            <TableCell className="w-10 max-w-10 min-w-10 align-middle px-2 sticky left-0 z-10 bg-background group-data-[state=selected]:bg-muted border-r border-border">
                                 <SelectionCheckbox
                                     checked={rowSelected}
                                     indeterminate={false}
