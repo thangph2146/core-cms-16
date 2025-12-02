@@ -43,20 +43,14 @@ export function TagEditClient({
     invalidateQueryKey: queryKeys.adminTags.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = tagId || initialTag?.id
   const { data: tagData } = useResourceDetailData({
     initialData: initialTag || ({} as TagEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminTags.detail,
     resourceName: "tags",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // Note: Tag API đã trả về name, slug trực tiếp, không cần transform như posts
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
   const tag = useMemo(() => {
     if (tagData) {
       return tagData as TagEditData
@@ -96,13 +90,9 @@ export function TagEditClient({
     return null
   }
 
-  // Check nếu tag đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = tag.deletedAt !== null && tag.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<TagFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

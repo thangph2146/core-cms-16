@@ -1,10 +1,3 @@
-/**
- * Non-cached Database Queries for Messages/Chat
- * 
- * Chứa các database queries không có cache wrapper
- * Sử dụng cho các trường hợp cần fresh data hoặc trong API routes
- */
-
 import { prisma } from "@/lib/database"
 import { mapMessageRecord } from "./helpers"
 
@@ -85,10 +78,6 @@ export interface MessageDetail {
   }[] // List of users who have read this message (for group messages)
 }
 
-/**
- * List conversations for a user
- * Returns unique conversations between the user and others
- */
 export async function listConversations(params: ListConversationsInput): Promise<ListConversationsResult> {
   const { userId, page = 1, limit = 50, search } = params
 
@@ -276,9 +265,6 @@ export async function listConversations(params: ListConversationsInput): Promise
   }
 }
 
-/**
- * Get messages between two users
- */
 export async function getMessagesBetweenUsers(
   userId: string,
   otherUserId: string,
@@ -341,9 +327,6 @@ export async function getMessagesBetweenUsers(
   return messages.map(mapMessageRecord)
 }
 
-/**
- * Get messages for a group
- */
 export async function getMessagesForGroup(
   groupId: string,
   userId: string,
@@ -416,9 +399,6 @@ export async function getMessagesForGroup(
   return messages.map(mapMessageRecord)
 }
 
-/**
- * Get message by ID
- */
 export async function getMessageById(id: string): Promise<MessageDetail | null> {
   const message = await prisma.message.findUnique({
     where: { id },
@@ -473,9 +453,6 @@ export async function getMessageById(id: string): Promise<MessageDetail | null> 
   return mapMessageRecord(message)
 }
 
-/**
- * List groups that user is a member of
- */
 export async function listGroups(input: ListGroupsInput) {
   const page = input.page || 1
   const limit = input.limit || 50
@@ -615,9 +592,6 @@ export async function listGroups(input: ListGroupsInput) {
   }
 }
 
-/**
- * Get group by ID (with member verification)
- */
 export async function getGroup(groupId: string, userId: string) {
   const groupMember = await prisma.groupMember.findFirst({
     where: {

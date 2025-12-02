@@ -59,7 +59,6 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
   })
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: role,
     resourceId: roleId,
@@ -68,7 +67,6 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "roles",
     resourceId: roleId,
@@ -314,7 +312,6 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
     },
   ]
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   return (

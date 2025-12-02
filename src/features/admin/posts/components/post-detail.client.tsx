@@ -81,7 +81,6 @@ export function PostDetailClient({
     invalidateQueryKey: queryKeys.adminPosts.all(),
   });
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const {
     data: detailData,
     isFetched,
@@ -95,7 +94,6 @@ export function PostDetailClient({
     fetchOnMount: true,
   });
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "posts",
     resourceId: postId,
@@ -339,7 +337,6 @@ export function PostDetailClient({
     },
   ];
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   return (

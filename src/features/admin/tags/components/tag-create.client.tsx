@@ -16,9 +16,7 @@ export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProp
   const queryClient = useQueryClient()
   
   const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
     await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
   }
   
@@ -46,7 +44,6 @@ export function TagCreateClient({ backUrl = "/admin/tags" }: TagCreateClientProp
         },
       })
 
-      // Invalidate React Query cache để cập nhật danh sách tags
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminTags.all(), refetchType: "all" })
       await queryClient.refetchQueries({ queryKey: queryKeys.adminTags.all(), type: "all" })
     },

@@ -54,25 +54,17 @@ export function UserEditClient({
   const isSuperAdminUser = isSuperAdmin(currentUserRoles)
   const { roles } = useRoles({ initialRoles: rolesFromServer })
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = userId || initialUser?.id
   const { data: userData } = useResourceDetailData({
     initialData: initialUser || ({} as UserEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminUsers.detail,
     resourceName: "users",
-    // Không cần apiRoute, useResourceDetailData sẽ tự động detect từ resourceName
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // API trả về roles array nhưng form cần roleIds string (single select)
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi userData thay đổi
   const user = useMemo(() => {
     if (userData) {
       const userDataTyped = userData as UserEditData
-      // Transform roles array thành roleIds string (lấy role đầu tiên vì form là single select)
       return {
         ...userDataTyped,
         roleIds: userDataTyped.roles && userDataTyped.roles.length > 0 ? userDataTyped.roles[0].id : "",
@@ -99,11 +91,9 @@ export function UserEditClient({
         ...data,
         roleIds: normalizeRoleIds(data.roleIds),
       }
-      // Remove password if empty
       if (!submitData.password || submitData.password === "") {
         delete submitData.password
       }
-      // Không cho phép vô hiệu hóa super admin
       if (user?.email === PROTECTED_SUPER_ADMIN_EMAIL && submitData.isActive === false) {
         submitData.isActive = true
       }
@@ -124,13 +114,9 @@ export function UserEditClient({
     return null
   }
 
-  // Check nếu user đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = user.deletedAt !== null && user.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<UserEditData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }
@@ -138,11 +124,8 @@ export function UserEditClient({
     return handleSubmit(data)
   }
 
-  // roleIds đã được transform trong useMemo ở trên
   const roleDefaultValue = typeof user?.roleIds === "string" ? user.roleIds : ""
   const baseFields = getBaseUserFields(roles, roleDefaultValue) as unknown as ResourceFormField<UserEditData>[]
-  
-  // Điều chỉnh isActive field: disable nếu là super admin và đang active
   const isEditingSuperAdmin = user?.email === PROTECTED_SUPER_ADMIN_EMAIL
   const editFields = baseFields.map((field) => {
     if (field.name === "isActive" && isEditingSuperAdmin && user?.isActive) {
@@ -152,7 +135,6 @@ export function UserEditClient({
         description: "Không thể vô hiệu hóa tài khoản super admin",
       }
     }
-    // Disable all fields if deleted
     if (formDisabled) {
       return { ...field, disabled: true }
     }

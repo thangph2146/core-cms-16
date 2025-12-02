@@ -35,7 +35,6 @@ export function UserCreateClient({ backUrl = "/admin/users", roles: rolesFromSer
         ...data,
         roleIds: normalizeRoleIds(data.roleIds),
       }
-      // Validate required fields
       if (!submitData.email || !submitData.password) {
         toast({
           variant: "destructive",
@@ -64,7 +63,7 @@ export function UserCreateClient({ backUrl = "/admin/users", roles: rolesFromSer
       },
     },
     getPasswordField(),
-    ...getBaseUserFields(roles).slice(1), // Skip email field
+    ...getBaseUserFields(roles).slice(1),
   ]
 
   return (

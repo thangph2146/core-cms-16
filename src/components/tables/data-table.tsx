@@ -171,11 +171,8 @@ export function DataTable<T extends object>({
         () => ({ ...defaultFilters }),
     )
     const [showFilters, setShowFilters] = useState<boolean>(true)
-    const _initialQueryRef = useRef(defaultQuery)
     const hasConsumedInitialRef = useRef(!initialData)
 
-    // Luôn ưu tiên loader (loader đã check cache từ React Query)
-    // Không dùng initialData trong useState initializer để tránh dùng data cũ khi component remount
     const [dataPromise, setDataPromise] = useState<Promise<DataTableResult<T>>>(() =>
         safeLoad(loader, defaultQuery),
     )
@@ -215,43 +212,27 @@ export function DataTable<T extends object>({
     }, [])
     const debouncedApplyFilters = useDebouncedCallback(applyFilters, 300)
 
-    // Track previous query và refreshKey để tránh gọi API khi không thực sự thay đổi
     const prevQueryRef = useRef<DataTableQueryState>(query)
     const prevRefreshKeyRef = useRef(refreshKey)
 
     useEffect(() => {
-        // Kiểm tra refreshKey thay đổi (force refresh)
         const refreshKeyChanged = prevRefreshKeyRef.current !== refreshKey
         if (refreshKeyChanged) {
             prevRefreshKeyRef.current = refreshKey
         }
 
-        // Kiểm tra xem query có thực sự thay đổi không (so sánh giá trị, không phải reference)
         const queryChanged = !areQueriesEqual(query, prevQueryRef.current)
         
-        // Chỉ gọi API nếu:
-        // 1. Query thực sự thay đổi (giá trị khác nhau), HOẶC
-        // 2. RefreshKey thay đổi (force refresh)
         if (!queryChanged && !refreshKeyChanged) {
-            // Query object reference có thể thay đổi nhưng giá trị không đổi
-            // Cập nhật ref nhưng không gọi API để tránh duplicate requests
             prevQueryRef.current = query
             return
         }
 
-        // Query thực sự thay đổi hoặc refreshKey thay đổi, cập nhật ref và gọi API
         prevQueryRef.current = query
 
         startTransition(() => {
-            // Luôn ưu tiên loader (loader đã check cache từ React Query và return cache nếu có)
-            // Loader từ useResourceTableLoader sẽ:
-            // 1. Check cache trước - return cache ngay nếu có (từ socket updates hoặc optimistic updates)
-            // 2. Nếu không có cache, fetch từ server
-            // initialData chỉ được dùng như fallback cho lần đầu tiên khi chưa có cache
-            // Nhưng vì loader đã check cache, nên ta luôn dùng loader để đảm bảo data mới nhất
             setDataPromise(safeLoad(loader, query))
             
-            // Mark initialData as consumed để tránh dùng lại
             if (initialData && !hasConsumedInitialRef.current) {
                 hasConsumedInitialRef.current = true
             }
@@ -512,7 +493,7 @@ export function DataTable<T extends object>({
                     <TableHeader>
                         <TableRow>
                             {selectionEnabled ? (
-                                <TableHead className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3">
+                                <TableHead className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3 sticky left-0 z-10 bg-background border-r border-border">
                                     <SelectionCheckbox
                                         checked={allVisibleSelected}
                                         indeterminate={someVisibleSelected}
@@ -551,7 +532,7 @@ export function DataTable<T extends object>({
                                         />
                                     </TableHead>
                                 ))}
-                                {actions ? <TableHead className="min-w-[100px] text-center bg-muted/40 px-2 sm:px-3 sticky right-0 z-10 border-l border-border" /> : null}
+                                {actions ? <TableHead className="min-w-[100px] text-center px-2 sm:px-3 sticky right-0 z-10 border-l border-border" /> : null}
                             </TableRow>
                         )}
                     </TableHeader>
@@ -657,7 +638,7 @@ function TableBodyContent<T extends object>({
                 return (
                     <TableRow key={rowId} className="group">
                         {showSelection ? (
-                            <TableCell className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3">
+                            <TableCell className="w-6 max-w-6 min-w-6 align-middle px-1 sm:px-3 sticky left-0 z-10 bg-background group-data-[state=selected]:bg-muted border-r border-border">
                                 <SelectionCheckbox
                                     checked={rowSelected}
                                     indeterminate={false}

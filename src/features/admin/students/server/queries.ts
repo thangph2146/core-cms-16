@@ -118,7 +118,6 @@ export async function getStudentById(
   const where: Prisma.StudentWhereUniqueInput = { id }
   
   // If not super admin, add userId filter to ensure user can only access their own students
-  // Note: This is a safety check, but Prisma findUnique doesn't support additional where conditions
   // So we'll check after fetching
   const student = await prisma.student.findUnique({
     where,

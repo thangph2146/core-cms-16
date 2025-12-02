@@ -61,12 +61,10 @@ export function useResourceTableLogger<T extends object>({
     })
   }, [currentViewStatus, buildQueryKey, currentInitialData?.page, currentInitialData?.limit])
 
-  // Helper function để log data (dùng useCallback để stable reference)
   const logData = useCallback(
     (dataToLog: DataTableResult<T>, viewId: string, viewStatus: string) => {
       if (!dataToLog) return false
 
-      // Kiểm tra xem data có đúng view không (tránh log data của view cũ)
       if (dataToLog.rows.length > 0) {
         if (viewStatus === "deleted") {
           const allDeleted = dataToLog.rows.every((r) => {
@@ -140,7 +138,6 @@ export function useResourceTableLogger<T extends object>({
     [resourceName, columns, getRowData]
   )
 
-  // Helper để check xem 2 query keys có giống nhau không
   const isQueryKeyEqual = useCallback((key1: QueryKey, key2: QueryKey): boolean => {
     if (key1 === key2) return true
     if (key1.length !== key2.length) return false
@@ -209,20 +206,12 @@ export function useResourceTableLogger<T extends object>({
     }
   }, [currentQueryKey, queryClient, currentInitialData, currentViewId, currentViewStatus, logData])
 
-  // Subscribe vào cache changes để log ngay khi data được fetch từ API
-  // Chỉ log khi data thực sự được fetch từ API (không phải từ socket updates)
   useEffect(() => {
-    // Subscribe vào query cache để detect khi data được fetch và update cache
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event?.query?.queryKey && (event.type === "updated" || event.type === "added")) {
-        // Check xem có phải query key của view hiện tại không
         if (isQueryKeyEqual(event.query.queryKey, currentQueryKey)) {
           const data = event.query.state.data as DataTableResult<T> | undefined
-          // Chỉ log khi data được fetch từ API (state.status === "success" và có data)
-          // Tránh log khi socket updates cache (sẽ được log bởi useEffect chính)
           if (data && event.query.state.status === "success") {
-            // Kiểm tra xem data này đã được log chưa để tránh duplicate
-            // logData sẽ tự kiểm tra và skip nếu đã log
             logData(data, currentViewId || "active", currentViewStatus)
           }
         }

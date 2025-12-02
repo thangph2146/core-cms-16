@@ -47,7 +47,6 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     invalidateQueryKey: queryKeys.adminStudents.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: student,
     resourceId: studentId,
@@ -56,7 +55,6 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "students",
     resourceId: studentId,
@@ -195,7 +193,6 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     },
   ]
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   return (

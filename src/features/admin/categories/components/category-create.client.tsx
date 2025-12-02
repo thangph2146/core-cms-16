@@ -16,9 +16,7 @@ export function CategoryCreateClient({ backUrl = "/admin/categories" }: Category
   const queryClient = useQueryClient()
 
   const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
     await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "all" })
   }
 
@@ -46,7 +44,6 @@ export function CategoryCreateClient({ backUrl = "/admin/categories" }: Category
         },
       })
 
-      // Invalidate React Query cache để cập nhật danh sách categories
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminCategories.all(), refetchType: "all" })
       await queryClient.refetchQueries({ queryKey: queryKeys.adminCategories.all(), type: "all" })
     },

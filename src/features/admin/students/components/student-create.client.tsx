@@ -31,7 +31,6 @@ export function StudentCreateClient({
     },
     transformData: (data) => {
       const submitData = { ...data }
-      // Nếu không phải super admin, không gửi userId (server sẽ tự động set userId = actorId)
       if (!isSuperAdmin) {
         delete submitData.userId
       }

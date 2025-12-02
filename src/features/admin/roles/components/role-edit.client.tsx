@@ -44,20 +44,14 @@ export function RoleEditClient({
     invalidateQueryKey: queryKeys.adminRoles.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = roleId || initialRole?.id
   const { data: roleData } = useResourceDetailData({
     initialData: initialRole || ({} as RoleEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminRoles.detail,
     resourceName: "roles",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // Note: Role API đã trả về permissions là string[] trực tiếp, không cần transform như posts
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
   const role = useMemo(() => {
     if (roleData) {
       return roleData as RoleEditData
@@ -111,13 +105,9 @@ export function RoleEditClient({
     return null
   }
 
-  // Check nếu role đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = role.deletedAt !== null && role.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<RoleFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

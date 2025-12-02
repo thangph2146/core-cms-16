@@ -1,10 +1,3 @@
-/**
- * Server Component: Category Create
- * 
- * Pass props xuống client component
- * Pattern: Server Component → Client Component (UI/interactions)
- */
-
 import { CategoryCreateClient } from "./category-create.client"
 
 export interface CategoryCreateProps {

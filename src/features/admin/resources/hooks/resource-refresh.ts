@@ -8,7 +8,6 @@ interface RunResourceRefreshOptions {
   debounceMs?: number
 }
 
-// Track last refresh time để debounce
 const lastRefreshTime = new Map<string, number>()
 
 export async function runResourceRefresh({
@@ -23,7 +22,6 @@ export async function runResourceRefresh({
   const lastRefresh = lastRefreshTime.get(resource) || 0
   const timeSinceLastRefresh = now - lastRefresh
 
-  // Debounce: skip nếu refresh gần đây
   if (timeSinceLastRefresh < debounceMs) {
     logger.debug(`[${resource}] Skipping refresh (debounced, ${timeSinceLastRefresh}ms ago)`)
     return

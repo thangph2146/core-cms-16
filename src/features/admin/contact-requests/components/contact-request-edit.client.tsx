@@ -50,19 +50,14 @@ export function ContactRequestEditClient({
 }: ContactRequestEditClientProps) {
   const queryClient = useQueryClient()
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = contactRequestId || initialContactRequest?.id
   const { data: contactRequestData } = useResourceDetailData({
     initialData: initialContactRequest || ({} as ContactRequestEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminContactRequests.detail,
     resourceName: "contact-requests",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // API trả về assignedTo object nhưng form cần assignedToId string
   const transformContactRequestData = (data: unknown): ContactRequestEditData | null => {
     if (!data || typeof data !== "object") return null
     
@@ -71,21 +66,17 @@ export function ContactRequestEditClient({
       ...contactRequest,
     } as ContactRequestEditData
 
-    // Transform assignedTo object thành assignedToId string
     if (contactRequest.assignedTo && typeof contactRequest.assignedTo === "object" && contactRequest.assignedTo !== null && "id" in contactRequest.assignedTo) {
       transformed.assignedToId = String(contactRequest.assignedTo.id)
     } else if (contactRequest.assignedToId !== undefined && contactRequest.assignedToId !== null) {
       transformed.assignedToId = String(contactRequest.assignedToId)
     } else {
-      // Nếu không có assignedTo hoặc assignedToId, để null
       transformed.assignedToId = null
     }
 
     return transformed
   }
 
-  // Sử dụng fresh data từ API nếu có, transform và fallback về initial data
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi contactRequestData thay đổi
   const contactRequest = useMemo(() => {
     if (contactRequestData) {
       return transformContactRequestData(contactRequestData)
@@ -125,13 +116,9 @@ export function ContactRequestEditClient({
     return null
   }
 
-  // Check nếu contactRequest đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = contactRequest.deletedAt !== null && contactRequest.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<ContactRequestFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

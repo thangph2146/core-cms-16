@@ -8,7 +8,6 @@ const SUPER_ADMIN_ROOM = "role:super_admin"
 export type SessionStatus = "active" | "deleted"
 
 function resolveStatusFromRow(row: SessionRow): SessionStatus {
-  // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
   return row.isActive ? "active" : "deleted"
 }
 

@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho user forms
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateEmail, validateName, validatePassword } from "./utils"
 import type { Role } from "./utils"
@@ -20,9 +16,6 @@ export interface UserFormData {
   [key: string]: unknown
 }
 
-/**
- * Sections cho user form
- */
 export function getUserFormSections(): ResourceFormSection[] {
   return [
     {
@@ -48,9 +41,6 @@ export function getUserFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho user form (email, name, roles, isActive, bio, phone, address)
- */
 export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): ResourceFormField<UserFormData>[] {
   return [
     {
@@ -122,9 +112,6 @@ export function getBaseUserFields(roles: Role[], roleDefaultValue = ""): Resourc
   ]
 }
 
-/**
- * Password field cho create form
- */
 export function getPasswordField(): ResourceFormField<UserFormData> {
   return {
     name: "password",
@@ -139,9 +126,6 @@ export function getPasswordField(): ResourceFormField<UserFormData> {
   }
 }
 
-/**
- * Password field cho edit form (optional, only for super admin)
- */
 export function getPasswordEditField(): ResourceFormField<UserFormData> {
   return {
     name: "password",

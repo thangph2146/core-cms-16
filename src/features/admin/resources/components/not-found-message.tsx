@@ -1,10 +1,3 @@
-/**
- * Shared NotFound Message Component
- * 
- * Component hiển thị thông báo "Không tìm thấy" được dùng chung
- * bởi tất cả admin detail/edit components
- */
-
 interface NotFoundMessageProps {
   title?: string
   description?: string

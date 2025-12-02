@@ -1,10 +1,3 @@
-/**
- * Utility functions và validation cho account forms
- */
-
-/**
- * Validate name (minimum 2 characters)
- */
 export function validateName(value: unknown): { valid: boolean; error?: string } {
   if (value && typeof value === "string" && value.trim().length < 2) {
     return { valid: false, error: "Tên phải có ít nhất 2 ký tự" }
@@ -12,9 +5,6 @@ export function validateName(value: unknown): { valid: boolean; error?: string }
   return { valid: true }
 }
 
-/**
- * Validate password (minimum 6 characters, empty allowed for edit)
- */
 export function validatePassword(value: unknown, allowEmpty = false): { valid: boolean; error?: string } {
   if (allowEmpty && (!value || value === "")) {
     return { valid: true }
@@ -28,9 +18,6 @@ export function validatePassword(value: unknown, allowEmpty = false): { valid: b
   return { valid: true }
 }
 
-/**
- * Get user initials from name or email
- */
 export function getUserInitials(name?: string | null, email?: string): string {
   if (name) {
     const parts = name.trim().split(" ")

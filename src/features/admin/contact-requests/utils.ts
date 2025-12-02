@@ -1,15 +1,8 @@
-/**
- * Shared utility functions và validation cho contact request forms
- */
-
 import { formatDateVi, validateName, validateEmail, validatePhone } from "@/features/admin/resources/utils"
 
 // Re-export common utilities from resources
 export { formatDateVi, validateName, validateEmail, validatePhone }
 
-/**
- * Validate subject (minimum 3 characters, max 200)
- */
 export function validateSubject(value: unknown): { valid: boolean; error?: string } {
   if (!value || typeof value !== "string") {
     return { valid: false, error: "Tiêu đề là bắt buộc" }
@@ -24,9 +17,6 @@ export function validateSubject(value: unknown): { valid: boolean; error?: strin
   return { valid: true }
 }
 
-/**
- * Validate content (minimum 10 characters, max 5000)
- */
 export function validateContent(value: unknown): { valid: boolean; error?: string } {
   if (!value || typeof value !== "string") {
     return { valid: false, error: "Nội dung là bắt buộc" }

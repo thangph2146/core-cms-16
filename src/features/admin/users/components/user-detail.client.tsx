@@ -48,18 +48,14 @@ export interface UserDetailClientProps {
 export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: UserDetailClientProps) {
   const router = useResourceRouter()
   
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi mount để đảm bảo data mới nhất từ API
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: user,
     resourceId: userId,
     detailQueryKey: queryKeys.adminUsers.detail,
     resourceName: "users",
-    // Không cần apiRoute, useResourceDetailData sẽ tự động detect từ resourceName
-    fetchOnMount: true, // Luôn fetch khi mount để đảm bảo data fresh
+    fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "users",
     resourceId: userId,
@@ -302,7 +298,6 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
     },
   ]
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   

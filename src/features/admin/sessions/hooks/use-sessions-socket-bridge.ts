@@ -70,7 +70,6 @@ export function useSessionsSocketBridge() {
     // Handle session:upsert event (for updates, creates, restores)
     const detachUpsert = on<[SessionUpsertPayload]>("session:upsert", (payload) => {
       const { session: sessionRow, previousStatus } = payload as SessionUpsertPayload
-      // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
       const rowStatus: "active" | "deleted" = sessionRow.isActive ? "active" : "deleted"
 
       const updated = updateSessionQueries(queryClient, ({ params, data }) => {

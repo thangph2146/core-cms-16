@@ -1,7 +1,3 @@
-/**
- * Zod validation schemas cho tags
- */
-
 import { z } from "zod"
 
 export const CreateTagSchema = z.object({

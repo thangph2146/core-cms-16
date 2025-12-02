@@ -61,7 +61,6 @@ export function MultipleSelectCombobox<T>({
     selectedValues.includes(String(opt.value))
   )
 
-  // Check if all options are selected
   const allSelected = allOptions.length > 0 && selectedValues.length === allOptions.length
 
   const handleToggle = (optionValue: string | number) => {

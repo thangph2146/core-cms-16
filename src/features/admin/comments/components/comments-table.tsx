@@ -10,7 +10,6 @@ export interface CommentsTableProps {
 }
 
 export async function CommentsTable({ canDelete, canRestore, canManage, canApprove }: CommentsTableProps) {
-  // Sử dụng listComments (non-cached) để đảm bảo data luôn fresh
   // Theo chuẩn Next.js 16: không cache admin data
   const commentsData = await listComments({
     page: 1,

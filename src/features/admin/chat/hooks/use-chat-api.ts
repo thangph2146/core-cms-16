@@ -1,16 +1,7 @@
-/**
- * API functions cho chat
- * Tách API calls để dễ test và maintain
- */
-
 import { toast } from "@/hooks/use-toast"
 import { requestJson, toJsonBody } from "@/lib/api/client"
 import { withApiBase } from "@/lib/config/api-paths"
 
-/**
- * Parse API error response
- * Internal helper - not exported
- */
 // Kept for reference when using raw fetch in other areas
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function parseErrorResponse(response: Response, defaultMessage: string): Promise<string> {
@@ -22,9 +13,6 @@ async function parseErrorResponse(response: Response, defaultMessage: string): P
   }
 }
 
-/**
- * Mark message as read/unread
- */
 export async function markMessageAPI(messageId: string, isRead: boolean): Promise<void> {
   const { apiRoutes } = await import("@/lib/api/routes")
   const res = await requestJson(withApiBase(apiRoutes.adminMessages.markRead(messageId)), {
@@ -36,9 +24,6 @@ export async function markMessageAPI(messageId: string, isRead: boolean): Promis
   }
 }
 
-/**
- * Send message via API
- */
 export async function sendMessageAPI(params: {
   content: string
   receiverId?: string
@@ -62,9 +47,6 @@ export async function sendMessageAPI(params: {
   return res.data
 }
 
-/**
- * Handle API error với toast
- */
 export function handleAPIError(error: unknown, defaultMessage: string): void {
   // Use dynamic import to avoid require()
   import("@/lib/config").then(({ logger }) => {

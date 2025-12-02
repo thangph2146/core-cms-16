@@ -1,7 +1,3 @@
-/**
- * Zod validation schemas cho roles
- */
-
 import { z } from "zod"
 import { PERMISSIONS } from "@/lib/permissions"
 

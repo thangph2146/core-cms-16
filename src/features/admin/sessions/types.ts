@@ -13,7 +13,6 @@ export interface SessionRow {
   expiresAt: string
   lastActivity: string
   createdAt: string
-  // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
   deletedAt: string | null // Sẽ là null vì model không có deletedAt, nhưng giữ để tương thích với ResourceRow
 }
 
@@ -43,7 +42,6 @@ export interface ListedSession {
   lastActivity: string
   createdAt: string
   updatedAt: string
-  // Note: Session model không có deletedAt, sử dụng isActive=false để đánh dấu "deleted"
   deletedAt: string | null // Sẽ là null vì model không có deletedAt
   userName?: string | null
   userEmail?: string

@@ -1,14 +1,6 @@
-/**
- * Helper functions cho socket bridge operations
- * Tách logic để code ngắn gọn và dễ test
- */
-
 import type { Contact } from "@/components/chat/types"
 import { applyReadStatus } from "./use-chat-message-helpers"
 
-/**
- * Update contact message isRead status and readers array
- */
 export function updateMessageReadStatus(
   contacts: Contact[],
   contactId: string,
@@ -28,9 +20,6 @@ export function updateMessageReadStatus(
   })
 }
 
-/**
- * Update contact by ID
- */
 export function updateContactInState(
   contacts: Contact[],
   contactId: string,
@@ -39,9 +28,6 @@ export function updateContactInState(
   return contacts.map((contact) => (contact.id === contactId ? updater(contact) : contact))
 }
 
-/**
- * Filter contact by condition
- */
 export function filterContactInState(
   contacts: Contact[],
   predicate: (contact: Contact) => boolean

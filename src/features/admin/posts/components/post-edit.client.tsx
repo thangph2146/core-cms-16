@@ -61,19 +61,16 @@ export function PostEditClient({
     const userRoles = session?.roles || []
     const isSuperAdminUser = isSuperAdminProp || isSuperAdmin(userRoles)
 
-    // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-    // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
     const resourceId = postId || initialPost?.id
     const { data: postData } = useResourceDetailData({
       initialData: initialPost || ({} as PostEditData),
       resourceId: resourceId || "",
       detailQueryKey: queryKeys.adminPosts.detail,
       resourceName: "posts",
-      fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+      fetchOnMount: !!resourceId,
     })
 
-    // Transform data từ API response sang form format
-    // API trả về author, categories, tags nhưng form cần authorId, categoryIds, tagIds
+    // Transform API response to form format
     const transformPostData = (data: unknown): PostEditData | null => {
       if (!data || typeof data !== "object") return null
       
@@ -157,8 +154,6 @@ export function PostEditClient({
       return transformed
     }
 
-    // Sử dụng fresh data từ API nếu có, transform và fallback về initial data
-    // Sử dụng useMemo để tối ưu hóa và đảm bảo transform được gọi khi postData thay đổi
     const post = useMemo(() => {
       if (postData) {
         return transformPostData(postData)
@@ -167,9 +162,7 @@ export function PostEditClient({
     }, [postData, initialPost])
 
     const handleBack = async () => {
-        // Invalidate React Query cache để đảm bảo list page có data mới nhất
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "all" })
-        // Refetch ngay lập tức để đảm bảo data được cập nhật
         await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "all" })
     }
 
@@ -183,7 +176,6 @@ export function PostEditClient({
             errorTitle: "Lỗi cập nhật",
         },
         navigation: {
-            // Luôn navigate về detail page khi variant === "page"
             toDetail: variant === "page" ? (postId || post?.id ? `/admin/posts/${postId || post?.id}` : undefined) : undefined,
             fallback: backUrl,
         },
@@ -191,13 +183,11 @@ export function PostEditClient({
             const submitData: Record<string, unknown> = {
                 ...data,
             }
-            // Handle publishedAt
             if (data.published === true && !data.publishedAt && !post?.publishedAt) {
                 submitData.publishedAt = new Date().toISOString()
             } else if (data.published === false) {
                 submitData.publishedAt = null
             }
-            // Nếu không phải super admin, không gửi authorId (server sẽ giữ nguyên authorId hiện tại)
             if (!isSuperAdminUser && "authorId" in submitData) {
                 delete submitData.authorId
             }
@@ -218,9 +208,15 @@ export function PostEditClient({
         return null
     }
 
-    // Check nếu post đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
     const isDeleted = post.deletedAt !== null && post.deletedAt !== undefined
-
+    const formDisabled = isDeleted && variant !== "page"
+    
+    const handleSubmitWrapper = async (data: Partial<PostEditData>) => {
+        if (isDeleted) {
+            return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }
+        }
+        return handleSubmit(data)
+    }
 
     const editFields: ResourceFormField<PostEditData>[] = [
         {
@@ -251,44 +247,31 @@ export function PostEditClient({
             section: "basic",
         },
         // Chỉ super admin mới thấy field author
-        ...(isSuperAdminUser && users.length > 0
-            ? [
-                  {
-                      name: "authorId",
-                      label: "Tác giả",
-                      type: "select",
-                      options: users,
-                      required: true,
-                      description: "Chọn tác giả của bài viết",
-                      section: "basic",
-                  } as ResourceFormField<PostEditData>,
-              ]
-            : []),
-        
-        ...(categories.length > 0
-            ? [
-                  {
-                      name: "categoryIds",
-                      label: "Danh mục",
-                      type: "multiple-select",
-                      options: categories,
-                      description: "Chọn danh mục cho bài viết (có thể chọn nhiều)",
-                      section: "basic",
-                  } as ResourceFormField<PostEditData>,
-              ]
-            : []),
-        ...(tags.length > 0
-            ? [
-                  {
-                      name: "tagIds",
-                      label: "Thẻ tag",
-                      type: "multiple-select",
-                      options: tags,
-                      description: "Chọn thẻ tag cho bài viết (có thể chọn nhiều)",
-                      section: "basic",
-                  } as ResourceFormField<PostEditData>,
-              ]
-            : []),
+        ...(isSuperAdminUser && users.length > 0 ? [{
+            name: "authorId",
+            label: "Tác giả",
+            type: "select",
+            options: users,
+            required: true,
+            description: "Chọn tác giả của bài viết",
+            section: "basic",
+        } as ResourceFormField<PostEditData>] : []),
+        ...(categories.length > 0 ? [{
+            name: "categoryIds",
+            label: "Danh mục",
+            type: "multiple-select",
+            options: categories,
+            description: "Chọn danh mục cho bài viết (có thể chọn nhiều)",
+            section: "basic",
+        } as ResourceFormField<PostEditData>] : []),
+        ...(tags.length > 0 ? [{
+            name: "tagIds",
+            label: "Thẻ tag",
+            type: "multiple-select",
+            options: tags,
+            description: "Chọn thẻ tag cho bài viết (có thể chọn nhiều)",
+            section: "basic",
+        } as ResourceFormField<PostEditData>] : []),
         {
             name: "image",
             label: "Hình ảnh",
@@ -329,17 +312,6 @@ export function PostEditClient({
             description: "Trạng thái xuất bản",
         },
     ]
-
-    // Disable form khi record đã bị xóa (cho dialog/sheet mode)
-    const formDisabled = isDeleted && variant !== "page"
-    
-    // Wrap handleSubmit để prevent submit khi deleted
-    const handleSubmitWrapper = async (data: Partial<PostEditData>) => {
-        if (isDeleted) {
-            return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }
-        }
-        return handleSubmit(data)
-    }
 
     return (
         <ResourceForm<PostEditData>

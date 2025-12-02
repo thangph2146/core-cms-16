@@ -159,18 +159,15 @@ export function ResourceDetailClient<T extends Record<string, unknown>>({
     }
   }, [data])
 
-  // Kiểm tra xem content có phải là React element phức tạp không
   const isComplexReactNode = (node: React.ReactNode): boolean => {
     if (!node) return false
     if (typeof node === "string" || typeof node === "number") return false
     if (React.isValidElement(node)) {
-      // Kiểm tra nếu là Card, div với className phức tạp, hoặc các component layout
       const element = node as React.ReactElement<{ className?: string }>
       if (element.type === Card || 
           (typeof element.type === "string" && ["div", "section", "article"].includes(element.type))) {
         return true
       }
-      // Kiểm tra props className có chứa layout classes
       const className = element.props?.className
       if (className && typeof className === "string") {
         const layoutClasses = ["flex", "grid", "card", "border", "p-", "gap-", "shadow"]

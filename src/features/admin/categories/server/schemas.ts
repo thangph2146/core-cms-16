@@ -1,7 +1,3 @@
-/**
- * Zod validation schemas cho categories
- */
-
 import { z } from "zod"
 
 export const CreateCategorySchema = z.object({

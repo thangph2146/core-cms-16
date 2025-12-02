@@ -12,7 +12,6 @@ export interface ContactRequestsTableProps {
 }
 
 export async function ContactRequestsTable({ canDelete, canRestore, canManage, canUpdate, canAssign }: ContactRequestsTableProps) {
-  // Sử dụng non-cached functions để đảm bảo data luôn fresh
   // Theo chuẩn Next.js 16: không cache admin data
   const [contactRequestsData, usersOptions] = await Promise.all([
     listContactRequests({

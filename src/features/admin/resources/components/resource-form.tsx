@@ -134,8 +134,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
       const key = field.name as keyof T
       const dataValue = data?.[key]
       
-      // Xử lý default value theo type
-      // Kiểm tra cả undefined và null, nhưng cho phép array rỗng và empty string
       if (dataValue !== undefined && dataValue !== null) {
         // Nếu là array (kể cả array rỗng), giữ nguyên
         if (Array.isArray(dataValue)) {
@@ -149,7 +147,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
         // Multiple select default là array rỗng
         initial[key] = [] as T[keyof T]
       } else if (field.type === "checkbox" || field.type === "switch") {
-        // Checkbox/Switch default là false
         initial[key] = false as T[keyof T]
       } else if (field.type === "number") {
         // Number có thể để undefined nếu không có default
@@ -198,7 +195,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
             hasChanges = true
           }
         } else if (field.type === "checkbox" || field.type === "switch") {
-          // Checkbox/Switch: boolean
           const newValue = dataValue !== undefined && dataValue !== null ? Boolean(dataValue) : false
           if (newValue !== currentValue) {
             updated[key] = newValue as T[keyof T]
@@ -215,7 +211,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
           }
         } else {
           // Text, textarea, select, etc: string hoặc các giá trị khác
-          // Xử lý cả undefined, null, empty string, và các giá trị khác
           if (dataValue !== undefined) {
             // Cho phép null, empty string, và các giá trị khác
             const newValue = dataValue === null ? "" : dataValue
@@ -277,9 +272,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
       const fieldName = String(field.name)
       const value = formData[field.name as keyof T]
       
-      // Skip validation nếu field không required và không có value
       if (!field.required) {
-        // Chỉ validate custom validation nếu có value
         if (field.validate && value !== undefined && value !== null && value !== "") {
           const validation = field.validate(value)
           if (!validation.valid && validation.error) {
@@ -289,38 +282,28 @@ export function ResourceForm<T extends Record<string, unknown>>({
         return // Skip required check
       }
 
-      // Required check - xử lý các loại field khác nhau
-      // Kiểm tra xem field có trong formData không (có thể chưa được khởi tạo)
       const hasValue = field.name in formData
       let isEmpty = false
 
       if (!hasValue) {
-        // Field chưa được khởi tạo trong formData - coi như empty
         isEmpty = true
       } else if (field.type === "multiple-select") {
-        // Multiple select: check array rỗng
         isEmpty = !Array.isArray(value) || value.length === 0
       } else if (field.type === "select") {
-        // Select: check undefined, null, hoặc empty string
         isEmpty = value === undefined || value === null || value === ""
       } else if (field.type === "checkbox" || field.type === "switch") {
-        // Checkbox/Switch: nếu required thì phải là true
-        // (thường checkbox/switch không required, nhưng nếu có thì check)
         isEmpty = value !== true
       } else if (field.type === "number") {
-        // Number: check undefined, null, hoặc NaN
         isEmpty = value === undefined || value === null || (typeof value === "number" && isNaN(value))
       } else {
-        // Text, textarea, email, password, date, image, editor, slug
         isEmpty = value === undefined || value === null || value === ""
       }
 
       if (isEmpty) {
         newErrors[fieldName] = `${field.label} là bắt buộc`
-        return // Skip custom validation nếu đã có required error
+        return
       }
 
-      // Custom validation - chỉ chạy nếu value không empty
       if (field.validate) {
         const validation = field.validate(value)
         if (!validation.valid && validation.error) {
@@ -331,7 +314,6 @@ export function ResourceForm<T extends Record<string, unknown>>({
 
     setErrors(newErrors)
     
-    // Scroll tới field đầu tiên có lỗi
     if (Object.keys(newErrors).length > 0) {
       const firstErrorField = Object.keys(newErrors)[0]
       scrollToField(firstErrorField)
@@ -340,39 +322,29 @@ export function ResourceForm<T extends Record<string, unknown>>({
     return Object.keys(newErrors).length === 0
   }
 
-  // Helper function để scroll tới field có lỗi
   const scrollToField = (fieldName: string) => {
-    // Sử dụng double requestAnimationFrame để đảm bảo DOM đã render và errors đã hiển thị
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const fieldElement = document.getElementById(fieldName)
         if (!fieldElement) {
-          // Thử tìm bằng name attribute nếu không tìm thấy bằng id
           const fieldByName = document.querySelector(`[name="${fieldName}"]`) as HTMLElement
           if (!fieldByName) return
-          
-          // Scroll tới field được tìm thấy
           fieldByName.scrollIntoView({ behavior: "smooth", block: "center" })
           fieldByName.focus()
           return
         }
 
-        // Tìm scroll container (ScrollArea trong dialog/sheet hoặc window)
         let scrollContainer: HTMLElement | null = null
         
         if (variant === "dialog") {
-          // Tìm ScrollArea trong Dialog
           const dialog = fieldElement.closest('[role="dialog"]')
           scrollContainer = dialog?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null
         } else if (variant === "sheet") {
-          // Tìm ScrollArea trong Sheet
           const sheet = fieldElement.closest('[data-state]')
           scrollContainer = sheet?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null
         } else {
-          // Page variant: tìm scroll container từ form
           const form = fieldElement.closest('form')
           if (form) {
-            // Tìm parent scroll container
             let parent = form.parentElement
             while (parent && parent !== document.body) {
               const overflow = window.getComputedStyle(parent).overflowY
@@ -386,22 +358,18 @@ export function ResourceForm<T extends Record<string, unknown>>({
         }
 
         if (scrollContainer) {
-          // Scroll trong ScrollArea
           const elementRect = fieldElement.getBoundingClientRect()
           const containerRect = scrollContainer.getBoundingClientRect()
-          const scrollTop = scrollContainer.scrollTop + (elementRect.top - containerRect.top) - 20 // 20px offset
+          const scrollTop = scrollContainer.scrollTop + (elementRect.top - containerRect.top) - 20
           scrollContainer.scrollTo({ top: Math.max(0, scrollTop), behavior: "smooth" })
         } else {
-          // Fallback: scroll window
           fieldElement.scrollIntoView({ behavior: "smooth", block: "center" })
         }
 
-        // Focus vào input field với delay nhỏ để đảm bảo scroll đã hoàn thành
         setTimeout(() => {
           const input = fieldElement.querySelector<HTMLElement>("input, textarea, select, [role='combobox']")
           if (input) {
             input.focus()
-            // Highlight field với error state
             if (input instanceof HTMLElement) {
               input.scrollIntoView({ behavior: "smooth", block: "nearest" })
             }
@@ -454,9 +422,7 @@ export function ResourceForm<T extends Record<string, unknown>>({
     } else if (variant === "dialog" || variant === "sheet") {
       onOpenChange?.(false)
     } else if (resolvedBackUrl) {
-      // Sử dụng navigateBack để đảm bảo cache được invalidate đúng cách
       navigateBack(resolvedBackUrl, onBack).catch(() => {
-        // Fallback nếu navigateBack fail
         router.replace(resolvedBackUrl)
       })
     }

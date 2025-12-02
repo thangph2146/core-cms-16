@@ -25,7 +25,6 @@ export function useUserActions({
   const queryClient = useQueryClient()
   const [togglingUsers, setTogglingUsers] = useState<Set<string>>(new Set())
 
-  // Sử dụng hook dùng chung cho delete/restore/hard-delete
   const {
     executeSingleAction: baseExecuteSingleAction,
     executeBulkAction: baseExecuteBulkAction,
@@ -128,7 +127,6 @@ export function useUserActions({
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} người dùng ${row.email}`
         )
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminUsers.all(), type: "active" })
       } catch (error: unknown) {

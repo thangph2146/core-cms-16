@@ -1,14 +1,6 @@
-/**
- * Server functions để lấy tổng số tin nhắn chưa đọc
- */
-
 import { prisma } from "@/lib/database"
 import { cache } from "react"
 
-/**
- * Get total unread messages count for a user
- * Bao gồm cả personal messages và group messages
- */
 export async function getTotalUnreadMessagesCount(userId: string): Promise<number> {
   // Count personal messages (receiverId = userId và isRead = false)
   const personalUnreadCount = await prisma.message.count({
@@ -55,8 +47,5 @@ export async function getTotalUnreadMessagesCount(userId: string): Promise<numbe
   return personalUnreadCount + groupUnreadCount
 }
 
-/**
- * Cached version của getTotalUnreadMessagesCount
- */
 export const getTotalUnreadMessagesCountCached = cache(getTotalUnreadMessagesCount)
 

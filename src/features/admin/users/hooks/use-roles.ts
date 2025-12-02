@@ -18,7 +18,6 @@ export function useRoles(options: UseRolesOptions = {}) {
   // Sử dụng length trực tiếp thay vì useMemo để tránh React Compiler warning
   const initialRolesProvided = initialRoles.length > 0
 
-  // Sử dụng TanStack Query với createAdminQueryOptions để đảm bảo không cache
   // Theo chuẩn Next.js 16: luôn fetch fresh data từ API
   const { data, isLoading, error } = useQuery(
     createAdminQueryOptions<{ data: Role[] }>({

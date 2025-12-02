@@ -43,7 +43,6 @@ export interface SessionDetailClientProps {
 export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sessions" }: SessionDetailClientProps) {
   const router = useResourceRouter()
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: session,
     resourceId: sessionId,
@@ -52,7 +51,6 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "sessions",
     resourceId: sessionId,
@@ -185,7 +183,6 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
     },
   ]
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   return (

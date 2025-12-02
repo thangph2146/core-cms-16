@@ -19,7 +19,6 @@ export async function AccountProfile({ variant = "page" }: AccountProfileProps) 
     )
   }
 
-  // Sử dụng getCurrentUserProfile (non-cached) để đảm bảo data luôn fresh
   // Theo chuẩn Next.js 16: không cache admin data
   const account = await getCurrentUserProfile(authInfo.actorId)
 

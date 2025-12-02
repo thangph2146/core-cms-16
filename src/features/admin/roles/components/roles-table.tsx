@@ -10,7 +10,6 @@ export interface RolesTableProps {
 }
 
 export async function RolesTable({ canDelete, canRestore, canManage, canCreate }: RolesTableProps) {
-  // Sử dụng non-cached functions để đảm bảo data luôn fresh
   // Theo chuẩn Next.js 16: không cache admin data
   const [rolesData, permissions] = await Promise.all([
     listRoles({

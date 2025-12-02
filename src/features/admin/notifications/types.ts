@@ -1,7 +1,3 @@
-/**
- * Types for notifications feature
- */
-
 export interface NotificationRow {
   id: string
   userId: string

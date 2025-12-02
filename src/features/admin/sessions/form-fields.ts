@@ -1,10 +1,3 @@
-/**
- * Shared form field definitions cho session forms
- * 
- * Note: Session thường được tạo tự động bởi hệ thống auth,
- * nhưng vẫn cung cấp form để quản lý (update, delete)
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateIpAddress, validateUserAgent } from "./utils"
 import React from "react"
@@ -21,9 +14,6 @@ export interface SessionFormData {
   [key: string]: unknown
 }
 
-/**
- * Sections cho session form
- */
 export function getSessionFormSections(): ResourceFormSection[] {
   return [
     {
@@ -44,10 +34,6 @@ export function getSessionFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho session form
- * Note: accessToken và refreshToken thường được generate tự động, không nên edit trực tiếp
- */
 export function getBaseSessionFields(
   usersOptions?: Array<{ label: string; value: string }>
 ): ResourceFormField<SessionFormData>[] {

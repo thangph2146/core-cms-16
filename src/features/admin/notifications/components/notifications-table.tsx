@@ -24,7 +24,6 @@ export async function NotificationsTable({ canManage, userId, isSuperAdmin }: No
   try {
     // Nếu userId được truyền vào, chỉ fetch notifications của user đó
     // Nếu không (super admin), fetch tất cả notifications
-    // Sử dụng listNotifications (non-cached) để đảm bảo data luôn fresh
     // Theo chuẩn Next.js 16: không cache admin data
     const initial = await listNotifications({
       page: 1,

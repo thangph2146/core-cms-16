@@ -18,7 +18,6 @@ export function serializeDate(date: Date | string | null | undefined): string | 
       dateObj = new Date(date as unknown as string | number)
     }
 
-    // Check if date is valid
     if (isNaN(dateObj.getTime())) {
       logger.warn("Invalid date encountered in serializeDate", { date, type: typeof date })
       return null

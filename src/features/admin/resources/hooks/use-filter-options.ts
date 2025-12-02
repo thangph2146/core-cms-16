@@ -16,7 +16,6 @@ export function useFilterOptions({
   searchQuery = "",
   limit = 50,
 }: UseFilterOptionsParams) {
-  // Debounce search query để tránh quá nhiều requests
   const debouncedQuery = useDebounce(searchQuery, 300)
 
   // Filter options có thể cache ngắn hạn để tránh quá nhiều requests
@@ -37,7 +36,7 @@ export function useFilterOptions({
     },
     staleTime: 5 * 60 * 1000, // Cache 5 phút cho filter options
     gcTime: 10 * 60 * 1000, // Keep in cache 10 phút
-    enabled: !!optionsEndpoint, // Chỉ fetch khi có endpoint
+    enabled: !!optionsEndpoint,
     refetchOnWindowFocus: false, // Không refetch khi window focus
     refetchOnReconnect: false, // Không refetch khi reconnect
   })

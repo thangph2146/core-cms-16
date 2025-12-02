@@ -1,7 +1,3 @@
-/**
- * Zod validation schemas cho students
- */
-
 import { z } from "zod"
 
 export const CreateStudentSchema = z.object({

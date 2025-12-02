@@ -44,20 +44,14 @@ export function CategoryEditClient({
     invalidateQueryKey: queryKeys.adminCategories.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = categoryId || initialCategory?.id
   const { data: categoryData } = useResourceDetailData({
     initialData: initialCategory || ({} as CategoryEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminCategories.detail,
     resourceName: "categories",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // Note: Category API đã trả về name, slug, description trực tiếp, không cần transform như posts
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
   const category = useMemo(() => {
     if (categoryData) {
       return categoryData as CategoryEditData
@@ -97,13 +91,9 @@ export function CategoryEditClient({
     return null
   }
 
-  // Check nếu category đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = category.deletedAt !== null && category.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<CategoryFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

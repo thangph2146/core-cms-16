@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho role forms
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateRoleName, validateDisplayName, validateDescription } from "./utils"
 import { PERMISSIONS } from "@/lib/permissions"
@@ -17,10 +13,6 @@ export interface RoleFormData {
   [key: string]: unknown
 }
 
-/**
- * Get all available permissions grouped by resource
- * Exported để có thể sử dụng trong detail view
- */
 export function getAllPermissionsOptionGroups(): Array<{ label: string; options: Array<{ label: string; value: string }> }> {
   
   // Map resource names to Vietnamese labels
@@ -94,16 +86,10 @@ export function getAllPermissionsOptionGroups(): Array<{ label: string; options:
   return sortedGroups
 }
 
-/**
- * Get all available permissions as flat options (for backward compatibility)
- */
 function getAllPermissionsOptions(): Array<{ label: string; value: string }> {
   return getAllPermissionsOptionGroups().flatMap((group) => group.options)
 }
 
-/**
- * Sections cho role form
- */
 export function getRoleFormSections(): ResourceFormSection[] {
   return [
     {
@@ -120,9 +106,6 @@ export function getRoleFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho role form (name, displayName, description, permissions, isActive)
- */
 export function getBaseRoleFields(
   permissionsOptions?: Array<{ label: string; value: string }>,
   useGroups = true

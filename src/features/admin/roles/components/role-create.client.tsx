@@ -16,9 +16,7 @@ export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permis
   const queryClient = useQueryClient()
 
   const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
     await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "all" })
   }
 
@@ -40,7 +38,6 @@ export function RoleCreateClient({ backUrl = "/admin/roles", permissions: permis
       permissions: Array.isArray(data.permissions) ? data.permissions : [],
     }),
     onSuccess: async () => {
-      // Invalidate React Query cache để cập nhật danh sách vai trò
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all() })
     },
   })

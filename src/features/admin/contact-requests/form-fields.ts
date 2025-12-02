@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho contact request forms
- */
-
 import type { ResourceFormField } from "@/features/admin/resources/components"
 import { validateName, validateEmail, validatePhone, validateSubject, validateContent } from "./utils"
 import React from "react"
@@ -35,9 +31,6 @@ const priorityOptions: Array<{ label: string; value: ContactPriority }> = [
   { label: "Khẩn cấp", value: "URGENT" },
 ]
 
-/**
- * Base fields cho contact request form
- */
 export function getBaseContactRequestFields(usersOptions: Array<{ label: string; value: string }> = []): ResourceFormField<ContactRequestFormData>[] {
   return [
     {

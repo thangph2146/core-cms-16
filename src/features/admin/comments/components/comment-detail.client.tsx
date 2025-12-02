@@ -80,7 +80,6 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
     invalidateQueryKey: queryKeys.adminComments.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: comment,
     resourceId: commentId,
@@ -89,7 +88,6 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "comments",
     resourceId: commentId,
@@ -99,13 +97,9 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
     fetchedData,
   })
 
-  // Ẩn approve switch khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
-
   const [isToggling, setIsToggling] = React.useState(false)
   const [approved, setApproved] = React.useState(detailData.approved)
-
-  // Sync approved state when detailData changes
   React.useEffect(() => {
     setApproved(detailData.approved)
   }, [detailData.approved])
@@ -134,7 +128,6 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
           await apiClient.post(apiRoutes.comments.unapprove(commentId))
         }
         
-        // Invalidate queries để refresh data từ server
         // Socket events sẽ tự động update cache nếu có
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all() })
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.detail(commentId) })
@@ -149,7 +142,6 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
           error: error instanceof Error ? error.message : "Unknown error",
         })
         
-        // Invalidate queries để refresh data từ server
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.all() })
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminComments.detail(commentId) })
       } finally {

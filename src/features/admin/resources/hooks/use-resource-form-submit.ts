@@ -122,7 +122,6 @@ export function useResourceFormSubmit({
         } : undefined,
       })
 
-      // Check success status
       const isSuccess = response.status === 201 || response.status === 200
 
       if (isSuccess) {
@@ -180,9 +179,6 @@ export function useResourceFormSubmit({
             const url = new URL(detailPath, window.location.origin)
             url.searchParams.set("_t", Date.now().toString())
             router.replace(url.pathname + url.search)
-            // Refresh router sau khi navigate để đảm bảo Server Components được re-render
-            // Cache đã được cập nhật trước đó nên UI sẽ hiển thị dữ liệu mới ngay
-            // Chỉ cần refresh một lần sau delay ngắn để đảm bảo Server Component cache được invalidate
             await new Promise((resolve) => setTimeout(resolve, 100))
             router.refresh()
             logger.debug("[useResourceFormSubmit] Navigation completed")

@@ -43,9 +43,7 @@ export function AccountProfileClient({
   const router = useResourceRouter()
   const [isEditing, setIsEditing] = React.useState(false)
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   // Account profile không cần fetch từ API vì đã có data từ server
-  // Chỉ log để đảm bảo consistency với các detail components khác
   useResourceDetailLogger({
     resourceName: "accounts",
     resourceId: account.id,

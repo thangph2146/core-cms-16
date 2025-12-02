@@ -30,7 +30,6 @@ export function useResourceNavigation({
       // 2. Invalidate React Query cache nếu có queryClient và queryKey
       if (queryClient && invalidateQueryKey) {
         await queryClient.invalidateQueries({ queryKey: invalidateQueryKey, refetchType: "all" })
-        // Refetch ngay lập tức để đảm bảo data được cập nhật
         await queryClient.refetchQueries({ queryKey: invalidateQueryKey, type: "all" })
       }
 
@@ -38,13 +37,10 @@ export function useResourceNavigation({
       const resolvedBackUrl = applyResourceSegmentToPath(backUrl, resourceSegment)
 
       // 4. Navigate với cache-busting parameter để force Server Component refetch
-      // Sử dụng router.replace thay vì push để tránh thêm entry vào history
       const url = new URL(resolvedBackUrl, window.location.origin)
       url.searchParams.set("_t", Date.now().toString())
       router.replace(url.pathname + url.search)
       
-      // 5. Refresh router sau khi navigate để đảm bảo Server Components được re-render
-      // Điều này đảm bảo detail page và list page được cập nhật với data mới nhất
       await new Promise((resolve) => setTimeout(resolve, 50))
       router.refresh()
     },

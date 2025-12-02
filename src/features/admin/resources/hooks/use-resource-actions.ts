@@ -94,7 +94,6 @@ export function useResourceActions<T extends { id: string }>(
         }
       },
       onSuccess: async (_, variables) => {
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ 
           queryKey: config.queryKeys.all(), 
           refetchType: "active" 
@@ -157,7 +156,6 @@ export function useResourceActions<T extends { id: string }>(
         const result = response.data?.data
         const affected = result?.affected ?? 0
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ 
           queryKey: config.queryKeys.all(), 
           refetchType: "active" 
@@ -262,7 +260,6 @@ export function useResourceActions<T extends { id: string }>(
         },
       })
       
-      // Track loading state
       const setLoadingState = action === "delete" 
         ? setDeletingIds 
         : action === "restore" 
@@ -276,7 +273,6 @@ export function useResourceActions<T extends { id: string }>(
         
         config.showFeedback("success", actionConfig.successTitle, actionConfig.successDescription)
         
-        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
         if (!config.isSocketConnected) {
           await runResourceRefresh({ refresh, resource: config.resourceName })
         }
@@ -367,7 +363,6 @@ export function useResourceActions<T extends { id: string }>(
         config.showFeedback("success", message.title, message.description)
         clearSelection()
         
-        // Socket events sẽ tự động update cache nếu có, nhưng vẫn cần invalidate để đảm bảo data fresh
         if (!config.isSocketConnected) {
           await runResourceRefresh({ refresh, resource: config.resourceName })
         }

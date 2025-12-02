@@ -1,15 +1,8 @@
-/**
- * Shared utility functions và validation cho session forms
- */
-
 import { formatDateVi } from "@/features/admin/resources/utils"
 
 // Re-export common utilities from resources
 export { formatDateVi }
 
-/**
- * Validate IP address format (optional)
- */
 export function validateIpAddress(value: unknown): { valid: boolean; error?: string } {
   if (!value || value === "") {
     return { valid: true } // Optional
@@ -24,9 +17,6 @@ export function validateIpAddress(value: unknown): { valid: boolean; error?: str
   return { valid: true }
 }
 
-/**
- * Validate user agent (optional, max 500 characters)
- */
 export function validateUserAgent(value: unknown): { valid: boolean; error?: string } {
   if (!value || value === "") {
     return { valid: true } // Optional

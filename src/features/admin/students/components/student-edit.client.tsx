@@ -46,20 +46,14 @@ export function StudentEditClient({
     invalidateQueryKey: queryKeys.adminStudents.all(),
   })
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = studentId || initialStudent?.id
   const { data: studentData } = useResourceDetailData({
     initialData: initialStudent || ({} as StudentEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminStudents.detail,
     resourceName: "students",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Transform data từ API response sang form format
-  // Note: Student API đã trả về userId trực tiếp, không cần transform như posts/contact-requests
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
   const student = useMemo(() => {
     if (studentData) {
       return studentData as StudentEditData
@@ -86,7 +80,6 @@ export function StudentEditClient({
     },
     transformData: (data) => {
       const submitData = { ...data }
-      // Nếu không phải super admin, không cho phép thay đổi userId
       if (!isSuperAdmin && student) {
         submitData.userId = student.userId
       }
@@ -107,13 +100,9 @@ export function StudentEditClient({
     return null
   }
 
-  // Check nếu student đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = student.deletedAt !== null && student.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<StudentFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

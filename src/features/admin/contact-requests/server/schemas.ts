@@ -1,7 +1,3 @@
-/**
- * Zod validation schemas cho contact requests
- */
-
 import { z } from "zod"
 
 export const ContactStatusSchema = z.enum(["NEW", "IN_PROGRESS", "RESOLVED", "CLOSED"])

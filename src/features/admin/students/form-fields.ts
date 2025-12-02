@@ -1,7 +1,3 @@
-/**
- * Shared form field definitions cho student forms
- */
-
 import type { ResourceFormField, ResourceFormSection } from "@/features/admin/resources/components"
 import { validateStudentCode, validateName, validateEmail } from "./utils"
 import React from "react"
@@ -16,9 +12,6 @@ export interface StudentFormData {
   [key: string]: unknown
 }
 
-/**
- * Sections cho student form
- */
 export function getStudentFormSections(): ResourceFormSection[] {
   return [
     {
@@ -34,9 +27,6 @@ export function getStudentFormSections(): ResourceFormSection[] {
   ]
 }
 
-/**
- * Base fields cho student form (studentCode, name, email, userId, isActive)
- */
 export function getBaseStudentFields(
   usersOptions?: Array<{ label: string; value: string }>,
   isSuperAdmin: boolean = false

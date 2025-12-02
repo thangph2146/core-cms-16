@@ -25,7 +25,6 @@ export function useSessionActions({
   const queryClient = useQueryClient()
   const [togglingSessions, setTogglingSessions] = useState<Set<string>>(new Set())
 
-  // Sử dụng hook dùng chung cho delete/restore/hard-delete
   const {
     executeSingleAction,
     executeBulkAction,
@@ -75,7 +74,6 @@ export function useSessionActions({
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} session của ${row.userName || row.userEmail || "người dùng"}`
         )
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminSessions.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminSessions.all(), type: "active" })
       } catch (error: unknown) {

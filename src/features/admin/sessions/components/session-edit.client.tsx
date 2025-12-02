@@ -40,20 +40,14 @@ export function SessionEditClient({
 }: SessionEditClientProps) {
   const queryClient = useQueryClient()
 
-  // Fetch fresh data từ API để đảm bảo data chính xác (theo chuẩn Next.js 16)
-  // Luôn fetch khi có resourceId để đảm bảo data mới nhất, không phụ thuộc vào variant
   const resourceId = sessionId || initialSession?.id
   const { data: sessionData } = useResourceDetailData({
     initialData: initialSession || ({} as SessionEditData),
     resourceId: resourceId || "",
     detailQueryKey: queryKeys.adminSessions.detail,
     resourceName: "sessions",
-    fetchOnMount: !!resourceId, // Luôn fetch khi có resourceId để đảm bảo data fresh
+    fetchOnMount: !!resourceId,
   })
-
-  // Sử dụng fresh data từ API nếu có, fallback về initial data
-  // Sử dụng useMemo để tối ưu hóa và đảm bảo data được xử lý đúng cách
-  // Note: Session API đã trả về userId trực tiếp, không cần transform như posts/contact-requests
   const session = useMemo(() => {
     if (sessionData) {
       return sessionData as SessionEditData
@@ -93,13 +87,9 @@ export function SessionEditClient({
     return null
   }
 
-  // Check nếu session đã bị xóa - redirect về detail page (vẫn cho xem nhưng không được chỉnh sửa)
   const isDeleted = session.deletedAt !== null && session.deletedAt !== undefined
-
-  // Disable form khi record đã bị xóa (cho dialog/sheet mode)
   const formDisabled = isDeleted && variant !== "page"
   
-  // Wrap handleSubmit để prevent submit khi deleted
   const handleSubmitWrapper = async (data: Partial<SessionFormData>) => {
     if (isDeleted) {
       return { success: false, error: "Bản ghi đã bị xóa, không thể chỉnh sửa" }

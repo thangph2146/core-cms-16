@@ -28,7 +28,6 @@ export function useRoleActions({
   const queryClient = useQueryClient()
   const [togglingRoles, setTogglingRoles] = useState<Set<string>>(new Set())
 
-  // Sử dụng hook dùng chung cho delete/restore/hard-delete
   const {
     executeSingleAction: baseExecuteSingleAction,
     executeBulkAction,
@@ -132,7 +131,6 @@ export function useRoleActions({
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} vai trò ${row.displayName}`
         )
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminRoles.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminRoles.all(), type: "active" })
       } catch (error: unknown) {

@@ -62,8 +62,6 @@ export interface NotificationDetailClientProps {
 }
 
 export function NotificationDetailClient({ notificationId, notification, backUrl = "/admin/notifications" }: NotificationDetailClientProps) {
-  // Fetch fresh data từ API để đảm bảo data mới nhất
-  // Notifications không có adminNotifications.detail, sử dụng notifications.admin() thay thế
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: notification,
     resourceId: notificationId,
@@ -72,7 +70,6 @@ export function NotificationDetailClient({ notificationId, notification, backUrl
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "notifications",
     resourceId: notificationId,

@@ -28,7 +28,6 @@ export function useStudentActions({
   const queryClient = useQueryClient()
   const [togglingStudents, setTogglingStudents] = useState<Set<string>>(new Set())
 
-  // Sử dụng hook dùng chung cho delete/restore/hard-delete
   const {
     executeSingleAction,
     executeBulkAction,
@@ -90,7 +89,6 @@ export function useStudentActions({
           `Đã ${newStatus ? "kích hoạt" : "vô hiệu hóa"} học sinh ${row.studentCode}`
         )
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminStudents.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminStudents.all(), type: "active" })
       } catch (error: unknown) {

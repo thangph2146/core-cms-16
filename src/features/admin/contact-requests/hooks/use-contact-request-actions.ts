@@ -31,7 +31,6 @@ export function useContactRequestActions({
   const [markingUnreadRequests, setMarkingUnreadRequests] = useState<Set<string>>(new Set())
   const [togglingRequests, setTogglingRequests] = useState<Set<string>>(new Set())
 
-  // Sử dụng hook dùng chung cho delete/restore/hard-delete
   const {
     executeSingleAction,
     executeBulkAction,
@@ -89,7 +88,6 @@ export function useContactRequestActions({
             : `Yêu cầu liên hệ "${row.subject}" đã được đánh dấu là chưa đọc.`
         )
         
-        // Invalidate và refetch queries - Next.js 16 pattern: đảm bảo data fresh
         await queryClient.invalidateQueries({ queryKey: queryKeys.adminContactRequests.all(), refetchType: "active" })
         await queryClient.refetchQueries({ queryKey: queryKeys.adminContactRequests.all(), type: "active" })
       } catch (error: unknown) {

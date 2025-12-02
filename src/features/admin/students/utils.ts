@@ -1,15 +1,8 @@
-/**
- * Shared utility functions và validation cho student forms
- */
-
 import { formatDateVi, validateName, validateEmail } from "@/features/admin/resources/utils"
 
 // Re-export common utilities from resources
 export { formatDateVi, validateName, validateEmail }
 
-/**
- * Validate student code (required, unique, alphanumeric)
- */
 export function validateStudentCode(value: unknown): { valid: boolean; error?: string } {
   if (!value || typeof value !== "string" || value.trim() === "") {
     return { valid: false, error: "Mã học sinh là bắt buộc" }

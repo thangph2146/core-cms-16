@@ -77,7 +77,6 @@ export interface ContactRequestDetailClientProps {
 export function ContactRequestDetailClient({ contactRequestId, contactRequest, backUrl = "/admin/contact-requests" }: ContactRequestDetailClientProps) {
   const router = useResourceRouter()
 
-  // Fetch fresh data từ API để đảm bảo data mới nhất
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: contactRequest,
     resourceId: contactRequestId,
@@ -86,7 +85,6 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
     fetchOnMount: true,
   })
 
-  // Log detail action và data structure (sử dụng hook chuẩn)
   useResourceDetailLogger({
     resourceName: "contact-requests",
     resourceId: contactRequestId,
@@ -273,7 +271,6 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
     },
   ]
 
-  // Ẩn edit button khi record đã bị xóa (vẫn cho xem chi tiết nhưng không được chỉnh sửa)
   const isDeleted = detailData.deletedAt !== null && detailData.deletedAt !== undefined
 
   return (

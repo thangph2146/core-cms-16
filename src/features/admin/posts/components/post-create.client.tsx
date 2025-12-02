@@ -45,9 +45,7 @@ export function PostCreateClient({
   const currentUserId = session?.user?.id
 
   const handleBack = async () => {
-    // Invalidate React Query cache để đảm bảo list page có data mới nhất
     await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all(), refetchType: "all" })
-    // Refetch ngay lập tức để đảm bảo data được cập nhật
     await queryClient.refetchQueries({ queryKey: queryKeys.adminPosts.all(), type: "all" })
   }
 
@@ -74,15 +72,12 @@ export function PostCreateClient({
       } else if (data.published === false) {
         submitData.publishedAt = null
       }
-      // Nếu không phải super admin, tự động set authorId = currentUserId
-      // (API route cũng sẽ set, nhưng set ở đây để đảm bảo)
       if (!isSuperAdminUser && currentUserId) {
         submitData.authorId = currentUserId
       }
       return submitData
     },
     onSuccess: async () => {
-      // Invalidate React Query cache để cập nhật danh sách bài viết
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminPosts.all() })
     },
   })

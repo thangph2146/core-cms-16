@@ -1,15 +1,8 @@
-/**
- * Shared utility functions và validation cho role forms
- */
-
 import { formatDateVi, validateDescription } from "@/features/admin/resources/utils"
 
 // Re-export common utilities from resources
 export { formatDateVi, validateDescription }
 
-/**
- * Validate role name (minimum 2 characters, alphanumeric and underscore only)
- */
 export function validateRoleName(value: unknown): { valid: boolean; error?: string } {
   if (!value || typeof value !== "string" || value.trim() === "") {
     return { valid: false, error: "Tên vai trò là bắt buộc" }
@@ -29,9 +22,6 @@ export function validateRoleName(value: unknown): { valid: boolean; error?: stri
   return { valid: true }
 }
 
-/**
- * Validate display name (minimum 2 characters)
- */
 export function validateDisplayName(value: unknown): { valid: boolean; error?: string } {
   if (!value || typeof value !== "string" || value.trim() === "") {
     return { valid: false, error: "Tên hiển thị là bắt buộc" }
@@ -42,9 +32,6 @@ export function validateDisplayName(value: unknown): { valid: boolean; error?: s
   return { valid: true }
 }
 
-/**
- * Validate permissions array
- */
 export function validatePermissions(value: unknown): { valid: boolean; error?: string } {
   if (value === undefined || value === null) {
     return { valid: true } // Optional field

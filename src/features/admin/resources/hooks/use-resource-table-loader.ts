@@ -22,7 +22,6 @@ export function useResourceTableLoader<T extends object, P>({
       const params = buildParams({ query, view })
       const queryKey = buildQueryKey(params)
 
-      // Luôn fetch từ API để đảm bảo data fresh (theo chuẩn Next.js 16)
       // Socket updates sẽ update cache, nhưng khi load table sẽ luôn fetch fresh data
       return queryClient.fetchQuery<DataTableResult<T>>(
         createAdminFetchOptions<DataTableResult<T>>({

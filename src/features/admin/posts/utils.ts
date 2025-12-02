@@ -1,10 +1,3 @@
-/**
- * Utility Functions for Posts
- */
-
-/**
- * Format date to Vietnamese format
- */
 export function formatDateVi(date: string | Date | null | undefined): string {
   if (!date) return "—"
   

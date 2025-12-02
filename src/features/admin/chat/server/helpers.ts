@@ -1,7 +1,3 @@
-/**
- * Helper Functions for Messages/Chat Server Logic
- */
-
 import type { Prisma } from "@prisma/client"
 import type { ListConversationsInput, MessageDetail } from "./queries"
 
@@ -50,9 +46,6 @@ export type MessageWithRelations = Prisma.MessageGetPayload<{
   }
 }>
 
-/**
- * Map Prisma message record to MessageDetail format
- */
 export function mapMessageRecord(message: MessageWithRelations): MessageDetail {
   return {
     id: message.id,
@@ -118,17 +111,11 @@ export function mapMessageRecord(message: MessageWithRelations): MessageDetail {
   }
 }
 
-/**
- * Map conversation data
- */
 export function mapConversationRecord(data: unknown) {
   // Placeholder for future use
   return data
 }
 
-/**
- * Build Prisma where clause for conversations
- */
 export function buildConversationWhereClause(params: ListConversationsInput): Prisma.MessageWhereInput {
   const where: Prisma.MessageWhereInput = {
     deletedAt: null,
