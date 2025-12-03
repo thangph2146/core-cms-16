@@ -10,6 +10,7 @@ import { prisma } from "@/lib/database"
 import { getSocketServer } from "@/lib/socket/state"
 import { mapNotificationToPayload } from "@/lib/socket/state"
 import { createErrorResponse, createSuccessResponse } from "@/lib/config"
+import { logger } from "@/lib/config/logger"
 
 async function patchNotificationHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -34,7 +35,21 @@ async function patchNotificationHandler(req: NextRequest, { params }: { params: 
   // Check permissions: user chỉ có thể đánh dấu đã đọc notification của chính mình
   const isOwner = notification.userId === session.user.id
   
+  logger.debug("PATCH /api/notifications/[id]: Processing request", {
+    notificationId: id,
+    userId: session.user.id,
+    notificationUserId: notification.userId,
+    isOwner,
+    currentIsRead: notification.isRead,
+    requestedIsRead: isRead,
+  })
+  
   if (!isOwner) {
+    logger.warn("PATCH /api/notifications/[id]: Permission denied", {
+      notificationId: id,
+      userId: session.user.id,
+      notificationUserId: notification.userId,
+    })
     return createErrorResponse("Bạn chỉ có thể thao tác thông báo của chính mình.", { status: 403, error: "Forbidden" })
   }
 
@@ -49,9 +64,20 @@ async function patchNotificationHandler(req: NextRequest, { params }: { params: 
     updateData.readAt = null
   }
 
+  logger.debug("PATCH /api/notifications/[id]: Updating notification", {
+    notificationId: id,
+    updateData,
+  })
+
   const updated = await prisma.notification.update({
     where: { id },
     data: updateData,
+  })
+  
+  logger.success("PATCH /api/notifications/[id]: Notification updated", {
+    notificationId: id,
+    isRead: updated.isRead,
+    readAt: updated.readAt,
   })
 
   // Emit socket event để đồng bộ real-time với các clients khác

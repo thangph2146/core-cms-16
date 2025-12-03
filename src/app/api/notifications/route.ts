@@ -16,6 +16,7 @@ import { prisma } from "@/lib/database"
 import { NotificationKind, type Prisma } from "@prisma/client"
 import { createErrorResponse, createSuccessResponse } from "@/lib/config"
 import { isSuperAdmin } from "@/lib/permissions"
+import { logger } from "@/lib/config/logger"
 
 async function getUserNotificationsHandler(req: NextRequest) {
   const session = await auth()
@@ -104,6 +105,41 @@ async function getUserNotificationsHandler(req: NextRequest) {
     updatedAt: n.updatedAt,
     readAt: n.readAt,
   }))
+
+  // Check for duplicates in response
+  const notificationIds = mappedNotifications.map(n => n.id)
+  const uniqueIds = new Set(notificationIds)
+  const hasDuplicates = notificationIds.length !== uniqueIds.size
+  
+  if (hasDuplicates) {
+    const duplicateIds = notificationIds.filter((id, index) => notificationIds.indexOf(id) !== index)
+    logger.warn("GET /api/notifications: Duplicate notifications in response", {
+      userId: session.user.id,
+      totalCount: notificationIds.length,
+      uniqueCount: uniqueIds.size,
+      duplicateCount: duplicateIds.length,
+      duplicateIds: Array.from(new Set(duplicateIds)),
+    })
+  }
+
+  logger.debug("GET /api/notifications: Returning notifications", {
+    userId: session.user.id,
+    isSuperAdmin: isSuperAdminUser,
+    limit,
+    offset,
+    unreadOnly,
+    total,
+    unreadCount,
+    notificationsCount: mappedNotifications.length,
+    uniqueCount: uniqueIds.size,
+    hasDuplicates,
+    notifications: mappedNotifications.map(n => ({
+      id: n.id,
+      title: n.title,
+      isRead: n.isRead,
+      actionUrl: n.actionUrl,
+    })),
+  })
 
   return createSuccessResponse({
     notifications: mappedNotifications,

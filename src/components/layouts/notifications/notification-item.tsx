@@ -17,6 +17,8 @@ import { useMarkNotificationRead } from "@/hooks/use-notifications"
 import type { Notification } from "@/hooks/use-notifications"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { logger } from "@/lib/config/logger"
+import { useSession } from "@/lib/auth"
 
 interface NotificationItemProps {
   notification: Notification
@@ -47,16 +49,73 @@ export function NotificationItem({
   notification,
   onClick,
 }: NotificationItemProps) {
+  const { data: session } = useSession()
   const markAsRead = useMarkNotificationRead()
+  
+  // Check if current user is the owner of this notification
+  const isOwner = notification.userId === session?.user?.id
 
   const Icon = kindIcons[notification.kind] || Info
   const styleClass = kindStyles[notification.kind] || kindStyles.INFO
 
   const handleToggleRead = (e: React.MouseEvent) => {
     e.stopPropagation()
+    
+    const currentUserId = session?.user?.id
+    
+    // CHỈ cho phép toggle nếu là owner
+    if (!isOwner) {
+      logger.warn("NotificationItem: Cannot toggle read status - not owner", {
+        notificationId: notification.id,
+        title: notification.title,
+        currentUserId,
+        notificationUserId: notification.userId,
+        isRead: notification.isRead,
+        action: "toggle_read",
+      })
+      return
+    }
+    
+    const newIsRead = !notification.isRead
+    logger.info("NotificationItem: Toggle read status", {
+      notificationId: notification.id,
+      title: notification.title,
+      currentIsRead: notification.isRead,
+      newIsRead,
+      userId: currentUserId,
+      isOwner,
+      action: newIsRead ? "mark_as_read" : "mark_as_unread",
+    })
     // Toggle giữa đã đọc và chưa đọc
-    markAsRead.mutate({ id: notification.id, isRead: !notification.isRead })
+    markAsRead.mutate({ id: notification.id, isRead: newIsRead })
   }
+  
+  // Log mutation results
+  React.useEffect(() => {
+    if (markAsRead.isSuccess && markAsRead.data) {
+      const isOwner = markAsRead.data.userId === session?.user?.id
+      logger.success("NotificationItem: Mark as read successful", {
+        notificationId: markAsRead.data.id,
+        title: markAsRead.data.title || notification.title,
+        isRead: markAsRead.data.isRead,
+        userId: session?.user?.id,
+        notificationUserId: markAsRead.data.userId,
+        isOwner,
+        action: markAsRead.data.isRead ? "marked_as_read" : "marked_as_unread",
+      })
+    }
+    if (markAsRead.isError) {
+      logger.error("NotificationItem: Mark as read failed", {
+        notificationId: notification.id,
+        title: notification.title,
+        userId: session?.user?.id,
+        notificationUserId: notification.userId,
+        isOwner: notification.userId === session?.user?.id,
+        error: markAsRead.error,
+        action: "toggle_read",
+      })
+    }
+  }, [markAsRead.isSuccess, markAsRead.isError, markAsRead.data, markAsRead.error, notification.id, notification.title, notification.userId, session?.user?.id])
 
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), {
     addSuffix: true,
@@ -130,10 +189,18 @@ export function NotificationItem({
                   "h-8 gap-1.5 text-xs",
                   notification.isRead
                     ? "border text-blue-700 hover:bg-accent dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
-                    : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
+                    : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600",
+                  !isOwner && "opacity-50 cursor-not-allowed"
                 )}
                 onClick={handleToggleRead}
-                title={notification.isRead ? "Đánh dấu chưa đọc" : "Đánh dấu đã đọc"}
+                disabled={!isOwner}
+                title={
+                  !isOwner 
+                    ? "Bạn chỉ có thể thao tác với thông báo của chính mình" 
+                    : notification.isRead 
+                      ? "Đánh dấu chưa đọc" 
+                      : "Đánh dấu đã đọc"
+                }
               >
                 {notification.isRead ? (
                   <>

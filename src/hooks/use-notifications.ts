@@ -79,6 +79,13 @@ export function useNotifications(options?: {
   return useQuery<NotificationsResponse>({
     queryKey: queryKeys.notifications.user(session?.user?.id, { limit, offset, unreadOnly }),
     queryFn: async () => {
+      logger.debug("useNotifications: Fetching notifications", {
+        userId: session?.user?.id,
+        limit,
+        offset,
+        unreadOnly,
+      })
+      
       const response = await apiClient.get<{
         success: boolean
         data?: NotificationsResponse
@@ -88,8 +95,19 @@ export function useNotifications(options?: {
 
       const payload = response.data.data
       if (!payload) {
+        logger.error("useNotifications: Failed to fetch notifications", {
+          error: response.data.error || response.data.message,
+          userId: session?.user?.id,
+        })
         throw new Error(response.data.error || response.data.message || "Không thể tải thông báo")
       }
+
+      logger.debug("useNotifications: Notifications fetched successfully", {
+        userId: session?.user?.id,
+        total: payload.total,
+        unreadCount: payload.unreadCount,
+        notificationsCount: payload.notifications.length,
+      })
 
       return {
         ...payload,
@@ -125,6 +143,12 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async ({ id, isRead = true }: { id: string; isRead?: boolean }) => {
+      logger.debug("useMarkNotificationRead: Marking notification", {
+        notificationId: id,
+        isRead,
+        userId: session?.user?.id,
+      })
+      
       const response = await apiClient.patch<{
         success: boolean
         data?: Notification
@@ -134,8 +158,19 @@ export function useMarkNotificationRead() {
 
       const payload = response.data.data
       if (!payload) {
+        logger.error("useMarkNotificationRead: Failed to mark notification", {
+          notificationId: id,
+          error: response.data.error || response.data.message,
+          userId: session?.user?.id,
+        })
         throw new Error(response.data.error || response.data.message || "Không thể cập nhật thông báo")
       }
+
+      logger.success("useMarkNotificationRead: Notification marked successfully", {
+        notificationId: id,
+        isRead: payload.isRead,
+        userId: session?.user?.id,
+      })
 
       return {
         ...payload,
@@ -185,6 +220,10 @@ export function useMarkAllAsRead() {
 
   return useMutation({
     mutationFn: async () => {
+      logger.debug("useMarkAllAsRead: Marking all as read", {
+        userId: session?.user?.id,
+      })
+      
       const response = await apiClient.post<{
         success: boolean
         data?: { count: number }
@@ -194,8 +233,18 @@ export function useMarkAllAsRead() {
 
       const payload = response.data.data
       if (!payload) {
+        logger.error("useMarkAllAsRead: Failed to mark all as read", {
+          error: response.data.error || response.data.message,
+          userId: session?.user?.id,
+        })
         throw new Error(response.data.error || response.data.message || "Không thể đánh dấu tất cả đã đọc")
       }
+      
+      logger.success("useMarkAllAsRead: All notifications marked as read", {
+        count: payload.count,
+        userId: session?.user?.id,
+      })
+      
       return payload
     },
     onSuccess: () => {
@@ -436,36 +485,68 @@ export function useNotificationsSocketBridge() {
 
     const stopSync = onNotificationsSync((payloads: SocketNotificationPayload[]) => {
       // Lọc và convert notifications cho user này
-      // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       const userNotifications = payloads
         .filter((p) => p.toUserId === userId)
         .map(convertSocketToNotification)
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       
-      const unreadCount = userNotifications.filter((n) => !n.isRead).length
+      // Filter duplicates by ID (quan trọng để tránh duplicate notifications)
+      const seen = new Set<string>()
+      const uniqueNotifications: Notification[] = []
+      const duplicateIds = new Set<string>()
       
-      // Update cache với toàn bộ notifications mới
+      for (const notification of userNotifications) {
+        if (!seen.has(notification.id)) {
+          seen.add(notification.id)
+          uniqueNotifications.push(notification)
+        } else {
+          duplicateIds.add(notification.id)
+        }
+      }
+      
+      if (duplicateIds.size > 0) {
+        logger.warn("useNotificationsSocketBridge: Duplicate notifications in sync payload", {
+          userId,
+          totalPayloads: payloads.length,
+          userNotificationsCount: userNotifications.length,
+          uniqueCount: uniqueNotifications.length,
+          duplicateCount: duplicateIds.size,
+          duplicateIds: Array.from(duplicateIds),
+        })
+      }
+      
+      const unreadCount = uniqueNotifications.filter((n) => !n.isRead).length
+      
+      logger.debug("useNotificationsSocketBridge: Processing notifications:sync", {
+        userId,
+        totalPayloads: payloads.length,
+        userNotificationsCount: userNotifications.length,
+        uniqueCount: uniqueNotifications.length,
+        unreadCount,
+      })
+      
+      // Update cache với toàn bộ notifications mới (đã filter duplicates)
       queryClient.setQueriesData<NotificationsResponse>(
         { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
         (oldData) => {
           if (!oldData) {
             return {
-              notifications: userNotifications.slice(0, 20),
-              total: userNotifications.length,
+              notifications: uniqueNotifications.slice(0, 20),
+              total: uniqueNotifications.length,
               unreadCount,
-              hasMore: userNotifications.length > 20,
+              hasMore: uniqueNotifications.length > 20,
             }
           }
 
           const capacity = oldData.notifications.length > 0 ? oldData.notifications.length : 20
           const limitedNotifications =
-            capacity > 0 ? userNotifications.slice(0, capacity) : userNotifications
-          const hasMore = userNotifications.length > limitedNotifications.length
+            capacity > 0 ? uniqueNotifications.slice(0, capacity) : uniqueNotifications
+          const hasMore = uniqueNotifications.length > limitedNotifications.length
 
           return {
             ...oldData,
             notifications: limitedNotifications,
-            total: userNotifications.length,
+            total: uniqueNotifications.length,
             unreadCount,
             hasMore,
           }
