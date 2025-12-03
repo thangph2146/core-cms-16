@@ -322,12 +322,16 @@ export function useNotificationsSocketBridge() {
     registeredUsers.add(userId)
 
     // Helper để convert SocketNotificationPayload sang Notification format
-    const convertSocketToNotification = (payload: SocketNotificationPayload): Notification => {
+    // QUAN TRỌNG: Sử dụng payload.toUserId để đảm bảo đúng owner
+    // vì notification có thể thuộc về user khác (superadmin@hub.edu.vn thấy tất cả)
+      const convertSocketToNotification = (payload: SocketNotificationPayload): Notification => {
       const timestamp = payload.timestamp ?? Date.now()
       const kind = typeof payload.kind === "string" ? payload.kind.toUpperCase() : "SYSTEM"
+      // Sử dụng payload.toUserId để đảm bảo đúng owner (fallback về userId nếu không có)
+      const notificationUserId = payload.toUserId || userId
       return {
         id: payload.id,
-        userId,
+        userId: notificationUserId, // QUAN TRỌNG: Sử dụng toUserId từ payload để đảm bảo đúng owner
         kind: kind as Notification["kind"],
         title: payload.title,
         description: payload.description ?? null,
@@ -416,12 +420,37 @@ export function useNotificationsSocketBridge() {
       const previousIsRead = previousState.isRead
       const currentIsRead = notification.isRead
 
+      // QUAN TRỌNG: Chỉ tính unreadDelta nếu notification thuộc về user này
+      // superadmin@hub.edu.vn có thể thấy tất cả nhưng chỉ đếm của chính mình
+      const userEmail = session?.user?.email
+      const PROTECTED_SUPER_ADMIN_EMAIL = "superadmin@hub.edu.vn"
+      const isProtectedSuperAdmin = userEmail === PROTECTED_SUPER_ADMIN_EMAIL
+      const isOwner = notification.userId === userId
+      
+      // Chỉ tính delta nếu là owner hoặc là superadmin@hub.edu.vn
+      const shouldCount = isProtectedSuperAdmin || isOwner
+      
       let unreadDelta = 0
-      if (previousIsRead === undefined) {
-        unreadDelta = currentIsRead ? 0 : 1
-      } else if (previousIsRead !== currentIsRead) {
-        unreadDelta = currentIsRead ? -1 : 1
+      if (shouldCount) {
+        if (previousIsRead === undefined) {
+          unreadDelta = currentIsRead ? 0 : 1
+        } else if (previousIsRead !== currentIsRead) {
+          unreadDelta = currentIsRead ? -1 : 1
+        }
       }
+      
+      logger.debug("useNotificationsSocketBridge: applyNotificationUpdate", {
+        notificationId: notification.id,
+        userId,
+        userEmail,
+        notificationUserId: notification.userId,
+        isOwner,
+        isProtectedSuperAdmin,
+        shouldCount,
+        previousIsRead,
+        currentIsRead,
+        unreadDelta,
+      })
 
       queryClient.setQueriesData<NotificationsResponse>(
         { queryKey: queryKeys.notifications.allUser(userId) as unknown[] },
@@ -515,14 +544,36 @@ export function useNotificationsSocketBridge() {
         })
       }
       
-      const unreadCount = uniqueNotifications.filter((n) => !n.isRead).length
+      // QUAN TRỌNG: Chỉ superadmin@hub.edu.vn mới đếm tất cả notifications
+      // Các user khác chỉ đếm notifications của chính họ (owner)
+      const userEmail = session?.user?.email
+      const PROTECTED_SUPER_ADMIN_EMAIL = "superadmin@hub.edu.vn"
+      const isProtectedSuperAdmin = userEmail === PROTECTED_SUPER_ADMIN_EMAIL
+      
+      // Filter notifications để đếm unread:
+      // - superadmin@hub.edu.vn: đếm tất cả notifications
+      // - Các user khác: chỉ đếm notifications của chính họ
+      const notificationsForCount = isProtectedSuperAdmin
+        ? uniqueNotifications
+        : uniqueNotifications.filter(n => n.userId === userId)
+      
+      const unreadCount = notificationsForCount.filter((n) => !n.isRead).length
+      const ownedNotificationsCount = uniqueNotifications.filter(n => n.userId === userId).length
+      const ownedUnreadCount = uniqueNotifications.filter(n => n.userId === userId && !n.isRead).length
       
       logger.debug("useNotificationsSocketBridge: Processing notifications:sync", {
         userId,
+        userEmail,
+        isProtectedSuperAdmin,
         totalPayloads: payloads.length,
         userNotificationsCount: userNotifications.length,
         uniqueCount: uniqueNotifications.length,
+        ownedNotificationsCount,
+        ownedUnreadCount,
         unreadCount,
+        note: isProtectedSuperAdmin 
+          ? "superadmin@hub.edu.vn: đếm tất cả notifications" 
+          : "Chỉ đếm notifications của chính user (owner)",
       })
       
       // Update cache với toàn bộ notifications mới (đã filter duplicates)
@@ -641,7 +692,7 @@ export function useNotificationsSocketBridge() {
       }
       registeredUsers.delete(userId)
     }
-  }, [session?.user?.id, socket, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
+  }, [session?.user?.id, session?.user?.email, socket, onNotification, onNotificationUpdated, onNotificationsSync, queryClient])
 
   return { socket }
 }

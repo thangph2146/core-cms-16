@@ -315,26 +315,38 @@ export function NotificationBell() {
                         isRead: notification.isRead,
                         actionUrl: notification.actionUrl,
                         userId: currentUserId,
+                        userEmail,
                         notificationUserId: notification.userId,
                         isOwner,
-                        note: "Chỉ hiển thị notifications của chính user (owner)",
+                        isProtectedSuperAdmin,
+                        note: isProtectedSuperAdmin 
+                          ? "superadmin@hub.edu.vn: có thể thao tác với tất cả notifications" 
+                          : "Chỉ hiển thị notifications của chính user (owner)",
                       })
                       
                       // Tự động mark as read khi click vào notification (nếu chưa đọc)
-                      // Vì đã filter chỉ hiển thị owned notifications, nên luôn là owner
-                      if (!notification.isRead && isOwner) {
-                        logger.debug("NotificationBell: Auto-marking as read (owner)", {
+                      // superadmin@hub.edu.vn có thể mark tất cả, các user khác chỉ mark của chính mình
+                      if (!notification.isRead && (isProtectedSuperAdmin || isOwner)) {
+                        logger.debug("NotificationBell: Auto-marking as read", {
                           notificationId: notification.id,
                           title: notification.title,
                           userId: currentUserId,
+                          userEmail,
+                          notificationUserId: notification.userId,
+                          isOwner,
+                          isProtectedSuperAdmin,
+                          action: "mark_as_read",
                         })
                         markAsRead.mutate({ id: notification.id, isRead: true })
-                      } else if (!notification.isRead && !isOwner) {
-                        logger.error("NotificationBell: Cannot mark as read - not owner (should not happen)", {
+                      } else if (!notification.isRead && !isOwner && !isProtectedSuperAdmin) {
+                        logger.warn("NotificationBell: Cannot mark as read - not owner and not protected super admin", {
                           notificationId: notification.id,
                           userId: currentUserId,
+                          userEmail,
                           notificationUserId: notification.userId,
-                          note: "This should not happen as we filter to only show owned notifications",
+                          isOwner,
+                          isProtectedSuperAdmin,
+                          note: "User không phải owner và không phải superadmin@hub.edu.vn",
                         })
                       }
                       

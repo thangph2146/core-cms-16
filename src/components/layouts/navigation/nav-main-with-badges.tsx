@@ -204,6 +204,7 @@ export function NavMainWithBadges({ items }: NavMainWithBadgesProps) {
         }
       }
       if (item.key === "notifications") {
+        // Badge count từ API đã được filter đúng (chỉ superadmin@hub.edu.vn đếm tất cả)
         updatedItem = {
           ...updatedItem,
           badgeCount: unreadCounts?.unreadNotifications || 0,
