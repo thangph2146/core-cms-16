@@ -77,7 +77,7 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
   return (
     <header
       data-admin-header="true"
-      className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-background"
     >
       <div className="flex flex-1 items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />

@@ -366,7 +366,7 @@ export function NavUser({ className }: { className?: string }) {
               "flex items-center justify-between w-full data-[highlighted]:bg-accent/20"
             )}
           >
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <BadgeCheck className={!isInSidebar ? "mr-2 h-5 w-5" : ""} />
               <span>Tài khoản</span>
             </div>
