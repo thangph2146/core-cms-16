@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
-import { getSocketServer, mapNotificationToPayload } from "@/lib/socket/state"
-import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
+import { createNotificationForAllAdmins, emitNotificationToAllAdminsAfterCreate } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
 async function getActorInfo(actorId: string) {
@@ -86,8 +85,8 @@ export async function notifySuperAdminsOfCommentAction(
         break
     }
 
-    // Tạo notifications trong DB cho tất cả super admins
-    const result = await createNotificationForSuperAdmins(
+    // Tạo notifications trong DB cho tất cả admin
+    const result = await createNotificationForAllAdmins(
       title,
       description,
       actionUrl,
@@ -108,52 +107,26 @@ export async function notifySuperAdminsOfCommentAction(
     )
 
     // Emit socket event nếu có socket server
-    const io = getSocketServer()
-    if (io && result.count > 0) {
-      // Lấy danh sách super admins để emit đến từng user room
-      const superAdmins = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-          userRoles: {
-            some: {
-              role: {
-                name: "super_admin",
-                isActive: true,
-                deletedAt: null,
-              },
-            },
-          },
-        },
-        select: { id: true },
-      })
-
-      // Fetch notifications vừa tạo từ database để lấy IDs thực tế
-      const createdNotifications = await prisma.notification.findMany({
-        where: {
-          title,
-          description,
-          actionUrl,
-          kind: NotificationKind.SYSTEM,
-          userId: {
-            in: superAdmins.map((a) => a.id),
-          },
-          createdAt: {
-            gte: new Date(Date.now() - 5000), // Created within last 5 seconds
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: superAdmins.length,
-      })
-
-      // Emit to role room (tất cả super admins đều ở trong role room)
-      // Không cần emit đến từng user room để tránh duplicate events
-      if (createdNotifications.length > 0) {
-        const roleNotification = mapNotificationToPayload(createdNotifications[0])
-        io.to("role:super_admin").emit("notification:new", roleNotification)
-      }
+    if (result.count > 0) {
+      await emitNotificationToAllAdminsAfterCreate(
+        title,
+        description,
+        actionUrl,
+        NotificationKind.SYSTEM,
+        {
+          type: `comment_${action}`,
+          actorId,
+          actorName: actor?.name || actor?.email,
+          actorEmail: actor?.email,
+          commentId: comment.id,
+          commentContent: comment.content.length > 100 ? comment.content.substring(0, 100) + "..." : comment.content,
+          authorName: comment.authorName,
+          authorEmail: comment.authorEmail,
+          postTitle: comment.postTitle,
+          ...(changes && { changes }),
+          timestamp: new Date().toISOString(),
+        }
+      )
     }
   } catch (error) {
     // Log error nhưng không throw để không ảnh hưởng đến main operation
@@ -210,7 +183,7 @@ export async function notifySuperAdminsOfBulkCommentAction(
         break
     }
 
-    const result = await createNotificationForSuperAdmins(
+    const result = await createNotificationForAllAdmins(
       title,
       description,
       "/admin/comments",
@@ -226,49 +199,23 @@ export async function notifySuperAdminsOfBulkCommentAction(
       }
     )
 
-    const io = getSocketServer()
-    if (io && result.count > 0) {
-      const superAdmins = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-          userRoles: {
-            some: {
-              role: {
-                name: "super_admin",
-                isActive: true,
-                deletedAt: null,
-              },
-            },
-          },
-        },
-        select: { id: true },
-      })
-
-      const createdNotifications = await prisma.notification.findMany({
-        where: {
-          title,
-          description,
-          kind: NotificationKind.SYSTEM,
-          userId: {
-            in: superAdmins.map((a) => a.id),
-          },
-          createdAt: {
-            gte: new Date(Date.now() - 5000),
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: superAdmins.length,
-      })
-
-      // Emit to role room (tất cả super admins đều ở trong role room)
-      // Không cần emit đến từng user room để tránh duplicate events
-      if (createdNotifications.length > 0) {
-        const roleNotification = mapNotificationToPayload(createdNotifications[0])
-        io.to("role:super_admin").emit("notification:new", roleNotification)
-      }
+    // Emit socket event nếu có socket server
+    if (result.count > 0) {
+      await emitNotificationToAllAdminsAfterCreate(
+        title,
+        description,
+        "/admin/comments",
+        NotificationKind.SYSTEM,
+        {
+          type: `comment_bulk_${action}`,
+          actorId,
+          actorName: actor?.name || actor?.email,
+          actorEmail: actor?.email,
+          count,
+          commentIds: comments.map((c) => c.id),
+          timestamp: new Date().toISOString(),
+        }
+      )
     }
   } catch (error) {
     resourceLogger.actionFlow({
@@ -276,7 +223,7 @@ export async function notifySuperAdminsOfBulkCommentAction(
       action: "error",
       step: "error",
       metadata: { 
-        action: "notify-super-admins-bulk",
+        action: "notify-all-admins-bulk",
         count: comments.length,
         error: error instanceof Error ? error.message : "Unknown error",
       },

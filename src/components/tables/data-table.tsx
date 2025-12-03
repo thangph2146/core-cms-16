@@ -23,6 +23,13 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
 import { ColumnFilterControl, type ColumnFilterConfig } from "./filter-controls"
 
@@ -414,19 +421,26 @@ export function DataTable<T extends object>({
                 <div className="w-full flex gap-2 sm:gap-3 sm:items-center justify-between">
                     <div className="flex items-center gap-2">
                         <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">Hiển thị</span>
-                        <select
-                            value={query.limit}
-                            onChange={(event) => handleLimitChange(Number(event.target.value))}
-                            className="h-8 sm:h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        <Select
+                            value={String(query.limit)}
+                            onValueChange={(value) => handleLimitChange(Number(value))}
                             disabled={isPending}
-                            aria-label="Chọn số bản ghi mỗi trang"
                         >
-                            {availableLimits.map((option) => (
-                                <option key={option} value={option}>
-                                    {option}
-                                </option>
-                            ))}
-                        </select>
+                            <SelectTrigger
+                                size="sm"
+                                className="h-8 sm:h-9 w-fit min-w-[80px] text-xs sm:text-sm"
+                                aria-label="Chọn số bản ghi mỗi trang"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableLimits.map((option) => (
+                                    <SelectItem key={option} value={String(option)}>
+                                        {option}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="flex items-center gap-6 sm:gap-2 flex-wrap">
                         {columns.some((col) => col.filter) && (

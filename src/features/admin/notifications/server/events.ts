@@ -56,6 +56,43 @@ export async function emitNotificationNewForSuperAdmins(
   }
 }
 
+export async function emitNotificationNewForAllAdmins(
+  notifications: Notification[],
+): Promise<void> {
+  const io = getSocketServer()
+  if (!io || notifications.length === 0) return
+
+  try {
+    const notificationsByUser = new Map<string, Notification[]>()
+    for (const notification of notifications) {
+      const existing = notificationsByUser.get(notification.userId) || []
+      existing.push(notification)
+      notificationsByUser.set(notification.userId, existing)
+    }
+
+    for (const [userId, userNotifications] of notificationsByUser.entries()) {
+      for (const notification of userNotifications) {
+        const socketNotification = mapNotificationToPayload(notification)
+        storeNotificationInCache(userId, socketNotification)
+        io.to(`user:${userId}`).emit("notification:new", socketNotification)
+      }
+    }
+
+    // Also emit to role rooms for broadcast (use first notification if available)
+    if (notifications.length > 0) {
+      const roleNotification = mapNotificationToPayload(notifications[0])
+      io.to("role:super_admin").emit("notification:new", roleNotification)
+      io.to("role:admin").emit("notification:new", roleNotification)
+    }
+
+    logger.debug("Socket notifications emitted for all admins", {
+      count: notifications.length,
+    })
+  } catch (error) {
+    logger.error("Failed to emit socket notifications for all admins", error instanceof Error ? error : new Error(String(error)))
+  }
+}
+
 export function emitNotificationUpdated(notification: Notification): void {
   const io = getSocketServer()
   if (!io) return

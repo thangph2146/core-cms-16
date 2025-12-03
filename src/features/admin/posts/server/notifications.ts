@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/database"
 import { resourceLogger } from "@/lib/config"
-import { getSocketServer, storeNotificationInCache, mapNotificationToPayload } from "@/lib/socket/state"
-import { createNotificationForSuperAdmins } from "@/features/admin/notifications/server/mutations"
+import { createNotificationForAllAdmins, emitNotificationToAllAdminsAfterCreate } from "@/features/admin/notifications/server/mutations"
 import { NotificationKind } from "@prisma/client"
 
 async function getActorInfo(actorId: string) {
@@ -76,7 +75,7 @@ export async function notifySuperAdminsOfPostAction(
         break
     }
 
-    const result = await createNotificationForSuperAdmins(
+    const result = await createNotificationForAllAdmins(
       title,
       description,
       actionUrl,
@@ -94,57 +93,25 @@ export async function notifySuperAdminsOfPostAction(
       }
     )
 
-    const io = getSocketServer()
-    if (io && result.count > 0) {
-      const superAdmins = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-          userRoles: {
-            some: {
-              role: {
-                name: "super_admin",
-                isActive: true,
-                deletedAt: null,
-              },
-            },
-          },
-        },
-        select: { id: true },
-      })
-
-      const createdNotifications = await prisma.notification.findMany({
-        where: {
-          title,
-          description,
-          actionUrl,
-          kind: NotificationKind.SYSTEM,
-          userId: {
-            in: superAdmins.map((a) => a.id),
-          },
-          createdAt: {
-            gte: new Date(Date.now() - 5000),
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: superAdmins.length,
-      })
-
-      for (const admin of superAdmins) {
-        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
-        if (dbNotification) {
-          const socketNotification = mapNotificationToPayload(dbNotification)
-          storeNotificationInCache(admin.id, socketNotification)
-          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+    // Emit socket event nếu có socket server
+    if (result.count > 0) {
+      await emitNotificationToAllAdminsAfterCreate(
+        title,
+        description,
+        actionUrl,
+        NotificationKind.SYSTEM,
+        {
+          type: `post_${action}`,
+          actorId,
+          actorName: actor?.name || actor?.email,
+          actorEmail: actor?.email,
+          targetPostId: targetPost.id,
+          targetPostTitle,
+          targetPostSlug: targetPost.slug,
+          changes,
+          timestamp: new Date().toISOString(),
         }
-      }
-
-      if (createdNotifications.length > 0) {
-        const roleNotification = mapNotificationToPayload(createdNotifications[0])
-        io.to("role:super_admin").emit("notification:new", roleNotification)
-      }
+      )
     }
   } catch (error) {
     resourceLogger.actionFlow({
@@ -204,7 +171,7 @@ export async function notifySuperAdminsOfBulkPostAction(
 
     const actionUrl = `/admin/posts`
 
-    const result = await createNotificationForSuperAdmins(
+    const result = await createNotificationForAllAdmins(
       title,
       description,
       actionUrl,
@@ -220,57 +187,23 @@ export async function notifySuperAdminsOfBulkPostAction(
       }
     )
 
-    const io = getSocketServer()
-    if (io && result.count > 0) {
-      const superAdmins = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-          userRoles: {
-            some: {
-              role: {
-                name: "super_admin",
-                isActive: true,
-                deletedAt: null,
-              },
-            },
-          },
-        },
-        select: { id: true },
-      })
-
-      const createdNotifications = await prisma.notification.findMany({
-        where: {
-          title,
-          description,
-          actionUrl,
-          kind: NotificationKind.SYSTEM,
-          userId: {
-            in: superAdmins.map((a) => a.id),
-          },
-          createdAt: {
-            gte: new Date(Date.now() - 5000),
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: superAdmins.length,
-      })
-
-      for (const admin of superAdmins) {
-        const dbNotification = createdNotifications.find((n) => n.userId === admin.id)
-        if (dbNotification) {
-          const socketNotification = mapNotificationToPayload(dbNotification)
-          storeNotificationInCache(admin.id, socketNotification)
-          io.to(`user:${admin.id}`).emit("notification:new", socketNotification)
+    // Emit socket event nếu có socket server
+    if (result.count > 0) {
+      await emitNotificationToAllAdminsAfterCreate(
+        title,
+        description,
+        actionUrl,
+        NotificationKind.SYSTEM,
+        {
+          type: `post_bulk_${action}`,
+          actorId,
+          actorName: actor?.name || actor?.email,
+          actorEmail: actor?.email,
+          count,
+          postTitles: posts?.map(p => p.title) || [],
+          timestamp: new Date().toISOString(),
         }
-      }
-
-      if (createdNotifications.length > 0) {
-        const roleNotification = mapNotificationToPayload(createdNotifications[0])
-        io.to("role:super_admin").emit("notification:new", roleNotification)
-      }
+      )
     }
 
     resourceLogger.actionFlow({

@@ -5,6 +5,7 @@ import { logger } from "@/lib/config"
 import {
   emitNotificationNew,
   emitNotificationNewForSuperAdmins,
+  emitNotificationNewForAllAdmins,
   emitNotificationUpdated,
   emitNotificationDeleted,
   emitNotificationsSync,
@@ -123,6 +124,71 @@ export async function createNotificationForSuperAdmins(
   return { count: notifications.count }
 }
 
+export async function createNotificationForAllAdmins(
+  title: string,
+  description?: string | null,
+  actionUrl?: string | null,
+  kind: NotificationKind = NotificationKind.SYSTEM,
+  metadata?: Record<string, unknown> | null
+) {
+  const allAdmins = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      userRoles: {
+        some: {
+          role: {
+            name: {
+              in: [DEFAULT_ROLES.SUPER_ADMIN.name, DEFAULT_ROLES.ADMIN.name],
+            },
+            isActive: true,
+            deletedAt: null,
+          },
+        },
+      },
+    },
+    select: { id: true, email: true },
+  })
+
+  if (!title || title.trim().length === 0) {
+    logger.warn("Invalid notification title for all admins", { title })
+    return { count: 0 }
+  }
+
+  logger.info("Found all admins for notification", {
+    count: allAdmins.length,
+    adminIds: allAdmins.map((a) => a.id),
+    adminEmails: allAdmins.map((a) => a.email),
+  })
+
+  if (allAdmins.length === 0) {
+    logger.warn("No admin found to receive notification")
+    return { count: 0 }
+  }
+
+  // Create notifications for all admins
+  const notifications = await prisma.notification.createMany({
+    data: allAdmins.map((admin) => ({
+      userId: admin.id,
+      title: title.trim(),
+      description: description?.trim() ?? null,
+      actionUrl: actionUrl?.trim() ?? null,
+      kind,
+      metadata: metadata ? (metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
+      isRead: false,
+    })),
+  })
+
+  logger.info("Notifications created for all admins", {
+    count: notifications.count,
+    title: title.trim(),
+    adminCount: allAdmins.length,
+    kind,
+  })
+
+  return { count: notifications.count }
+}
+
 export async function emitNotificationToSuperAdminsAfterCreate(
   title: string,
   description?: string | null,
@@ -181,6 +247,69 @@ export async function emitNotificationToSuperAdminsAfterCreate(
     await emitNotificationNewForSuperAdmins(createdNotifications)
   } catch (error) {
     logger.error("Failed to emit notification to super admins", error instanceof Error ? error : new Error(String(error)))
+  }
+}
+
+export async function emitNotificationToAllAdminsAfterCreate(
+  title: string,
+  description?: string | null,
+  actionUrl?: string | null,
+  kind: NotificationKind = NotificationKind.SYSTEM,
+  _metadata?: Record<string, unknown> | null
+) {
+  try {
+    const allAdmins = await prisma.user.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        userRoles: {
+          some: {
+            role: {
+              name: {
+                in: [DEFAULT_ROLES.SUPER_ADMIN.name, DEFAULT_ROLES.ADMIN.name],
+              },
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      },
+      select: { id: true },
+    })
+
+    if (allAdmins.length === 0) {
+      logger.warn("No admin found to emit notification")
+      return
+    }
+
+    const createdNotifications = await prisma.notification.findMany({
+      where: {
+        title: title.trim(),
+        description: description?.trim() ?? null,
+        actionUrl: actionUrl?.trim() ?? null,
+        kind,
+        userId: {
+          in: allAdmins.map((a) => a.id),
+        },
+        createdAt: {
+          gte: new Date(Date.now() - 5000), // Created within last 5 seconds
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: allAdmins.length,
+    })
+
+    logger.info("Emitting socket notifications to all admins", {
+      adminCount: allAdmins.length,
+      notificationCount: createdNotifications.length,
+      title: title.trim(),
+    })
+
+    await emitNotificationNewForAllAdmins(createdNotifications)
+  } catch (error) {
+    logger.error("Failed to emit notification to all admins", error instanceof Error ? error : new Error(String(error)))
   }
 }
 
