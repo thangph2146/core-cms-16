@@ -13,7 +13,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi, getUserInitials } from "../utils"
 import { cn } from "@/lib/utils"
@@ -119,56 +118,52 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
         const userData = data as UserDetailData
         
         return (
-          <div className="space-y-6">
-            {/* Email & Verification */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldItem icon={Mail} label="Email">
-                <div className="space-y-1">
-                  <a
-                    href={`mailto:${userData.email}`}
-                    className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
-                  >
-                    {userData.email || "—"}
-                  </a>
-                  {userData.emailVerified && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-500" />
-                      <span>Đã xác thực</span>
-                    </div>
-                  )}
-                </div>
-              </FieldItem>
-
-              {userData.emailVerified && (
-                <FieldItem icon={Clock} label="Email đã xác thực">
-                  <div className="text-sm font-medium text-foreground">
-                    {userData.emailVerified ? formatDateVi(userData.emailVerified) : "—"}
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
+            {/* Email */}
+            <FieldItem icon={Mail} label="Email">
+              <div className="space-y-1">
+                <a
+                  href={`mailto:${userData.email}`}
+                  className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
+                >
+                  {userData.email || "—"}
+                </a>
+                {userData.emailVerified && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-500" />
+                    <span>Đã xác thực</span>
                   </div>
-                </FieldItem>
-              )}
-            </div>
+                )}
+              </div>
+            </FieldItem>
 
-            <Separator />
-
-            {/* Name & Phone */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldItem icon={User} label="Tên">
+            {/* Email Verified */}
+            {userData.emailVerified && (
+              <FieldItem icon={Clock} label="Email đã xác thực">
                 <div className="text-sm font-medium text-foreground">
-                  {userData.name || "—"}
+                  {formatDateVi(userData.emailVerified)}
                 </div>
               </FieldItem>
+            )}
 
-              {userData.phone && (
-                <FieldItem icon={Phone} label="Số điện thoại">
-                  <a
-                    href={`tel:${userData.phone}`}
-                    className="text-sm font-medium text-primary hover:underline transition-colors"
-                  >
-                    {userData.phone}
-                  </a>
-                </FieldItem>
-              )}
-            </div>
+            {/* Name */}
+            <FieldItem icon={User} label="Tên">
+              <div className="text-sm font-medium text-foreground">
+                {userData.name || "—"}
+              </div>
+            </FieldItem>
+
+            {/* Phone */}
+            {userData.phone && (
+              <FieldItem icon={Phone} label="Số điện thoại">
+                <a
+                  href={`tel:${userData.phone}`}
+                  className="text-sm font-medium text-primary hover:underline transition-colors"
+                >
+                  {userData.phone}
+                </a>
+              </FieldItem>
+            )}
           </div>
         )
       },
@@ -184,102 +179,78 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
           <div className="space-y-6">
             {/* Bio */}
             {userData.bio && (
-              <>
-                <Card className="border border-border/50 bg-card p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground mb-2">Giới thiệu</h3>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
-                        {userData.bio || "—"}
-                      </div>
+              <Card className="border border-border/50 bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground mb-2">Giới thiệu</h3>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                      {userData.bio || "—"}
                     </div>
                   </div>
-                </Card>
-                <Separator />
-              </>
+                </div>
+              </Card>
             )}
 
             {/* Address */}
             {userData.address && (
-              <>
-                <FieldItem icon={MapPin} label="Địa chỉ">
-                  <div className="text-sm font-medium text-foreground">
-                    {userData.address}
-                  </div>
-                </FieldItem>
-                <Separator />
-              </>
+              <FieldItem icon={MapPin} label="Địa chỉ">
+                <div className="text-sm font-medium text-foreground">
+                  {userData.address}
+                </div>
+              </FieldItem>
             )}
 
             {/* Roles */}
             {userData.roles && userData.roles.length > 0 && (
-              <>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-muted-foreground mb-2">Vai trò</div>
-                    <div className="flex flex-wrap gap-2">
-                      {userData.roles.map((role) => (
-                        <Badge
-                          key={role.name}
-                          variant="outline"
-                          className="inline-flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary border-primary/20"
-                        >
-                          <Shield className="h-3 w-3" />
-                          {role.displayName || role.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+              <FieldItem icon={Shield} label="Vai trò">
+                <div className="flex flex-wrap gap-2">
+                  {userData.roles.map((role) => (
+                    <Badge
+                      key={role.name}
+                      variant="outline"
+                      className="inline-flex items-center gap-1.5 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary border-primary/20"
+                    >
+                      <Shield className="h-3 w-3" />
+                      {role.displayName || role.name}
+                    </Badge>
+                  ))}
                 </div>
-                <Separator />
-              </>
+              </FieldItem>
             )}
 
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {userData.isActive ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <FieldItem 
+              icon={userData.isActive ? CheckCircle2 : XCircle} 
+              label="Trạng thái"
+            >
+              <Badge
+                className={cn(
+                  "text-sm font-medium px-2.5 py-1",
+                  userData.isActive
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái</div>
-                <Badge
-                  className={cn(
-                    "text-sm font-medium px-2.5 py-1",
-                    userData.isActive
-                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                  )}
-                  variant={userData.isActive ? "default" : "secondary"}
-                >
-                  {userData.isActive ? (
-                    <>
-                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      Đang hoạt động
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Đã vô hiệu hóa
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-
-            <Separator />
+                variant={userData.isActive ? "default" : "secondary"}
+              >
+                {userData.isActive ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Đang hoạt động
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Đã vô hiệu hóa
+                  </>
+                )}
+              </Badge>
+            </FieldItem>
 
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {userData.createdAt ? formatDateVi(userData.createdAt) : "—"}
