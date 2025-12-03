@@ -491,9 +491,9 @@ export function DataTable<T extends object>({
                 <div className="min-w-full inline-block">
                     <Table className="min-w-full">
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-primary">
                             {selectionEnabled ? (
-                                <TableHead className="w-10 max-w-10 min-w-10 align-middle px-2 sticky left-0 z-10 bg-background border-r border-border">
+                                <TableHead className="w-10 max-w-10 min-w-10 align-middle px-2 sticky left-0 z-10 bg-primary text-primary-foreground border-r border-border">
                                     <SelectionCheckbox
                                         checked={allVisibleSelected}
                                         indeterminate={someVisibleSelected}
@@ -505,14 +505,14 @@ export function DataTable<T extends object>({
                             {columns.map((column) => (
                                 <TableHead
                                     key={`header-${column.accessorKey}`}
-                                    className={cn("align-middle whitespace-nowrap px-2 sm:px-3", column.headerClassName)}
+                                    className={cn("align-middle whitespace-nowrap px-2 sm:px-3 bg-primary text-primary-foreground", column.headerClassName)}
                                 >
-                                    <span className="text-xs sm:text-sm font-medium text-foreground">{column.header}</span>
+                                    <span className="text-xs sm:text-sm font-medium text-primary-foreground">{column.header}</span>
                                 </TableHead>
                             ))}
                             {actions ? (
-                                <TableHead className="min-w-[100px] text-center px-2 sm:px-3 sticky right-0 z-10 bg-background border-l border-border">
-                                    <span className="text-xs sm:text-sm">Hành động</span>
+                                <TableHead className="min-w-[100px] text-center px-2 sm:px-3 sticky right-0 z-10 bg-primary text-primary-foreground border-l border-border">
+                                    <span className="text-xs sm:text-sm text-primary-foreground">Hành động</span>
                                 </TableHead>
                             ) : null}
                         </TableRow>
