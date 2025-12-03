@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useQueryClient } from "@tanstack/react-query"
+import { usePageLoadLogger } from "@/hooks/use-page-load-logger"
 import { ResourceForm, type ResourceFormField } from "@/features/admin/resources/components"
 import { useResourceFormSubmit, useResourceDetailData } from "@/features/admin/resources/hooks"
 import { createResourceEditOnSuccess } from "@/features/admin/resources/utils"
@@ -48,6 +49,8 @@ export function UserEditClient({
   userId,
   roles: rolesFromServer,
 }: UserEditClientProps) {
+  // Log page load (chỉ khi variant là "page")
+  usePageLoadLogger(variant === "page" ? "edit" : undefined)
   const { data: session } = useSession()
   const queryClient = useQueryClient()
   const currentUserRoles = session?.roles || []

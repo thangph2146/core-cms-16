@@ -20,7 +20,6 @@ import {
 } from "@/features/admin/resources/components";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { formatDateVi } from "@/features/admin/users/utils";
 import { cn } from "@/lib/utils";
 import {
@@ -114,7 +113,7 @@ export function NotificationDetailClient({
         return (
           <div className="space-y-6">
             {/* Kind & Title */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Bell} label="Loại thông báo">
                 <Badge variant={kindConfigData.variant} className="text-xs">
                   {kindConfigData.label}
@@ -130,27 +129,22 @@ export function NotificationDetailClient({
 
             {/* Description */}
             {notificationData.description && (
-              <>
-                <Separator />
-                <Card className="border border-border/50 bg-card p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground mb-2">
-                        Mô tả
-                      </h3>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
-                        {notificationData.description || "—"}
-                      </div>
+              <Card className="border border-border/50 bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground mb-2">
+                      Mô tả
+                    </h3>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                      {notificationData.description || "—"}
                     </div>
                   </div>
-                </Card>
-              </>
+                </div>
+              </Card>
             )}
-
-            <Separator />
 
             {/* User */}
             <FieldItem icon={User} label="Người dùng">
@@ -179,7 +173,7 @@ export function NotificationDetailClient({
         return (
           <div className="space-y-6">
             {/* Read Status & Read Date - 2 columns on sm+ */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               {/* Read Status */}
               <FieldItem
                 icon={notificationData.isRead ? CheckCircle : XCircleIcon}
@@ -256,8 +250,8 @@ export function NotificationDetailClient({
             {/* Action URL & Timestamps - Grid layout */}
             <div
               className={cn(
-                "grid gap-4",
-                fieldCount === 1 ? "grid-cols-1" : "sm:grid-cols-2"
+                "grid gap-6",
+                fieldCount === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"
               )}
             >
               {/* Action URL */}

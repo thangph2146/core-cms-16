@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from "react"
-import { debounce } from "lodash"
+// Import debounce directly to avoid loading entire lodash library
+// This reduces bundle size significantly
+import debounce from "lodash/debounce"
 
 export function useDebounce<T extends (...args: never[]) => void>(
   fn: T,

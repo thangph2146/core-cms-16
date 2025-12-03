@@ -24,6 +24,7 @@ import { ThemeProvider } from "./theme-provider"
 import { SessionProvider } from "./session-provider"
 import { QueryProvider } from "./query-provider"
 import { LoadingFallback } from "./loading-fallback"
+import { ScrollToTop } from "./scroll-to-top"
 import { Suspense } from "react"
 
 export interface ProvidersProps {
@@ -40,7 +41,10 @@ export function Providers({ children, initialSession }: ProvidersProps) {
     <ThemeProvider>
       <Suspense fallback={<LoadingFallback />}>
         <SessionProvider session={initialSession}>
-              <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <ScrollToTop />
+            {children}
+          </QueryProvider>
         </SessionProvider>
       </Suspense>
     </ThemeProvider>

@@ -8,7 +8,6 @@ import {
   type ResourceDetailSection 
 } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
@@ -62,38 +61,32 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
         const tagData = data as TagDetailData
         
         return (
-          <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
             {/* Name & Slug */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldItem icon={Tag} label="Tên thẻ tag">
-                <div className="text-sm font-medium text-foreground">
-                  {tagData.name || "—"}
-                </div>
-              </FieldItem>
+            <FieldItem icon={Tag} label="Tên thẻ tag">
+              <div className="text-sm font-medium text-foreground">
+                {tagData.name || "—"}
+              </div>
+            </FieldItem>
 
-              <FieldItem icon={Hash} label="Slug">
-                <div className="text-sm font-medium text-foreground font-mono">
-                  {tagData.slug || "—"}
-                </div>
-              </FieldItem>
-            </div>
-
-            <Separator />
+            <FieldItem icon={Hash} label="Slug">
+              <div className="text-sm font-medium text-foreground font-mono">
+                {tagData.slug || "—"}
+              </div>
+            </FieldItem>
 
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldItem icon={Calendar} label="Ngày tạo">
-                <div className="text-sm font-medium text-foreground">
-                  {tagData.createdAt ? formatDateVi(tagData.createdAt) : "—"}
-                </div>
-              </FieldItem>
+            <FieldItem icon={Calendar} label="Ngày tạo">
+              <div className="text-sm font-medium text-foreground">
+                {tagData.createdAt ? formatDateVi(tagData.createdAt) : "—"}
+              </div>
+            </FieldItem>
 
-              <FieldItem icon={Clock} label="Cập nhật lần cuối">
-                <div className="text-sm font-medium text-foreground">
-                  {tagData.updatedAt ? formatDateVi(tagData.updatedAt) : "—"}
-                </div>
-              </FieldItem>
-            </div>
+            <FieldItem icon={Clock} label="Cập nhật lần cuối">
+              <div className="text-sm font-medium text-foreground">
+                {tagData.updatedAt ? formatDateVi(tagData.updatedAt) : "—"}
+              </div>
+            </FieldItem>
           </div>
         )
       },

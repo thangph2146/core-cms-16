@@ -48,21 +48,28 @@ export function useResourceDetailData<T extends Record<string, unknown>>({
     return `/admin/${resourceName}/${resourceId}`
   }, [apiRoute, resourceId, resourceName])
 
-  const queryOptions = createAdminQueryOptions<{ data: T }>({
+  // Check if we have fresh cached data
+  const cachedData = queryClient.getQueryData<{ data: T }>(queryKey)
+  const hasFreshCache = !!cachedData?.data
+
+  const baseQueryOptions = createAdminQueryOptions<{ data: T }>({
     queryKey,
     queryFn: async () => {
       const response = await apiClient.get<{ data: T }>(resolvedApiRoute)
       return response.data
     },
     enabled: fetchOnMount && !!resourceId,
-    initialData: queryClient.getQueryData<{ data: T }>(queryKey) || { data: initialData },
+    initialData: cachedData || { data: initialData },
   })
-  
-  if (fetchOnMount && !!resourceId) {
-    queryOptions.refetchOnMount = "always"
-  } else {
-    queryOptions.refetchOnMount = false
-  }
+
+  // Override với staleTime và refetchOnMount tối ưu
+  const queryOptions = {
+    ...baseQueryOptions,
+    // Tăng staleTime để cache lâu hơn và giảm refetch không cần thiết
+    staleTime: 30 * 1000, // 30 giây
+    // Chỉ refetch nếu data đã stale hoặc chưa có cache
+    refetchOnMount: hasFreshCache ? false : "always",
+  } as typeof baseQueryOptions
   
   const { data: fetchedData, isFetched, isFetching } = useQuery({ ...queryOptions })
 

@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { Plus, RotateCcw, Trash2, AlertTriangle } from "lucide-react"
+import { logger } from "@/lib/config/logger"
+import { usePageLoadLogger } from "@/hooks/use-page-load-logger"
 
 import { ConfirmDialog } from "@/components/dialogs"
 import type { DataTableQueryState, DataTableResult } from "@/components/tables"
@@ -44,6 +46,9 @@ export function UsersTableClient({
 }: UsersTableClientProps) {
   const queryClient = useQueryClient()
   const router = useResourceRouter()
+  
+  // Log page load
+  usePageLoadLogger("list")
   const { cacheVersion } = useUsersSocketBridge()
   const { feedback, showFeedback, handleFeedbackOpenChange } = useUserFeedback()
   const { deleteConfirm, setDeleteConfirm, handleDeleteConfirm } = useUserDeleteConfirm()
@@ -502,7 +507,14 @@ export function UsersTableClient({
     <Button
       type="button"
       size="sm"
-      onClick={() => router.push("/admin/users/new")}
+      onClick={() => {
+        logger.info("➕ Create new from table header", {
+          source: "table-header-create-new",
+          resourceName: "users",
+          targetUrl: "/admin/users/new",
+        })
+        router.push("/admin/users/new")
+      }}
       className="h-8 px-3 text-xs sm:text-sm"
     >
       <Plus className="mr-2 h-5 w-5" />

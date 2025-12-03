@@ -17,7 +17,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef, useMemo } from "react";
 import type React from "react";
-import { Timeline } from "@/components/ui/timeline";
+import dynamic from "next/dynamic"
+
+// Lazy load Timeline component (contains framer-motion) to reduce initial bundle size
+const Timeline = dynamic(() => import("@/components/ui/timeline").then(mod => ({ default: mod.Timeline })), {
+  ssr: true, // Keep SSR for SEO
+  loading: () => <div className="h-96 flex items-center justify-center">Đang tải...</div>,
+})
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 /**

@@ -21,7 +21,6 @@ import {
 } from "@/features/admin/resources/components";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { formatDateVi } from "../utils";
 import { Editor } from "@/components/editor/editor-x/editor";
@@ -146,98 +145,60 @@ export function PostDetailClient({
               )}
             </div>
 
-            <Separator />
-
             {/* General Information Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {/* Slug */}
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <Hash className="h-4 w-4 text-muted-foreground" />
+              <FieldItem icon={Hash} label="Slug">
+                <div className="text-sm font-medium text-foreground font-mono break-all">
+                  {postData.slug || "—"}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                    Slug
-                  </div>
-                  <div className="text-sm font-medium text-foreground font-mono break-all">
-                    {postData.slug || "—"}
-                  </div>
-                </div>
-              </div>
+              </FieldItem>
 
               {/* Author */}
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                    Tác giả
+              <FieldItem icon={User} label="Tác giả">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium text-foreground">
+                    {postData.author.name || "N/A"}
                   </div>
-                  <div className="space-y-0.5">
-                    <div className="text-sm font-medium text-foreground">
-                      {postData.author.name || "N/A"}
-                    </div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">
-                      {postData.author.email}
-                    </div>
+                  <div className="text-xs text-muted-foreground line-clamp-1">
+                    {postData.author.email}
                   </div>
                 </div>
-              </div>
+              </FieldItem>
 
               {/* Categories */}
               {postData.categories && postData.categories.length > 0 && (
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <Tag className="h-4 w-4 text-muted-foreground" />
+                <FieldItem icon={Tag} label="Danh mục">
+                  <div className="flex flex-wrap gap-1.5">
+                    {postData.categories.map((category) => (
+                      <span
+                        key={category.id}
+                        className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                      >
+                        {category.name}
+                      </span>
+                    ))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                      Danh mục
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {postData.categories.map((category) => (
-                        <span
-                          key={category.id}
-                          className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                        >
-                          {category.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                </FieldItem>
               )}
 
               {/* Tags */}
               {postData.tags && postData.tags.length > 0 && (
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <Tags className="h-4 w-4 text-muted-foreground" />
+                <FieldItem icon={Tags} label="Thẻ tag">
+                  <div className="flex flex-wrap gap-1.5">
+                    {postData.tags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="inline-flex items-center rounded-md bg-secondary/50 px-2 py-1 text-xs font-medium text-secondary-foreground"
+                      >
+                        {tag.name}
+                      </span>
+                    ))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                      Thẻ tag
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {postData.tags.map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="inline-flex items-center rounded-md bg-secondary/50 px-2 py-1 text-xs font-medium text-secondary-foreground"
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                </FieldItem>
               )}
-            </div>
 
-            <Separator />
-
-            {/* Published Status & Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Published Status */}
               <FieldItem
                 icon={postData.published ? Eye : EyeOff}
                 label="Trạng thái"
@@ -261,6 +222,7 @@ export function PostDetailClient({
                 </div>
               </FieldItem>
 
+              {/* Published At */}
               {postData.publishedAt && (
                 <FieldItem icon={Calendar} label="Ngày xuất bản">
                   <div className="text-sm font-medium text-foreground">
@@ -268,6 +230,10 @@ export function PostDetailClient({
                   </div>
                 </FieldItem>
               )}
+            </div>
+
+            {/* Timestamps */}
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Clock} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {formatDateVi(postData.createdAt)}
@@ -279,18 +245,15 @@ export function PostDetailClient({
                   {formatDateVi(postData.updatedAt)}
                 </div>
               </FieldItem>
-            </div>
 
-            {postData.deletedAt && (
-              <>
-                <Separator />
+              {postData.deletedAt && (
                 <FieldItem icon={Clock} label="Ngày xóa">
                   <div className="text-sm font-medium text-rose-600 dark:text-rose-400">
                     {formatDateVi(postData.deletedAt)}
                   </div>
                 </FieldItem>
-              </>
-            )}
+              )}
+            </div>
           </div>
         );
       },

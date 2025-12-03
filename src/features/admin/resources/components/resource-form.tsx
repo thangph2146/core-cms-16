@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
 import { useResourceNavigation, useResourceFormLogger } from "../hooks"
+import { logger } from "@/lib/config/logger"
 import { Loader2, Save, ArrowLeft, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -395,12 +396,31 @@ export function ResourceForm<T extends Record<string, unknown>>({
   }
 
   const handleCancel = () => {
+    logger.info("❌ Cancel button clicked", {
+      source: "form-cancel-button",
+      variant,
+      hasOnCancel: !!onCancel,
+      hasResolvedBackUrl: !!resolvedBackUrl,
+      resourceName,
+      resourceId,
+      action,
+      currentPath: typeof window !== "undefined" ? window.location.pathname : undefined,
+    })
+
     if (onCancel) {
+      logger.debug("📞 Gọi onCancel callback")
       onCancel()
     } else if (variant === "dialog" || variant === "sheet") {
+      logger.debug("🚪 Đóng dialog/sheet")
       onOpenChange?.(false)
     } else if (resolvedBackUrl) {
+      logger.debug("➡️ Navigate về backUrl từ cancel button", {
+        backUrl: resolvedBackUrl,
+      })
       navigateBack(resolvedBackUrl, onBack).catch(() => {
+        logger.warn("⚠️ NavigateBack failed, fallback to router.replace", {
+          backUrl: resolvedBackUrl,
+        })
         router.replace(resolvedBackUrl)
       })
     }

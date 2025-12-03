@@ -9,7 +9,6 @@ import {
 } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { formatDateVi } from "../utils"
 import { queryKeys } from "@/lib/query-keys"
@@ -66,7 +65,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
         return (
           <div className="space-y-6">
             {/* Name & Slug */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Tag} label="Tên danh mục">
                 <div className="text-sm font-medium text-foreground">
                   {categoryData.name || "—"}
@@ -82,28 +81,23 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
 
             {/* Description */}
             {categoryData.description && (
-              <>
-                <Separator />
-                <Card className="border border-border/50 bg-card p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <AlignLeft className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
-                        {categoryData.description || "—"}
-                      </div>
+              <Card className="border border-border/50 bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <AlignLeft className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                      {categoryData.description || "—"}
                     </div>
                   </div>
-                </Card>
-              </>
+                </div>
+              </Card>
             )}
 
-            <Separator />
-
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {categoryData.createdAt ? formatDateVi(categoryData.createdAt) : "—"}

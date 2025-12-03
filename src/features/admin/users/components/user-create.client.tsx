@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useRoles } from "../hooks/use-roles"
 import { normalizeRoleIds, type Role } from "../utils"
 import { getBaseUserFields, getPasswordField, type UserFormData } from "../form-fields"
+import { usePageLoadLogger } from "@/hooks/use-page-load-logger"
 
 export interface UserCreateClientProps {
   backUrl?: string
@@ -16,6 +17,9 @@ export interface UserCreateClientProps {
 export function UserCreateClient({ backUrl = "/admin/users", roles: rolesFromServer }: UserCreateClientProps) {
   const { toast } = useToast()
   const { roles } = useRoles({ initialRoles: rolesFromServer })
+  
+  // Log page load
+  usePageLoadLogger("new")
 
   const { handleSubmit } = useResourceFormSubmit({
     apiRoute: apiRoutes.users.create,

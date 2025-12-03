@@ -12,7 +12,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
@@ -90,13 +89,13 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       id: "basic",
       title: "Thông tin cơ bản",
       description: "Thông tin chính về vai trò",
-              fieldsContent: (_fields, data) => {
-                const roleData = (data || detailData) as RoleDetailData
+      fieldsContent: (_fields, data) => {
+        const roleData = (data || detailData) as RoleDetailData
         
         return (
           <div className="space-y-6">
             {/* Name & Display Name */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Shield} label="Tên vai trò">
                 <div className="text-sm font-medium text-foreground">
                   {roleData.name || "—"}
@@ -112,22 +111,19 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
 
             {/* Description */}
             {roleData.description && (
-              <>
-                <Separator />
-                <Card className="border border-border/50 bg-card p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
-                        {roleData.description || "—"}
-                      </div>
+              <Card className="border border-border/50 bg-card p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-foreground mb-2">Mô tả</h3>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground break-words">
+                      {roleData.description || "—"}
                     </div>
                   </div>
-                </Card>
-              </>
+                </div>
+              </Card>
             )}
           </div>
         )
@@ -249,50 +245,41 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       id: "status",
       title: "Trạng thái và thời gian",
       description: "Trạng thái hoạt động và thông tin thời gian",
-              fieldsContent: (_fields, data) => {
-                const roleData = (data || detailData) as RoleDetailData
+      fieldsContent: (_fields, data) => {
+        const roleData = (data || detailData) as RoleDetailData
         
         return (
           <div className="space-y-6">
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {roleData.isActive ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <FieldItem 
+              icon={roleData.isActive ? CheckCircle2 : XCircle} 
+              label="Trạng thái"
+            >
+              <Badge
+                className={cn(
+                  "text-sm font-medium px-2.5 py-1",
+                  roleData.isActive
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái</div>
-                <Badge
-                  className={cn(
-                    "text-sm font-medium px-2.5 py-1",
-                    roleData.isActive
-                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                  )}
-                  variant={roleData.isActive ? "default" : "secondary"}
-                >
-                  {roleData.isActive ? (
-                    <>
-                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      Hoạt động
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Tạm khóa
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-
-            <Separator />
+                variant={roleData.isActive ? "default" : "secondary"}
+              >
+                {roleData.isActive ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Hoạt động
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Tạm khóa
+                  </>
+                )}
+              </Badge>
+            </FieldItem>
 
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {roleData.createdAt ? formatDateVi(roleData.createdAt) : "—"}

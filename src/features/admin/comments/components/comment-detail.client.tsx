@@ -10,7 +10,6 @@ import {
   type ResourceDetailSection 
 } from "@/features/admin/resources/components"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { formatDateVi } from "../utils"
 import { apiClient } from "@/lib/api/axios"
@@ -184,10 +183,8 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
               isToggling={isToggling}
             />
 
-            <Separator />
-
             {/* Author Info */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={User} label="Người bình luận">
                 <div className="text-sm font-medium text-foreground truncate">
                   {commentData.authorName || commentData.authorEmail || "—"}
@@ -203,8 +200,6 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
                 </a>
               </FieldItem>
             </div>
-
-            <Separator />
 
             {/* Post Info */}
             <FieldItem icon={FileText} label="Bài viết">
@@ -223,10 +218,8 @@ export function CommentDetailClient({ commentId, comment, backUrl = "/admin/comm
               )}
             </FieldItem>
 
-            <Separator />
-
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {commentData.createdAt ? formatDateVi(commentData.createdAt) : "—"}

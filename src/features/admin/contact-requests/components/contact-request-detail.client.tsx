@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { queryKeys } from "@/lib/query-keys"
@@ -107,7 +106,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
         return (
           <div className="space-y-6">
             {/* Contact Info */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={User} label="Tên người liên hệ">
                 <div className="text-sm font-medium text-foreground">
                   {requestData.name || "—"}
@@ -125,20 +124,15 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
             </div>
 
             {requestData.phone && (
-              <>
-                <Separator />
-                <FieldItem icon={Phone} label="Số điện thoại">
-                  <a
-                    href={`tel:${requestData.phone}`}
-                    className="text-sm font-medium text-primary hover:underline transition-colors"
-                  >
-                    {requestData.phone}
-                  </a>
-                </FieldItem>
-              </>
+              <FieldItem icon={Phone} label="Số điện thoại">
+                <a
+                  href={`tel:${requestData.phone}`}
+                  className="text-sm font-medium text-primary hover:underline transition-colors"
+                >
+                  {requestData.phone}
+                </a>
+              </FieldItem>
             )}
-
-            <Separator />
 
             {/* Subject */}
             <FieldItem icon={FileText} label="Tiêu đề">
@@ -146,8 +140,6 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
                 {requestData.subject || "—"}
               </div>
             </FieldItem>
-
-            <Separator />
 
             {/* Content */}
             <Card className="border border-border/50 bg-card p-5">
@@ -177,7 +169,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
         return (
           <div className="space-y-6">
             {/* Status & Priority */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={AlertCircle} label="Trạng thái">
                 <Badge variant={statusColors[requestData.status] || "default"}>
                   {statusLabels[requestData.status] || requestData.status}
@@ -191,53 +183,41 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
               </FieldItem>
             </div>
 
-            <Separator />
-
             {/* Read Status */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {requestData.isRead ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <FieldItem 
+              icon={requestData.isRead ? CheckCircle2 : XCircle} 
+              label="Đã đọc"
+            >
+              <Badge
+                className={cn(
+                  "text-sm font-medium px-2.5 py-1",
+                  requestData.isRead
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-muted-foreground mb-1.5">Đã đọc</div>
-                <Badge
-                  className={cn(
-                    "text-sm font-medium px-2.5 py-1",
-                    requestData.isRead
-                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                  )}
-                  variant={requestData.isRead ? "default" : "secondary"}
-                >
-                  {requestData.isRead ? (
-                    <>
-                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      Đã đọc
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Chưa đọc
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
+                variant={requestData.isRead ? "default" : "secondary"}
+              >
+                {requestData.isRead ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Đã đọc
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Chưa đọc
+                  </>
+                )}
+              </Badge>
+            </FieldItem>
 
             {/* Assigned To */}
             {requestData.assignedTo && (
-              <>
-                <Separator />
-                <FieldItem icon={UserCheck} label="Người được giao">
-                  <div className="text-sm font-medium text-foreground">
-                    {requestData.assignedTo.name || requestData.assignedTo.email || "—"}
-                  </div>
-                </FieldItem>
-              </>
+              <FieldItem icon={UserCheck} label="Người được giao">
+                <div className="text-sm font-medium text-foreground">
+                  {requestData.assignedTo.name || requestData.assignedTo.email || "—"}
+                </div>
+              </FieldItem>
             )}
           </div>
         )
@@ -252,7 +232,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
         
         return (
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {requestData.createdAt ? formatDateVi(requestData.createdAt) : "—"}

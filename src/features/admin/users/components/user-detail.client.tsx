@@ -17,6 +17,8 @@ import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { formatDateVi, getUserInitials } from "../utils"
 import { cn } from "@/lib/utils"
 import { queryKeys } from "@/lib/query-keys"
+import { logger } from "@/lib/config/logger"
+import { usePageLoadLogger } from "@/hooks/use-page-load-logger"
 
 export interface UserDetailData {
   id: string
@@ -46,6 +48,9 @@ export interface UserDetailClientProps {
 
 export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: UserDetailClientProps) {
   const router = useResourceRouter()
+  
+  // Log page load
+  usePageLoadLogger("detail")
   
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: user,
@@ -285,7 +290,15 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
         !isDeleted ? (
           <Button
             variant="outline"
-            onClick={() => router.push(`/admin/users/${userId}/edit`)}
+            onClick={() => {
+              logger.info("✏️ Edit from detail page", {
+                source: "detail-page-edit-button",
+                resourceId: userId,
+                resourceName: "users",
+                targetUrl: `/admin/users/${userId}/edit`,
+              })
+              router.push(`/admin/users/${userId}/edit`)
+            }}
             className="gap-2"
           >
             <Edit className="h-4 w-4" />

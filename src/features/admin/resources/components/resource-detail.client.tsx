@@ -17,6 +17,7 @@ import { type ResourceFormSection } from "./resource-form"
 import { useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
 import { useResourceNavigation } from "../hooks"
+import { logger } from "@/lib/config/logger"
 
 export interface ResourceDetailField<T = unknown> {
   name: keyof T | string
@@ -89,6 +90,12 @@ export function ResourceDetailClient<T extends Record<string, unknown>>({
   
   const handleBack = async () => {
     if (resolvedBackUrl) {
+      logger.info("🔙 Back button clicked", {
+        source: "detail-back-button",
+        backUrl: resolvedBackUrl,
+        currentPath: typeof window !== "undefined" ? window.location.pathname : undefined,
+        hasOnBack: !!onBack,
+      })
       await navigateBack(resolvedBackUrl, onBack)
     }
   }

@@ -9,7 +9,6 @@ import {
 } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { queryKeys } from "@/lib/query-keys"
@@ -103,17 +102,13 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
               </div>
             </FieldItem>
 
-            <Separator />
-
             <FieldItem icon={RefreshCw} label="Refresh Token" iconColor="bg-chart-2/10">
               <div className="font-mono text-xs break-all text-foreground">
                 {sessionData.refreshToken || "—"}
               </div>
             </FieldItem>
 
-            <Separator />
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Globe} label="User Agent" iconColor="bg-chart-3/10">
                 <div className="text-sm break-all text-foreground">
                   {sessionData.userAgent || "—"}
@@ -156,9 +151,7 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
               </Badge>
             </FieldItem>
 
-            <Separator />
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Thời gian hết hạn">
                 <div className="text-sm font-medium text-foreground">
                   {sessionData.expiresAt ? formatDateVi(sessionData.expiresAt) : "—"}

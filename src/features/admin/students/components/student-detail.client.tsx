@@ -11,7 +11,6 @@ import {
 } from "@/features/admin/resources/components"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { queryKeys } from "@/lib/query-keys"
@@ -75,37 +74,30 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
         const studentData = (data || detailData) as StudentDetailData
         
         return (
-          <div className="space-y-6">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
             {/* Student Code & Name */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldItem icon={Hash} label="Mã học sinh">
-                <div className="text-sm font-medium text-foreground font-mono">
-                  {studentData.studentCode || "—"}
-                </div>
-              </FieldItem>
+            <FieldItem icon={Hash} label="Mã học sinh">
+              <div className="text-sm font-medium text-foreground font-mono">
+                {studentData.studentCode || "—"}
+              </div>
+            </FieldItem>
 
-              <FieldItem icon={User} label="Tên học sinh">
-                <div className="text-sm font-medium text-foreground">
-                  {studentData.name || "—"}
-                </div>
-              </FieldItem>
-            </div>
-
-            <Separator />
+            <FieldItem icon={User} label="Tên học sinh">
+              <div className="text-sm font-medium text-foreground">
+                {studentData.name || "—"}
+              </div>
+            </FieldItem>
 
             {/* Email */}
             {studentData.email && (
-              <>
-                <FieldItem icon={Mail} label="Email">
-                  <a
-                    href={`mailto:${studentData.email}`}
-                    className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
-                  >
-                    {studentData.email}
-                  </a>
-                </FieldItem>
-                <Separator />
-              </>
+              <FieldItem icon={Mail} label="Email">
+                <a
+                  href={`mailto:${studentData.email}`}
+                  className="text-sm font-medium text-primary hover:underline truncate block transition-colors"
+                >
+                  {studentData.email}
+                </a>
+              </FieldItem>
             )}
 
             {/* Linked Account */}
@@ -137,44 +129,35 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
         return (
           <div className="space-y-6">
             {/* Status */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                {studentData.isActive ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
-                ) : (
-                  <XCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <FieldItem 
+              icon={studentData.isActive ? CheckCircle2 : XCircle} 
+              label="Trạng thái"
+            >
+              <Badge
+                className={cn(
+                  "text-sm font-medium px-2.5 py-1",
+                  studentData.isActive
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-muted-foreground mb-1.5">Trạng thái</div>
-                <Badge
-                  className={cn(
-                    "text-sm font-medium px-2.5 py-1",
-                    studentData.isActive
-                      ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                  )}
-                  variant={studentData.isActive ? "default" : "secondary"}
-                >
-                  {studentData.isActive ? (
-                    <>
-                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                      Hoạt động
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Tạm khóa
-                    </>
-                  )}
-                </Badge>
-              </div>
-            </div>
-
-            <Separator />
+                variant={studentData.isActive ? "default" : "secondary"}
+              >
+                {studentData.isActive ? (
+                  <>
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Hoạt động
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Tạm khóa
+                  </>
+                )}
+              </Badge>
+            </FieldItem>
 
             {/* Timestamps */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
               <FieldItem icon={Calendar} label="Ngày tạo">
                 <div className="text-sm font-medium text-foreground">
                   {studentData.createdAt ? formatDateVi(studentData.createdAt) : "—"}

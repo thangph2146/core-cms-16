@@ -20,6 +20,7 @@ import { ModeToggle } from "@/components/layouts/shared"
 import { useResourceRouter, useResourceSegment } from "@/hooks/use-resource-segment"
 import { applyResourceSegmentToPath } from "@/lib/permissions"
 import { truncateBreadcrumbLabel } from "@/features/admin/resources/utils"
+import { logger } from "@/lib/config/logger"
 
 export interface AdminBreadcrumbItem {
   label: string
@@ -41,16 +42,37 @@ export function AdminHeader({ breadcrumbs = [] }: AdminHeaderProps) {
   // Sử dụng cache-busting parameter và router.refresh() để đảm bảo data mới nhất
   const handleBreadcrumbClick = React.useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault()
+    const startTime = performance.now()
+    
+    logger.info("🍞 Breadcrumb navigation", {
+      source: "breadcrumb",
+      href,
+      resourceSegment,
+      currentPath: window.location.pathname,
+    })
     
     // Navigate với cache-busting parameter để force Server Component refetch
     const url = new URL(href, window.location.origin)
     url.searchParams.set("_t", Date.now().toString())
-    router.replace(url.pathname + url.search)
+    const targetUrl = url.pathname + url.search
+    
+    logger.debug("➡️ Đang navigate từ breadcrumb", {
+      originalHref: href,
+      targetUrl,
+    })
+    
+    router.replace(targetUrl)
     
     // Refresh router để đảm bảo Server Components được re-render với data mới
     // Next.js sẽ tự động revalidate khi navigate
     router.refresh()
-  }, [router])
+    
+    const duration = performance.now() - startTime
+    logger.success("✅ Breadcrumb navigation hoàn tất", {
+      duration: `${duration.toFixed(2)}ms`,
+      targetUrl,
+    })
+  }, [router, resourceSegment])
 
   return (
     <header

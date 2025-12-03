@@ -117,7 +117,10 @@ export function useUserRowActions({
         {
           label: USER_LABELS.VIEW_DETAIL,
           icon: Eye,
-          onSelect: () => router.push(`/admin/users/${row.id}`),
+          onSelect: () => {
+            // Logging được xử lý bởi useResourceRouter
+            router.push(`/admin/users/${row.id}`)
+          },
         },
       ]
 
@@ -125,7 +128,10 @@ export function useUserRowActions({
         actions.push({
           label: USER_LABELS.EDIT,
           icon: Pencil,
-          onSelect: () => router.push(`/admin/users/${row.id}/edit`),
+          onSelect: () => {
+            // Logging được xử lý bởi useResourceRouter
+            router.push(`/admin/users/${row.id}/edit`)
+          },
         })
       }
 
@@ -168,7 +174,10 @@ export function useUserRowActions({
         {
           label: USER_LABELS.VIEW_DETAIL,
           icon: Eye,
-          onSelect: () => router.push(`/admin/users/${row.id}`),
+          onSelect: () => {
+            // Logging được xử lý bởi useResourceRouter
+            router.push(`/admin/users/${row.id}`)
+          },
         },
       ]
 
