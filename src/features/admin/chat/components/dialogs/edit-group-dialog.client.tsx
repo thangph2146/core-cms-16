@@ -59,6 +59,7 @@ export function EditGroupDialog({ open, onOpenChange, group, onSuccess }: EditGr
       }
 
       toast({
+        variant: "success",
         title: "Thành công",
         description: "Đã cập nhật thông tin nhóm",
       })
@@ -68,9 +69,9 @@ export function EditGroupDialog({ open, onOpenChange, group, onSuccess }: EditGr
     } catch (error) {
       logger.error("Error updating group", error as Error)
       toast({
+        variant: "destructive",
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật nhóm",
-        variant: "destructive",
       })
     } finally {
       setIsSaving(false)

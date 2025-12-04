@@ -16,6 +16,8 @@ import { useResourceRouter } from "@/hooks/use-resource-segment"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface StudentDetailData {
   id: string
@@ -45,6 +47,10 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
     queryClient,
     invalidateQueryKey: queryKeys.adminStudents.all(),
   })
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.STUDENTS_UPDATE, PERMISSIONS.STUDENTS_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: student,
@@ -137,8 +143,8 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
                 className={cn(
                   "text-sm font-medium px-2.5 py-1",
                   studentData.isActive
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                    ? "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
                 variant={studentData.isActive ? "default" : "secondary"}
               >
@@ -188,7 +194,7 @@ export function StudentDetailClient({ studentId, student, backUrl = "/admin/stud
       backUrl={backUrl}
       onBack={() => navigateBack(backUrl)}
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/students/${studentId}/edit`)}

@@ -16,6 +16,8 @@ import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger }
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { getAllPermissionsOptionGroups } from "../form-fields"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 import {
   Popover,
   PopoverContent,
@@ -57,6 +59,10 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
     invalidateQueryKey: queryKeys.adminRoles.all(),
   })
   const [permissionsOpen, setPermissionsOpen] = React.useState(false)
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.ROLES_UPDATE, PERMISSIONS.ROLES_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: role,
@@ -259,8 +265,8 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
                 className={cn(
                   "text-sm font-medium px-2.5 py-1",
                   roleData.isActive
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                    ? "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
                 variant={roleData.isActive ? "default" : "secondary"}
               >
@@ -311,7 +317,7 @@ export function RoleDetailClient({ roleId, role, backUrl = "/admin/roles" }: Rol
       onBack={() => navigateBack(backUrl)}
       data={detailData}
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/roles/${roleId}/edit`)}

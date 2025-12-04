@@ -306,16 +306,6 @@ export function NotificationsTableClient({
     buildQueryKey: buildNotificationsQueryKey,
   })
 
-  const _buildInitialParams = useCallback(
-    (data: DataTableResult<NotificationRow>): AdminNotificationsListParams => ({
-      status: "all",
-      page: data.page,
-      limit: data.limit,
-      search: undefined,
-      filters: undefined,
-    }),
-    [],
-  )
 
 
   const createSelectionActions = useCallback(
@@ -513,37 +503,35 @@ export function NotificationsTableClient({
     [initialData],
   )
 
-  const getDeleteConfirmTitle = () => {
+  const getDeleteConfirmTitle = useCallback(() => {
     if (!deleteConfirm) return ""
-    if (deleteConfirm.type === "mark-read") {
-      return NOTIFICATION_CONFIRM_MESSAGES.MARK_READ_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
+    const count = deleteConfirm.bulkIds?.length
+    switch (deleteConfirm.type) {
+      case "mark-read":
+        return NOTIFICATION_CONFIRM_MESSAGES.MARK_READ_TITLE(count)
+      case "mark-unread":
+        return NOTIFICATION_CONFIRM_MESSAGES.MARK_UNREAD_TITLE(count)
+      case "delete":
+        return NOTIFICATION_CONFIRM_MESSAGES.DELETE_TITLE(count)
+      default:
+        return ""
     }
-    if (deleteConfirm.type === "mark-unread") {
-      return NOTIFICATION_CONFIRM_MESSAGES.MARK_UNREAD_TITLE(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    return NOTIFICATION_CONFIRM_MESSAGES.DELETE_TITLE(deleteConfirm.bulkIds?.length)
-  }
+  }, [deleteConfirm])
 
-  const getDeleteConfirmDescription = () => {
+  const getDeleteConfirmDescription = useCallback(() => {
     if (!deleteConfirm) return ""
-    if (deleteConfirm.type === "mark-read") {
-      return NOTIFICATION_CONFIRM_MESSAGES.MARK_READ_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
+    const count = deleteConfirm.bulkIds?.length
+    switch (deleteConfirm.type) {
+      case "mark-read":
+        return NOTIFICATION_CONFIRM_MESSAGES.MARK_READ_DESCRIPTION(count)
+      case "mark-unread":
+        return NOTIFICATION_CONFIRM_MESSAGES.MARK_UNREAD_DESCRIPTION(count)
+      case "delete":
+        return NOTIFICATION_CONFIRM_MESSAGES.DELETE_DESCRIPTION(count)
+      default:
+        return ""
     }
-    if (deleteConfirm.type === "mark-unread") {
-      return NOTIFICATION_CONFIRM_MESSAGES.MARK_UNREAD_DESCRIPTION(
-        deleteConfirm.bulkIds?.length,
-      )
-    }
-    return NOTIFICATION_CONFIRM_MESSAGES.DELETE_DESCRIPTION(
-      deleteConfirm.bulkIds?.length,
-    )
-  }
+  }, [deleteConfirm])
 
   const handleViewChange = useCallback((viewId: string) => {
     setCurrentViewId(viewId)
@@ -589,11 +577,18 @@ export function NotificationsTableClient({
           isLoading={
             bulkState.isProcessing ||
             (deleteConfirm.row
-              ? deleteConfirm.type === "mark-read"
-                ? markingReadNotifications.has(deleteConfirm.row.id)
-                : deleteConfirm.type === "mark-unread"
-                ? markingUnreadNotifications.has(deleteConfirm.row.id)
-                : deletingNotifications.has(deleteConfirm.row.id)
+              ? (() => {
+                  switch (deleteConfirm.type) {
+                    case "mark-read":
+                      return markingReadNotifications.has(deleteConfirm.row.id)
+                    case "mark-unread":
+                      return markingUnreadNotifications.has(deleteConfirm.row.id)
+                    case "delete":
+                      return deletingNotifications.has(deleteConfirm.row.id)
+                    default:
+                      return false
+                  }
+                })()
               : false)
           }
         />

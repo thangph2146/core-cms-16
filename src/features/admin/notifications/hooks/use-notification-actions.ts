@@ -4,9 +4,21 @@ import { apiClient } from "@/lib/api/axios"
 import { apiRoutes } from "@/lib/api/routes"
 import { useDeleteNotification } from "@/hooks/use-notifications"
 import { useResourceBulkProcessing } from "@/features/admin/resources/hooks"
-import type { NotificationRow } from "../types"
 import type { FeedbackVariant } from "@/components/dialogs"
+import type { NotificationRow } from "../types"
 import { NOTIFICATION_MESSAGES } from "../constants"
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string
+    }
+  }
+}
+
+function getErrorMessage(error: unknown, defaultMessage: string): string {
+  return (error as ApiError)?.response?.data?.message || defaultMessage
+}
 
 interface UseNotificationActionsOptions {
   showFeedback: (variant: FeedbackVariant, title: string, description?: string, details?: string) => void
@@ -37,8 +49,9 @@ export function useNotificationActions({
 
       // Track loading state
       const setLoadingState = newStatus ? setMarkingReadNotifications : setMarkingUnreadNotifications
-      setTogglingNotifications((prev) => new Set(prev).add(row.id))
-      setLoadingState((prev) => new Set(prev).add(row.id))
+      const updateLoadingState = (prev: Set<string>) => new Set(prev).add(row.id)
+      setTogglingNotifications(updateLoadingState)
+      setLoadingState(updateLoadingState)
 
       try {
         await apiClient.patch(apiRoutes.notifications.markRead(row.id), { isRead: newStatus })
@@ -51,21 +64,23 @@ export function useNotificationActions({
         )
         refresh()
       } catch (error: unknown) {
-        const errorMessage = 
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          (newStatus ? "Không thể đánh dấu đã đọc thông báo." : "Không thể đánh dấu chưa đọc thông báo.")
-        showFeedback("error", newStatus ? NOTIFICATION_MESSAGES.MARK_READ_ERROR : NOTIFICATION_MESSAGES.MARK_UNREAD_ERROR, errorMessage)
+        const defaultMessage = newStatus
+          ? "Không thể đánh dấu đã đọc thông báo."
+          : "Không thể đánh dấu chưa đọc thông báo."
+        const errorMessage = getErrorMessage(error, defaultMessage)
+        showFeedback(
+          "error",
+          newStatus ? NOTIFICATION_MESSAGES.MARK_READ_ERROR : NOTIFICATION_MESSAGES.MARK_UNREAD_ERROR,
+          errorMessage
+        )
       } finally {
-        setTogglingNotifications((prev) => {
+        const removeFromSet = (prev: Set<string>) => {
           const next = new Set(prev)
           next.delete(row.id)
           return next
-        })
-        setLoadingState((prev) => {
-          const next = new Set(prev)
-          next.delete(row.id)
-          return next
-        })
+        }
+        setTogglingNotifications(removeFromSet)
+        setLoadingState(removeFromSet)
       }
     },
     [showFeedback, session?.user?.id],
@@ -130,9 +145,7 @@ export function useNotificationActions({
           )
         }
       } catch (error: unknown) {
-        const errorMessage =
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể đánh dấu đã đọc các thông báo."
+        const errorMessage = getErrorMessage(error, "Không thể đánh dấu đã đọc các thông báo.")
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_MARK_READ_ERROR, errorMessage)
       } finally {
         stopBulkProcessing()
@@ -200,9 +213,7 @@ export function useNotificationActions({
           )
         }
       } catch (error: unknown) {
-        const errorMessage =
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể đánh dấu chưa đọc các thông báo."
+        const errorMessage = getErrorMessage(error, "Không thể đánh dấu chưa đọc các thông báo.")
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_MARK_UNREAD_ERROR, errorMessage)
       } finally {
         stopBulkProcessing()
@@ -232,9 +243,7 @@ export function useNotificationActions({
         showFeedback("success", NOTIFICATION_MESSAGES.DELETE_SUCCESS, "Thông báo đã được xóa thành công.")
         refresh()
       } catch (error: unknown) {
-        const errorMessage = 
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể xóa thông báo."
+        const errorMessage = getErrorMessage(error, "Không thể xóa thông báo.")
         showFeedback("error", NOTIFICATION_MESSAGES.DELETE_ERROR, errorMessage)
       } finally {
         setDeletingNotifications((prev) => {
@@ -306,9 +315,7 @@ export function useNotificationActions({
           showFeedback("error", "Lỗi", NOTIFICATION_MESSAGES.NO_DELETE_OTHER)
         }
       } catch (error: unknown) {
-        const errorMessage = 
-          (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không thể xóa các thông báo."
+        const errorMessage = getErrorMessage(error, "Không thể xóa các thông báo.")
         showFeedback("error", NOTIFICATION_MESSAGES.BULK_DELETE_ERROR, errorMessage)
       } finally {
         stopBulkProcessing()

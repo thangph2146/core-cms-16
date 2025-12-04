@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils"
 import { queryKeys } from "@/lib/query-keys"
 import { logger } from "@/lib/config/logger"
 import { usePageLoadLogger } from "@/hooks/use-page-load-logger"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface UserDetailData {
   id: string
@@ -48,9 +50,13 @@ export interface UserDetailClientProps {
 
 export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: UserDetailClientProps) {
   const router = useResourceRouter()
+  const { hasAnyPermission } = usePermissions()
   
   // Log page load
   usePageLoadLogger("detail")
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.USERS_UPDATE, PERMISSIONS.USERS_MANAGE])
   
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: user,
@@ -235,8 +241,8 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
                 className={cn(
                   "text-sm font-medium px-2.5 py-1",
                   userData.isActive
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                    ? "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
                 variant={userData.isActive ? "default" : "secondary"}
               >
@@ -287,7 +293,7 @@ export function UserDetailClient({ userId, user, backUrl = "/admin/users" }: Use
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => {

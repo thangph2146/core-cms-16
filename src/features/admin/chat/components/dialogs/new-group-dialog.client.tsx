@@ -173,7 +173,11 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
 
       onSelectGroup(group)
 
-      toast({ title: "Thành công", description: res.message || "Đã tạo nhóm mới" })
+      toast({
+        variant: "success",
+        title: "Thành công",
+        description: res.message || "Đã tạo nhóm mới",
+      })
 
       // Reset state
       setOpen(false)
@@ -184,7 +188,11 @@ export function NewGroupDialog({ onSelectGroup }: NewGroupDialogProps) {
       setSearchValue("")
     } catch (error) {
       logger.error("Error creating group", error as Error)
-      toast({ title: "Lỗi", description: error instanceof Error ? error.message : "Không thể tạo nhóm", variant: "destructive" })
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: error instanceof Error ? error.message : "Không thể tạo nhóm",
+      })
     } finally {
       setIsCreating(false)
     }

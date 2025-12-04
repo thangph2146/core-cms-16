@@ -34,6 +34,8 @@ import {
   useResourceDetailLogger,
 } from "@/features/admin/resources/hooks";
 import { resourceLogger } from "@/lib/config/resource-logger";
+import { usePermissions } from "@/hooks/use-permissions";
+import { PERMISSIONS } from "@/lib/permissions";
 
 export interface PostDetailData {
   id: string;
@@ -79,6 +81,10 @@ export function PostDetailClient({
     queryClient,
     invalidateQueryKey: queryKeys.adminPosts.all(),
   });
+  const { hasAnyPermission } = usePermissions();
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.POSTS_UPDATE, PERMISSIONS.POSTS_MANAGE]);
 
   const {
     data: detailData,
@@ -313,7 +319,7 @@ export function PostDetailClient({
       backLabel="Quay lại danh sách"
       onBack={() => navigateBack(backUrl)}
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/posts/${detailData.id}/edit`)}

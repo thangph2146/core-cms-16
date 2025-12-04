@@ -30,6 +30,8 @@ import { getUserInitials } from "@/features/admin/accounts/utils"
 import { AccountEditClient } from "./account-edit.client"
 import type { AccountProfile } from "../types"
 import { useResourceDetailLogger } from "@/features/admin/resources/hooks"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface AccountProfileClientProps {
   account: AccountProfile
@@ -42,6 +44,10 @@ export function AccountProfileClient({
 }: AccountProfileClientProps) {
   const router = useResourceRouter()
   const [isEditing, setIsEditing] = React.useState(false)
+  const { hasPermission } = usePermissions()
+  
+  // Check permission for edit (user can always edit their own profile)
+  const canUpdate = hasPermission(PERMISSIONS.ACCOUNTS_UPDATE)
 
   useResourceDetailLogger({
     resourceName: "accounts",
@@ -190,7 +196,7 @@ export function AccountProfileClient({
                 </div>
                 {accountData.emailVerified && (
                   <Badge
-                    className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 text-xs"
+                    className="bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20 text-xs"
                     variant="default"
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -250,14 +256,16 @@ export function AccountProfileClient({
       title="Thông tin tài khoản"
       description="Quản lý thông tin cá nhân của bạn"
       actions={
-        <Button
-          variant="default"
-          onClick={() => setIsEditing(true)}
-          className="gap-2"
-        >
-          <Edit className="h-4 w-4" />
-          Chỉnh sửa
-        </Button>
+        canUpdate ? (
+          <Button
+            variant="default"
+            onClick={() => setIsEditing(true)}
+            className="gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Chỉnh sửa
+          </Button>
+        ) : null
       }
     />
   )

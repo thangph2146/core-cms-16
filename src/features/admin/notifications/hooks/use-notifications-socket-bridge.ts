@@ -97,6 +97,52 @@ function updateNotificationQueries(
   return updated
 }
 
+function createNotificationUpsertUpdater(
+  row: NotificationRow
+): (args: { key: unknown[]; data: DataTableResult<NotificationRow> }) => DataTableResult<NotificationRow> | null {
+  return ({ data }) => {
+    // Safety check: ensure data and rows exist
+    if (!data || !Array.isArray(data.rows)) {
+      logger.debug("Skipping update - invalid data structure", {
+        hasData: !!data,
+        hasRows: !!data?.rows,
+        isArray: Array.isArray(data?.rows),
+      })
+      return null
+    }
+
+    const existingIndex = data.rows.findIndex((r) => r.id === row.id)
+
+    const next: DataTableResult<NotificationRow> = { ...data }
+    let total = next.total
+    let rows = next.rows
+
+    if (existingIndex >= 0) {
+      // Update existing notification
+      const updated = [...rows]
+      updated[existingIndex] = row
+      rows = updated
+    } else if (data.page === 1) {
+      // Insert new notification on page 1
+      rows = insertRowIntoPage(rows, row, next.limit)
+      total = total + 1
+    } else {
+      // On other pages, just update total if needed
+      // Don't insert because we don't know if it should be on this page
+      return null
+    }
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
+
+    return {
+      ...next,
+      rows,
+      total,
+      totalPages,
+    }
+  }
+}
+
 export function useNotificationsSocketBridge() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
@@ -117,52 +163,16 @@ export function useNotificationsSocketBridge() {
       // Không log ở đây để tránh duplicate logs (useAdminNotificationsSocketBridge cũng log)
       const row = convertSocketPayloadToRow(payload, payload.userEmail, payload.userName)
 
-      const updated = updateNotificationQueries(queryClient, ({ data }) => {
-        const existingIndex = data.rows.findIndex((r) => r.id === row.id)
-
-        logger.debug("Processing notification update", {
-          notificationId: row.id,
-          existingIndex,
-        })
-
-        const next: DataTableResult<NotificationRow> = { ...data }
-        let total = next.total
-        let rows = next.rows
-
-        if (existingIndex >= 0) {
-          // Update existing notification
-          const updated = [...rows]
-          updated[existingIndex] = row
-          rows = updated
-        } else if (data.page === 1) {
-          // Insert new notification on page 1
-          rows = insertRowIntoPage(rows, row, next.limit)
-          total = total + 1
-        } else {
-          // On other pages, just update total if needed
-          // Don't insert because we don't know if it should be on this page
-          return null
-        }
-
-        const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
-
-        const result = {
-          ...next,
-          rows,
-          total,
-          totalPages,
-        }
-
-        logger.debug("Cache updated for notification", {
-          notificationId: row.id,
-          rowsCount: result.rows.length,
-          total: result.total,
-        })
-
-        return result
+      logger.debug("Processing notification update", {
+        notificationId: row.id,
       })
 
+      const updated = updateNotificationQueries(queryClient, createNotificationUpsertUpdater(row))
+
       if (updated) {
+        logger.debug("Cache updated for notification", {
+          notificationId: row.id,
+        })
         setCacheVersion((prev) => prev + 1)
       }
     })
@@ -174,34 +184,7 @@ export function useNotificationsSocketBridge() {
       })
 
       const row = convertSocketPayloadToRow(payload, payload.userEmail, payload.userName)
-
-      const updated = updateNotificationQueries(queryClient, ({ data }) => {
-        const existingIndex = data.rows.findIndex((r) => r.id === row.id)
-
-        const next: DataTableResult<NotificationRow> = { ...data }
-        let total = next.total
-        let rows = next.rows
-
-        if (existingIndex >= 0) {
-          const updated = [...rows]
-          updated[existingIndex] = row
-          rows = updated
-        } else if (data.page === 1) {
-          rows = insertRowIntoPage(rows, row, next.limit)
-          total = total + 1
-        } else {
-          return null
-        }
-
-        const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
-
-        return {
-          ...next,
-          rows,
-          total,
-          totalPages,
-        }
-      })
+      const updated = updateNotificationQueries(queryClient, createNotificationUpsertUpdater(row))
 
       if (updated) {
         setCacheVersion((prev) => prev + 1)
@@ -215,34 +198,7 @@ export function useNotificationsSocketBridge() {
       })
 
       const row = convertSocketPayloadToRow(payload, payload.userEmail, payload.userName)
-
-      const updated = updateNotificationQueries(queryClient, ({ data }) => {
-        const existingIndex = data.rows.findIndex((r) => r.id === row.id)
-
-        const next: DataTableResult<NotificationRow> = { ...data }
-        let total = next.total
-        let rows = next.rows
-
-        if (existingIndex >= 0) {
-          const updated = [...rows]
-          updated[existingIndex] = row
-          rows = updated
-        } else if (data.page === 1) {
-          rows = insertRowIntoPage(rows, row, next.limit)
-          total = total + 1
-        } else {
-          return null
-        }
-
-        const totalPages = total === 0 ? 0 : Math.ceil(total / next.limit)
-
-        return {
-          ...next,
-          rows,
-          total,
-          totalPages,
-        }
-      })
+      const updated = updateNotificationQueries(queryClient, createNotificationUpsertUpdater(row))
 
       if (updated) {
         setCacheVersion((prev) => prev + 1)

@@ -14,6 +14,8 @@ import { useResourceDetailData, useResourceDetailLogger } from "@/features/admin
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface SessionDetailData {
   id: string
@@ -41,6 +43,10 @@ export interface SessionDetailClientProps {
 
 export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sessions" }: SessionDetailClientProps) {
   const router = useResourceRouter()
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.SESSIONS_UPDATE, PERMISSIONS.SESSIONS_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: session,
@@ -143,8 +149,8 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
                 variant={sessionData.isActive ? "default" : "secondary"}
                 className={cn(
                   sessionData.isActive
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                    : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20"
+                    ? "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/20"
                 )}
               >
                 {sessionData.isActive ? "Hoạt động" : "Tạm khóa"}
@@ -188,7 +194,7 @@ export function SessionDetailClient({ sessionId, session, backUrl = "/admin/sess
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/sessions/${sessionId}/edit`)}

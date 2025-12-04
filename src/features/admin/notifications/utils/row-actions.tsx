@@ -36,18 +36,24 @@ export function renderRowActions(actions: RowActionConfig[]) {
   if (actions.length === 1) {
     const singleAction = actions[0]
     const Icon = singleAction.isLoading ? Loader2 : singleAction.icon
+    const isDisabled = singleAction.disabled || singleAction.isLoading
+    const displayLabel = singleAction.isLoading
+      ? singleAction.loadingLabel || singleAction.label
+      : singleAction.label
+    
     return (
       <Button
         variant="ghost"
         size="sm"
-        disabled={singleAction.disabled || singleAction.isLoading}
+        disabled={isDisabled}
         onClick={() => {
-          if (singleAction.disabled || singleAction.isLoading) return
-          singleAction.onSelect()
+          if (!isDisabled) {
+            singleAction.onSelect()
+          }
         }}
       >
         <Icon className={`mr-2 h-5 w-5 ${singleAction.isLoading ? "animate-spin" : ""}`} />
-        {singleAction.isLoading ? singleAction.loadingLabel || singleAction.label : singleAction.label}
+        {displayLabel}
       </Button>
     )
   }
@@ -62,28 +68,30 @@ export function renderRowActions(actions: RowActionConfig[]) {
       <DropdownMenuContent align="end">
         {actions.map((action) => {
           const Icon = action.isLoading ? Loader2 : action.icon
+          const isDisabled = action.disabled || action.isLoading
+          const displayLabel = action.isLoading
+            ? action.loadingLabel || action.label
+            : action.label
+          const iconClassName = action.destructive
+            ? `mr-2 h-5 w-5 text-destructive ${action.isLoading ? "animate-spin" : ""}`
+            : `mr-2 h-5 w-5 ${action.isLoading ? "animate-spin" : ""}`
+          const itemClassName = action.destructive
+            ? "text-destructive focus:text-destructive data-[highlighted]:text-destructive data-[highlighted]:bg-destructive/10 disabled:opacity-50"
+            : "data-[highlighted]:bg-accent/10 disabled:opacity-50"
+          
           return (
             <DropdownMenuItem
               key={action.label}
-              disabled={action.disabled || action.isLoading}
+              disabled={isDisabled}
               onClick={() => {
-                if (action.disabled || action.isLoading) return
-                action.onSelect()
-              }}
-              className={
-                action.destructive
-                  ? "text-destructive focus:text-destructive data-[highlighted]:text-destructive data-[highlighted]:bg-destructive/10 disabled:opacity-50"
-                  : "data-[highlighted]:bg-accent/10 disabled:opacity-50"
-              }
-            >
-              <Icon
-                className={
-                  action.destructive
-                    ? `mr-2 h-5 w-5 text-destructive ${action.isLoading ? "animate-spin" : ""}`
-                    : `mr-2 h-5 w-5 ${action.isLoading ? "animate-spin" : ""}`
+                if (!isDisabled) {
+                  action.onSelect()
                 }
-              />
-              {action.isLoading ? action.loadingLabel || action.label : action.label}
+              }}
+              className={itemClassName}
+            >
+              <Icon className={iconClassName} />
+              {displayLabel}
             </DropdownMenuItem>
           )
         })}

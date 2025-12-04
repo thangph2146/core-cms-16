@@ -160,6 +160,7 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
       }
 
       toast({
+        variant: "success",
         title: "Gửi thành công!",
         description:
           "Chúng tôi đã nhận được tin nhắn của bạn và sẽ phản hồi sớm nhất có thể.",
@@ -179,9 +180,9 @@ export function ContactForm({ onSubmit, className, apiUrl = "/api/contact" }: Co
           ? error.message
           : "Không thể gửi tin nhắn. Vui lòng thử lại sau.";
       toast({
+        variant: "destructive",
         title: "Có lỗi xảy ra",
         description: message,
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);

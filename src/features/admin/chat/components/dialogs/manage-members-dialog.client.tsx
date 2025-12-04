@@ -103,7 +103,11 @@ export function ManageMembersDialog({
       })
       if (!res.ok) throw new Error(res.error || "Failed to add member")
 
-      toast({ title: "Thành công", description: res.message || "Đã thêm thành viên vào nhóm" })
+      toast({
+        variant: "success",
+        title: "Thành công",
+        description: res.message || "Đã thêm thành viên vào nhóm",
+      })
 
       onSuccess?.()
       setSearchValue("")
@@ -111,9 +115,9 @@ export function ManageMembersDialog({
     } catch (error) {
       logger.error("Error adding member", error as Error)
       toast({
+        variant: "destructive",
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi thêm thành viên",
-        variant: "destructive",
       })
     } finally {
       setIsProcessing(null)
@@ -129,15 +133,19 @@ export function ManageMembersDialog({
         method: "DELETE",
       })
       if (!res.ok) throw new Error(res.error || "Failed to remove member")
-      toast({ title: "Thành công", description: res.message || "Đã xóa thành viên khỏi nhóm" })
+      toast({
+        variant: "success",
+        title: "Thành công",
+        description: res.message || "Đã xóa thành viên khỏi nhóm",
+      })
 
       onSuccess?.()
     } catch (error) {
       logger.error("Error removing member", error as Error)
       toast({
+        variant: "destructive",
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi xóa thành viên",
-        variant: "destructive",
       })
     } finally {
       setIsProcessing(null)
@@ -154,15 +162,19 @@ export function ManageMembersDialog({
         ...toJsonBody({ role: newRole }),
       })
       if (!res.ok) throw new Error(res.error || "Failed to update role")
-      toast({ title: "Thành công", description: res.message || `Đã ${newRole === "ADMIN" ? "thăng cấp" : "hạ cấp"} thành viên` })
+      toast({
+        variant: "success",
+        title: "Thành công",
+        description: res.message || `Đã ${newRole === "ADMIN" ? "thăng cấp" : "hạ cấp"} thành viên`,
+      })
 
       onSuccess?.()
     } catch (error) {
       logger.error("Error updating role", error as Error)
       toast({
+        variant: "destructive",
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Đã xảy ra lỗi khi cập nhật vai trò",
-        variant: "destructive",
       })
     } finally {
       setIsProcessing(null)

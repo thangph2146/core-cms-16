@@ -54,8 +54,8 @@ export function handleAPIError(error: unknown, defaultMessage: string): void {
   })
   const errorMessage = error instanceof Error ? error.message : defaultMessage
   toast({
+    variant: "destructive",
     title: "Lỗi",
     description: errorMessage,
-    variant: "destructive",
   })
 }

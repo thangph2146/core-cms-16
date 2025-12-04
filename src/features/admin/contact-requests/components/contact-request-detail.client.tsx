@@ -16,6 +16,8 @@ import { useResourceDetailData, useResourceDetailLogger } from "@/features/admin
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { cn } from "@/lib/utils"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 const statusLabels: Record<string, string> = {
   NEW: "Mới",
@@ -75,6 +77,10 @@ export interface ContactRequestDetailClientProps {
 
 export function ContactRequestDetailClient({ contactRequestId, contactRequest, backUrl = "/admin/contact-requests" }: ContactRequestDetailClientProps) {
   const router = useResourceRouter()
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.CONTACT_REQUESTS_UPDATE, PERMISSIONS.CONTACT_REQUESTS_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: contactRequest,
@@ -192,8 +198,8 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
                 className={cn(
                   "text-sm font-medium px-2.5 py-1",
                   requestData.isRead
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
-                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                    ? "bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20"
+                    : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/20"
                 )}
                 variant={requestData.isRead ? "default" : "secondary"}
               >
@@ -263,7 +269,7 @@ export function ContactRequestDetailClient({ contactRequestId, contactRequest, b
       backUrl={backUrl}
       backLabel="Quay lại danh sách"
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/contact-requests/${contactRequestId}/edit`)}

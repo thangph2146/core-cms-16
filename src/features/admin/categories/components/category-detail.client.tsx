@@ -12,6 +12,8 @@ import { Card } from "@/components/ui/card"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
 import { formatDateVi } from "../utils"
 import { queryKeys } from "@/lib/query-keys"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface CategoryDetailData {
   id: string
@@ -34,6 +36,10 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
   const { navigateBack, router } = useResourceNavigation({
     invalidateQueryKey: queryKeys.adminCategories.all(),
   })
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.CATEGORIES_UPDATE, PERMISSIONS.CATEGORIES_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: category,
@@ -129,7 +135,7 @@ export function CategoryDetailClient({ categoryId, category, backUrl = "/admin/c
       backLabel="Quay lại danh sách"
       onBack={() => navigateBack(backUrl)}
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/categories/${categoryId}/edit`)}

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { queryKeys } from "@/lib/query-keys"
 import { formatDateVi } from "../utils"
 import { useResourceNavigation, useResourceDetailData, useResourceDetailLogger } from "@/features/admin/resources/hooks"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
 
 export interface TagDetailData {
   id: string
@@ -32,6 +34,10 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
   const { navigateBack, router } = useResourceNavigation({
     invalidateQueryKey: queryKeys.adminTags.all(),
   })
+  const { hasAnyPermission } = usePermissions()
+  
+  // Check permission for edit
+  const canUpdate = hasAnyPermission([PERMISSIONS.TAGS_UPDATE, PERMISSIONS.TAGS_MANAGE])
 
   const { data: detailData, isFetched, isFromApi, fetchedData } = useResourceDetailData({
     initialData: tag,
@@ -106,7 +112,7 @@ export function TagDetailClient({ tagId, tag, backUrl = "/admin/tags" }: TagDeta
       backLabel="Quay lại danh sách"
       onBack={() => navigateBack(backUrl)}
       actions={
-        !isDeleted ? (
+        !isDeleted && canUpdate ? (
           <Button
             variant="outline"
             onClick={() => router.push(`/admin/tags/${tagId}/edit`)}
