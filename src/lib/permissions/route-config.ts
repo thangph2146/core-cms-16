@@ -323,4 +323,7 @@ export const ROUTE_CONFIG: RoutePermissionConfig[] = [
   { path: "/admin/settings/notifications", permissions: [PERMISSIONS.SETTINGS_VIEW], type: "page" },
   { path: "/api/settings", method: "GET", permissions: [PERMISSIONS.SETTINGS_VIEW], type: "api" },
   { path: "/api/settings", method: "PUT", permissions: [PERMISSIONS.SETTINGS_UPDATE], type: "api" },
+
+  // Unread Counts (requires MESSAGES_VIEW, NOTIFICATIONS_VIEW, or CONTACT_REQUESTS_VIEW)
+  { path: "/api/admin/unread-counts", method: "GET", permissions: [PERMISSIONS.MESSAGES_VIEW, PERMISSIONS.NOTIFICATIONS_VIEW, PERMISSIONS.CONTACT_REQUESTS_VIEW], type: "api" },
 ]

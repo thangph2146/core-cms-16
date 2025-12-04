@@ -5,6 +5,151 @@ import { DEFAULT_ROLES } from "../src/lib/permissions"
 
 const prisma = new PrismaClient()
 
+// Helper functions để generate random data
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function randomItem<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
+function randomItems<T>(array: T[], count: number): T[] {
+  const shuffled = [...array].sort(() => 0.5 - Math.random())
+  return shuffled.slice(0, Math.min(count, array.length))
+}
+
+// Vietnamese names
+const vietnameseFirstNames = [
+  "An", "Bình", "Cường", "Dung", "Em", "Phương", "Giang", "Hoa", "Hùng", "Lan",
+  "Minh", "Nga", "Oanh", "Phong", "Quang", "Sơn", "Thảo", "Uyên", "Vinh", "Yến",
+  "Đức", "Hạnh", "Khang", "Linh", "Mai", "Nam", "Nhung", "Oanh", "Phúc", "Quyên"
+]
+
+const vietnameseLastNames = [
+  "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi", "Đỗ", "Hồ",
+  "Ngô", "Dương", "Lý", "Võ", "Phan", "Trương", "Vương", "Tăng", "Lưu", "Đinh"
+]
+
+function generateVietnameseName(): string {
+  const lastName = randomItem(vietnameseLastNames)
+  const firstName = randomItem(vietnameseFirstNames)
+  return `${lastName} ${firstName}`
+}
+
+function generateEmail(name: string, index: number): string {
+  const normalized = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, ".")
+    .replace(/đ/g, "d")
+  return `${normalized}${index}@hub.edu.vn`
+}
+
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+const postTitles = [
+  "Hướng dẫn sử dụng Next.js 16",
+  "TypeScript Best Practices",
+  "React Server Components Explained",
+  "Prisma ORM Tutorial",
+  "TailwindCSS Tips and Tricks",
+  "Database Design Principles",
+  "API Security Best Practices",
+  "Authentication và Authorization",
+  "State Management trong React",
+  "Performance Optimization",
+  "Testing Strategies",
+  "CI/CD Pipeline Setup",
+  "Docker và Containerization",
+  "Microservices Architecture",
+  "GraphQL vs REST API",
+  "WebSocket Real-time Communication",
+  "Progressive Web Apps",
+  "Serverless Architecture",
+  "Cloud Computing Basics",
+  "DevOps Practices",
+  "Code Review Guidelines",
+  "Agile Development",
+  "Version Control với Git",
+  "Code Refactoring",
+  "Design Patterns",
+  "SOLID Principles",
+  "Clean Code Practices",
+  "Error Handling Strategies",
+  "Logging và Monitoring",
+  "Backup và Recovery"
+]
+
+const commentContents = [
+  "Bài viết rất hay và hữu ích!",
+  "Cảm ơn tác giả đã chia sẻ.",
+  "Tôi đã thử và thấy rất dễ sử dụng.",
+  "Có thể chia sẻ thêm về cách customize không?",
+  "Rất thích cách giải thích chi tiết.",
+  "Mong chờ bài viết tiếp theo!",
+  "Có vẻ rất mạnh mẽ. Cảm ơn bạn!",
+  "Tôi đã học được nhiều điều mới.",
+  "Có thể giải thích thêm về cách optimize không?",
+  "Rất hữu ích cho dự án của tôi.",
+  "Bài viết này rất chi tiết.",
+  "Tôi có một số câu hỏi. Có thể hỗ trợ không?",
+  "Excellent work!",
+  "Great tutorial!",
+  "Very helpful, thanks!",
+  "This is exactly what I needed.",
+  "Clear and concise explanation.",
+  "Well written article.",
+  "Looking forward to more content.",
+  "Keep up the good work!"
+]
+
+const contactRequestSubjects = [
+  "Câu hỏi về hệ thống",
+  "Yêu cầu hỗ trợ kỹ thuật",
+  "Góp ý về tính năng mới",
+  "Lỗi nghiêm trọng cần xử lý",
+  "Vấn đề đã được giải quyết",
+  "Yêu cầu tài liệu",
+  "Hỏi về pricing",
+  "Feature request",
+  "Bug report",
+  "Technical support"
+]
+
+const notificationTitles = [
+  "Chào mừng đến với hệ thống!",
+  "Bạn có tin nhắn mới",
+  "Thông báo quan trọng",
+  "Bài viết đã được duyệt",
+  "Cảnh báo bảo mật",
+  "Thông tin học sinh",
+  "Yêu cầu liên hệ mới",
+  "Cập nhật hệ thống",
+  "Bảo trì hệ thống",
+  "Thông báo mới"
+]
+
+const groupNames = [
+  "Nhóm Phát Triển",
+  "Nhóm Biên Tập",
+  "Nhóm Marketing",
+  "Nhóm Hỗ Trợ",
+  "Nhóm Quản Lý",
+  "Nhóm Nghiên Cứu",
+  "Nhóm Đào Tạo",
+  "Nhóm Chất Lượng"
+]
+
 // Sample content data phù hợp với Lexical Editor
 const samplePostContent = {
   root: {
@@ -381,6 +526,7 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash("password123", 10)
 
+  // Tạo main users (6 users)
   const superAdminUser = await prisma.user.upsert({
     where: { email: "superadmin@hub.edu.vn" },
     update: {},
@@ -441,6 +587,33 @@ async function main() {
     },
   })
 
+  // Tạo thêm users (20+ users với các roles khác nhau)
+  const additionalUsers = []
+  const roleDistribution = [
+    { role: ROLE_NAMES.ADMIN, count: 3 },
+    { role: ROLE_NAMES.EDITOR, count: 5 },
+    { role: ROLE_NAMES.AUTHOR, count: 5 },
+    { role: ROLE_NAMES.USER, count: 7 },
+    { role: ROLE_NAMES.PARENT, count: 5 },
+  ]
+
+  let userIndex = 1
+  for (const { role, count } of roleDistribution) {
+    for (let i = 0; i < count; i++) {
+      const name = generateVietnameseName()
+      const email = generateEmail(name, userIndex++)
+      const user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+        },
+      })
+      additionalUsers.push({ user, role })
+    }
+  }
+
+  // Gán roles cho tất cả users
   await prisma.userRole.createMany({
     data: [
       {
@@ -467,11 +640,25 @@ async function main() {
         userId: parentUser.id,
         roleId: getRoleId(ROLE_NAMES.PARENT),
       },
+      ...additionalUsers.map(({ user, role }) => ({
+        userId: user.id,
+        roleId: getRoleId(role),
+      })),
     ],
     skipDuplicates: true,
   })
 
-  console.log("✅ Đã tạo users")
+  const allUsers = [
+    superAdminUser,
+    adminUser,
+    editorUser,
+    authorUser,
+    regularUser,
+    parentUser,
+    ...additionalUsers.map(({ user }) => user),
+  ]
+
+  console.log(`✅ Đã tạo ${allUsers.length} users`)
 
   const categories = await Promise.all([
     prisma.category.upsert({
@@ -763,147 +950,128 @@ async function main() {
     },
   })
 
-  const allPosts = [post1, post2, post3, post4, post5, post6, post7, post8]
+  // Tạo thêm posts (để có trên 25 posts)
+  const additionalPosts = []
+  const authors = [superAdminUser, adminUser, editorUser, authorUser, ...additionalUsers.filter((u) => u.role === ROLE_NAMES.EDITOR || u.role === ROLE_NAMES.AUTHOR).map((u) => u.user)]
 
-  console.log("✅ Đã tạo posts")
+  for (let i = 0; i < 20; i++) {
+    const title = postTitles[i % postTitles.length] + ` ${i > 0 ? `- Phần ${i + 1}` : ""}`
+    const slug = generateSlug(title) + (i > 0 ? `-${i}` : "")
+    const author = randomItem(authors)
+    const published = Math.random() > 0.3 // 70% published, 30% draft
+    const publishedAt = published ? new Date(Date.now() - randomInt(0, 30) * 24 * 60 * 60 * 1000) : null
+
+    const post = await prisma.post.create({
+      data: {
+        title,
+        content: Math.random() > 0.5 ? samplePostContent : samplePostContent2,
+        excerpt: `Đây là excerpt cho bài viết "${title}". Nội dung chi tiết sẽ được hiển thị trong bài viết.`,
+        slug,
+        image: `https://images.unsplash.com/photo-${1555066931 + i}?w=800&h=400&fit=crop`,
+        published,
+        publishedAt,
+        authorId: author.id,
+      },
+    })
+    additionalPosts.push(post)
+  }
+
+  const allPosts = [post1, post2, post3, post4, post5, post6, post7, post8, ...additionalPosts]
+
+  console.log(`✅ Đã tạo ${allPosts.length} posts`)
+
+  // Liên kết posts với categories và tags
+  const postCategoryData = []
+  const postTagData = []
+
+  for (const post of allPosts) {
+    // Mỗi post có 1-3 categories
+    const categoryCount = randomInt(1, 3)
+    const selectedCategories = randomItems(categories, categoryCount)
+    postCategoryData.push(
+      ...selectedCategories.map((category) => ({
+        postId: post.id,
+        categoryId: category.id,
+      }))
+    )
+
+    // Mỗi post có 2-5 tags
+    const tagCount = randomInt(2, 5)
+    const selectedTags = randomItems(tags, tagCount)
+    postTagData.push(
+      ...selectedTags.map((tag) => ({
+        postId: post.id,
+        tagId: tag.id,
+      }))
+    )
+  }
 
   await prisma.postCategory.createMany({
-    data: [
-      { postId: post1.id, categoryId: categories[0].id },
-      { postId: post1.id, categoryId: categories[1].id },
-      { postId: post2.id, categoryId: categories[0].id },
-      { postId: post3.id, categoryId: categories[1].id },
-      { postId: post4.id, categoryId: categories[1].id },
-      { postId: post4.id, categoryId: categories[4].id },
-      { postId: post5.id, categoryId: categories[1].id },
-      { postId: post5.id, categoryId: categories[4].id },
-      { postId: post6.id, categoryId: categories[6].id },
-      { postId: post7.id, categoryId: categories[1].id },
-      { postId: post7.id, categoryId: categories[6].id },
-      { postId: post8.id, categoryId: categories[6].id },
-    ],
+    data: postCategoryData,
     skipDuplicates: true,
   })
 
   await prisma.postTag.createMany({
-    data: [
-      { postId: post1.id, tagId: tags[0].id },
-      { postId: post1.id, tagId: tags[1].id },
-      { postId: post1.id, tagId: tags[2].id },
-      { postId: post1.id, tagId: tags[3].id },
-      { postId: post2.id, tagId: tags[0].id },
-      { postId: post2.id, tagId: tags[1].id },
-      { postId: post3.id, tagId: tags[2].id },
-      { postId: post3.id, tagId: tags[6].id },
-      { postId: post3.id, tagId: tags[7].id },
-      { postId: post4.id, tagId: tags[4].id },
-      { postId: post4.id, tagId: tags[3].id },
-      { postId: post5.id, tagId: tags[3].id },
-      { postId: post5.id, tagId: tags[4].id },
-      { postId: post6.id, tagId: tags[7].id },
-      { postId: post6.id, tagId: tags[10].id },
-      { postId: post7.id, tagId: tags[8].id },
-      { postId: post7.id, tagId: tags[9].id },
-      { postId: post8.id, tagId: tags[11].id },
-      { postId: post8.id, tagId: tags[6].id },
-    ],
+    data: postTagData,
     skipDuplicates: true,
   })
 
-  console.log("✅ Đã liên kết posts với categories và tags")
+  console.log(`✅ Đã liên kết ${allPosts.length} posts với categories và tags`)
+
+  // Tạo comments cho các posts
+  const commentsData = []
+  const commentAuthors = allUsers.filter((u) => u.id !== superAdminUser.id) // Exclude super admin
+
+  // Tạo ít nhất 3-5 comments cho mỗi post
+  for (const post of allPosts) {
+    const commentCount = randomInt(3, 8)
+    for (let i = 0; i < commentCount; i++) {
+      const author = randomItem(commentAuthors)
+      const content = randomItem(commentContents)
+      const approved = Math.random() > 0.3 // 70% approved, 30% pending
+
+      commentsData.push({
+        content,
+        approved,
+        authorId: author.id,
+        postId: post.id,
+      })
+    }
+  }
 
   await prisma.comment.createMany({
-    data: [
-      {
-        content: "Bài viết rất hay và hữu ích! Cảm ơn tác giả đã chia sẻ.",
-        approved: true,
-        authorId: authorUser.id,
-        postId: post1.id,
-      },
-      {
-        content: "Tôi đã thử và thấy rất dễ sử dụng. Recommend cho mọi người!",
-        approved: true,
-        authorId: editorUser.id,
-        postId: post1.id,
-      },
-      {
-        content: "Có thể chia sẻ thêm về cách customize editor không?",
-        approved: false,
-        authorId: regularUser.id,
-        postId: post2.id,
-      },
-      {
-        content: "Rất thích cách giải thích chi tiết. Mong chờ bài viết tiếp theo!",
-        approved: true,
-        authorId: regularUser.id,
-        postId: post1.id,
-      },
-      {
-        content: "Next.js 16 có vẻ rất mạnh mẽ. Cảm ơn bạn đã chia sẻ!",
-        approved: true,
-        authorId: authorUser.id,
-        postId: post4.id,
-      },
-      {
-        content: "Bài viết về React Server Components rất hay. Tôi đã học được nhiều điều mới.",
-        approved: true,
-        authorId: editorUser.id,
-        postId: post5.id,
-      },
-      {
-        content: "Có thể bạn có thể giải thích thêm về cách optimize queries không?",
-        approved: false,
-        authorId: regularUser.id,
-        postId: post6.id,
-      },
-      {
-        content: "TypeScript patterns này rất hữu ích cho dự án của tôi. Cảm ơn!",
-        approved: true,
-        authorId: authorUser.id,
-        postId: post7.id,
-      },
-      {
-        content: "API design là một chủ đề quan trọng. Bài viết này rất chi tiết.",
-        approved: true,
-        authorId: adminUser.id,
-        postId: post8.id,
-      },
-      {
-        content: "Tôi có một số câu hỏi về cách implement versioning. Có thể hỗ trợ không?",
-        approved: false,
-        authorId: regularUser.id,
-        postId: post8.id,
-      },
-    ],
+    data: commentsData,
   })
 
-  console.log("✅ Đã tạo comments")
+  console.log(`✅ Đã tạo ${commentsData.length} comments`)
 
-  const parents = [parentUser]
+  const parents = [parentUser, ...additionalUsers.filter((u) => u.role === ROLE_NAMES.PARENT).map((u) => u.user)]
   console.log(`✅ Đã tạo parents (${parents.length})`)
 
-  const studentSeedData = [
-    { code: "STU-1001", name: "Nguyễn Văn An" },
-    { code: "STU-1002", name: "Trần Thị Bình" },
-    { code: "STU-1003", name: "Lê Văn Cường" },
-    { code: "STU-1004", name: "Phạm Thị Dung" },
-    { code: "STU-1005", name: "Hoàng Văn Em" },
-    { code: "STU-1006", name: "Vũ Thị Phương" },
-    { code: "STU-1007", name: "Đặng Văn Giang" },
-    { code: "STU-1008", name: "Bùi Thị Hoa" },
-  ]
+  // Tạo students (ít nhất 25 students)
+  const studentSeedData = []
+  for (let i = 1; i <= 25; i++) {
+    const code = `STU-${1000 + i}`
+    const name = generateVietnameseName()
+    const parent = randomItem(parents)
+    studentSeedData.push({
+      code,
+      name,
+      parentId: parent.id,
+    })
+  }
 
   await Promise.all(
     studentSeedData.map((student) =>
       prisma.student.upsert({
         where: { studentCode: student.code },
         update: {
-          userId: parentUser.id,
+          userId: student.parentId,
           name: student.name,
           email: `${student.code.toLowerCase()}@example.com`,
         },
         create: {
-          userId: parentUser.id,
+          userId: student.parentId,
           studentCode: student.code,
           name: student.name,
           email: `${student.code.toLowerCase()}@example.com`,
@@ -921,260 +1089,251 @@ async function main() {
     orderBy: { studentCode: "asc" },
   })
 
-  console.log("✅ Đã tạo students")
+  console.log(`✅ Đã tạo ${createdStudents.length} students`)
 
-  // Tạo Contact Requests
+  // Tạo Contact Requests (ít nhất 25 requests)
+  const contactRequestsData = []
+  const statuses: Array<"NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"> = ["NEW", "IN_PROGRESS", "RESOLVED", "CLOSED"]
+  const priorities: Array<"LOW" | "MEDIUM" | "HIGH" | "URGENT"> = ["LOW", "MEDIUM", "HIGH", "URGENT"]
+  const assignableUsers = [adminUser, editorUser, ...additionalUsers.filter((u) => u.role === ROLE_NAMES.ADMIN || u.role === ROLE_NAMES.EDITOR).map((u) => u.user)]
+
+  for (let i = 0; i < 25; i++) {
+    const name = generateVietnameseName()
+    const email = `contact${i + 1}@example.com`
+    const phone = `09${String(i).padStart(8, "0")}`
+    const subject = randomItem(contactRequestSubjects)
+    const content = `Nội dung yêu cầu liên hệ số ${i + 1}. ${randomItem(commentContents)}`
+    const status = randomItem(statuses)
+    const priority = randomItem(priorities)
+    const isRead = status !== "NEW" && Math.random() > 0.2
+    const assignedToId = status !== "NEW" && Math.random() > 0.3 ? randomItem(assignableUsers).id : null
+
+    contactRequestsData.push({
+      name,
+      email,
+      phone,
+      subject,
+      content,
+      status,
+      priority,
+      isRead,
+      assignedToId,
+    })
+  }
+
   const contactRequests = await prisma.contactRequest.createMany({
-    data: [
-      {
-        name: "Nguyễn Văn Khách",
-        email: "khach1@example.com",
-        phone: "0901234567",
-        subject: "Câu hỏi về hệ thống",
-        content: "Tôi muốn tìm hiểu thêm về cách sử dụng hệ thống CMS này.",
-        status: "NEW",
-        priority: "MEDIUM",
-        isRead: false,
-      },
-      {
-        name: "Trần Thị Người Dùng",
-        email: "user2@example.com",
-        phone: "0912345678",
-        subject: "Yêu cầu hỗ trợ kỹ thuật",
-        content: "Tôi gặp vấn đề khi đăng nhập vào hệ thống. Có thể hỗ trợ không?",
-        status: "IN_PROGRESS",
-        priority: "HIGH",
-        isRead: true,
-        assignedToId: adminUser.id,
-      },
-      {
-        name: "Lê Văn Phản Hồi",
-        email: "feedback@example.com",
-        phone: "0923456789",
-        subject: "Góp ý về tính năng mới",
-        content: "Tôi có một số góp ý về tính năng editor. Mong được xem xét!",
-        status: "RESOLVED",
-        priority: "LOW",
-        isRead: true,
-        assignedToId: editorUser.id,
-      },
-      {
-        name: "Phạm Thị Khẩn Cấp",
-        email: "urgent@example.com",
-        phone: "0934567890",
-        subject: "Lỗi nghiêm trọng cần xử lý ngay",
-        content: "Hệ thống bị lỗi khi tôi cố gắng lưu bài viết. Cần hỗ trợ ngay!",
-        status: "NEW",
-        priority: "URGENT",
-        isRead: false,
-      },
-      {
-        name: "Hoàng Văn Đóng",
-        email: "closed@example.com",
-        phone: "0945678901",
-        subject: "Vấn đề đã được giải quyết",
-        content: "Cảm ơn bạn đã hỗ trợ. Vấn đề của tôi đã được giải quyết.",
-        status: "CLOSED",
-        priority: "MEDIUM",
-        isRead: true,
-        assignedToId: adminUser.id,
-      },
-    ],
+    data: contactRequestsData,
   })
 
   console.log(`✅ Đã tạo ${contactRequests.count} contact requests`)
 
-  // Tạo Notifications
+  // Tạo Notifications (ít nhất 25 notifications)
+  const notificationsData = []
+  const notificationKinds: Array<"SYSTEM" | "MESSAGE" | "ANNOUNCEMENT" | "SUCCESS" | "WARNING" | "INFO" | "ALERT"> = [
+    "SYSTEM",
+    "MESSAGE",
+    "ANNOUNCEMENT",
+    "SUCCESS",
+    "WARNING",
+    "INFO",
+    "ALERT",
+  ]
+
+  // Tạo ít nhất 3-5 notifications cho mỗi user
+  for (const user of allUsers) {
+    const notificationCount = randomInt(3, 6)
+    for (let i = 0; i < notificationCount; i++) {
+      const kind = randomItem(notificationKinds)
+      const title = randomItem(notificationTitles)
+      const description = `Mô tả cho thông báo "${title}". Đây là thông báo số ${i + 1} cho user ${user.name}.`
+      const isRead = Math.random() > 0.4 // 60% unread, 40% read
+      const readAt = isRead ? new Date(Date.now() - randomInt(1, 7) * 24 * 60 * 60 * 1000) : null
+      const actionUrl = randomItem([
+        "/admin/dashboard",
+        "/admin/posts",
+        "/admin/messages",
+        "/admin/students",
+        "/admin/contact-requests",
+        `/admin/posts/${randomItem(allPosts).id}`,
+      ])
+
+      notificationsData.push({
+        userId: user.id,
+        kind,
+        title,
+        description,
+        isRead,
+        readAt,
+        actionUrl,
+      })
+    }
+  }
+
   const notifications = await prisma.notification.createMany({
-    data: [
-      {
-        userId: superAdminUser.id,
-        kind: "SYSTEM",
-        title: "Chào mừng đến với hệ thống!",
-        description: "Bạn đã đăng nhập thành công vào hệ thống CMS.",
-        isRead: false,
-        actionUrl: "/admin/dashboard",
-      },
-      {
-        userId: adminUser.id,
-        kind: "MESSAGE",
-        title: "Bạn có tin nhắn mới",
-        description: "Bạn có 1 tin nhắn mới từ người dùng.",
-        isRead: false,
-        actionUrl: "/admin/messages",
-        metadata: { messageId: "msg-1", fromUserId: regularUser.id },
-      },
-      {
-        userId: editorUser.id,
-        kind: "ANNOUNCEMENT",
-        title: "Thông báo quan trọng",
-        description: "Hệ thống sẽ được bảo trì vào cuối tuần này.",
-        isRead: true,
-        readAt: new Date(),
-      },
-      {
-        userId: authorUser.id,
-        kind: "SUCCESS",
-        title: "Bài viết đã được duyệt",
-        description: "Bài viết của bạn đã được phê duyệt và xuất bản.",
-        isRead: false,
-        actionUrl: `/admin/posts/${post1.id}`,
-      },
-      {
-        userId: regularUser.id,
-        kind: "WARNING",
-        title: "Cảnh báo bảo mật",
-        description: "Vui lòng cập nhật mật khẩu của bạn để bảo mật tài khoản.",
-        isRead: false,
-        actionUrl: "/admin/account",
-      },
-      {
-        userId: parentUser.id,
-        kind: "INFO",
-        title: "Thông tin học sinh",
-        description: "Có thông tin mới về học sinh của bạn.",
-        isRead: false,
-        actionUrl: "/admin/students",
-      },
-      {
-        userId: adminUser.id,
-        kind: "ALERT",
-        title: "Yêu cầu liên hệ mới",
-        description: "Bạn có 1 yêu cầu liên hệ mới cần xử lý.",
-        isRead: false,
-        actionUrl: "/admin/contact-requests",
-      },
-    ],
+    data: notificationsData,
   })
 
   console.log(`✅ Đã tạo ${notifications.count} notifications`)
 
-  // Tạo Groups
-  const group1 = await prisma.group.create({
-    data: {
-      name: "Nhóm Phát Triển",
-      description: "Nhóm dành cho các developer trong hệ thống",
-      createdById: superAdminUser.id,
-    },
-  })
+  // Tạo Groups (ít nhất 5 groups)
+  const groups = []
+  const groupDescriptions = [
+    "Nhóm dành cho các developer trong hệ thống",
+    "Nhóm dành cho các editor và author",
+    "Nhóm marketing và truyền thông",
+    "Nhóm hỗ trợ khách hàng",
+    "Nhóm quản lý dự án",
+    "Nhóm nghiên cứu và phát triển",
+    "Nhóm đào tạo",
+    "Nhóm kiểm soát chất lượng",
+  ]
 
-  const group2 = await prisma.group.create({
-    data: {
-      name: "Nhóm Biên Tập",
-      description: "Nhóm dành cho các editor và author",
-      createdById: editorUser.id,
-    },
-  })
+  for (let i = 0; i < 5; i++) {
+    const name = groupNames[i] || `Nhóm ${i + 1}`
+    const description = groupDescriptions[i] || `Mô tả cho ${name}`
+    const creator = randomItem(allUsers)
 
-  // Tạo Group Members
-  await prisma.groupMember.createMany({
-    data: [
-      { groupId: group1.id, userId: superAdminUser.id, role: "OWNER" },
-      { groupId: group1.id, userId: adminUser.id, role: "ADMIN" },
-      { groupId: group1.id, userId: editorUser.id, role: "MEMBER" },
-      { groupId: group1.id, userId: authorUser.id, role: "MEMBER" },
-      { groupId: group2.id, userId: editorUser.id, role: "OWNER" },
-      { groupId: group2.id, userId: authorUser.id, role: "MEMBER" },
-      { groupId: group2.id, userId: regularUser.id, role: "MEMBER" },
-    ],
-  })
+    const group = await prisma.group.create({
+      data: {
+        name,
+        description,
+        createdById: creator.id,
+      },
+    })
+    groups.push(group)
 
-  console.log("✅ Đã tạo groups và group members")
+    // Thêm members cho mỗi group (3-8 members)
+    const memberCount = randomInt(3, 8)
+    const selectedMembers = randomItems(allUsers, memberCount)
 
-  // Tạo Messages (Personal và Group)
-  const _personalMessage1 = await prisma.message.create({
-    data: {
-      senderId: regularUser.id,
-      receiverId: adminUser.id,
-      subject: "Câu hỏi về quyền truy cập",
-      content: "Xin chào, tôi muốn hỏi về quyền truy cập của tài khoản USER. Có thể giải thích giúp tôi không?",
-      type: "PERSONAL",
-      isRead: false,
-    },
-  })
+    await prisma.groupMember.createMany({
+      data: selectedMembers.map((member, index) => ({
+        groupId: group.id,
+        userId: member.id,
+        role: (index === 0 ? "OWNER" : index < 3 ? randomItem(["ADMIN", "MEMBER"]) : "MEMBER") as "OWNER" | "ADMIN" | "MEMBER",
+      })),
+    })
+  }
 
-  const personalMessage2 = await prisma.message.create({
-    data: {
-      senderId: authorUser.id,
-      receiverId: editorUser.id,
-      subject: "Yêu cầu review bài viết",
-      content: "Tôi đã hoàn thành bài viết mới. Bạn có thể review giúp tôi không?",
-      type: "PERSONAL",
-      isRead: true,
-    },
-  })
+  console.log(`✅ Đã tạo ${groups.length} groups với members`)
 
-  const groupMessage1 = await prisma.message.create({
-    data: {
-      senderId: superAdminUser.id,
-      groupId: group1.id,
-      subject: "Thông báo về phiên bản mới",
-      content: "Chúng tôi đã phát hành phiên bản mới của hệ thống với nhiều cải tiến.",
-      type: "ANNOUNCEMENT",
-    },
-  })
+  // Tạo Messages (Personal và Group) - ít nhất 25 messages
+  const messages = []
+  const messageSubjects = [
+    "Câu hỏi về quyền truy cập",
+    "Yêu cầu review bài viết",
+    "Thông báo về phiên bản mới",
+    "Hướng dẫn sử dụng",
+    "Cập nhật hệ thống",
+    "Thông báo quan trọng",
+    "Yêu cầu hỗ trợ",
+    "Phản hồi",
+  ]
 
-  const groupMessage2 = await prisma.message.create({
-    data: {
-      senderId: editorUser.id,
-      groupId: group2.id,
-      subject: "Hướng dẫn sử dụng editor mới",
-      content: "Các bạn có thể tham khảo tài liệu mới về cách sử dụng editor.",
-      type: "NOTIFICATION",
-    },
-  })
+  // Tạo personal messages (15 messages)
+  for (let i = 0; i < 15; i++) {
+    const sender = randomItem(allUsers)
+    const receiver = randomItem(allUsers.filter((u) => u.id !== sender.id))
+    const subject = randomItem(messageSubjects)
+    const content = randomItem(commentContents) + ` (Message ${i + 1})`
+    const type = "PERSONAL"
+    const isRead = Math.random() > 0.4
 
-  // Tạo Message Reads
-  await prisma.messageRead.createMany({
-    data: [
-      { messageId: groupMessage1.id, userId: superAdminUser.id },
-      { messageId: groupMessage1.id, userId: adminUser.id },
-      { messageId: groupMessage1.id, userId: editorUser.id },
-      { messageId: groupMessage2.id, userId: editorUser.id },
-      { messageId: groupMessage2.id, userId: authorUser.id },
-      { messageId: personalMessage2.id, userId: editorUser.id },
-    ],
-  })
+    const message = await prisma.message.create({
+      data: {
+        senderId: sender.id,
+        receiverId: receiver.id,
+        subject,
+        content,
+        type,
+        isRead,
+      },
+    })
+    messages.push(message)
 
-  console.log("✅ Đã tạo messages và message reads")
+    if (isRead) {
+      await prisma.messageRead.create({
+        data: {
+          messageId: message.id,
+          userId: receiver.id,
+        },
+      })
+    }
+  }
 
-  // Tạo Sessions mẫu
-  const futureDate = new Date()
-  futureDate.setDate(futureDate.getDate() + 7) // 7 ngày sau
+  // Tạo group messages (10 messages)
+  for (let i = 0; i < 10; i++) {
+    const group = randomItem(groups)
+    const sender = randomItem(allUsers)
+    const subject = randomItem(messageSubjects)
+    const content = randomItem(commentContents) + ` (Group message ${i + 1})`
+    const type = randomItem(["ANNOUNCEMENT", "NOTIFICATION"])
+
+    const message = await prisma.message.create({
+      data: {
+        senderId: sender.id,
+        groupId: group.id,
+        subject,
+        content,
+        type: type as "NOTIFICATION" | "ANNOUNCEMENT" | "PERSONAL" | "SYSTEM",
+      },
+    })
+    messages.push(message)
+
+    // Tạo message reads cho một số members
+    const groupMembers = await prisma.groupMember.findMany({
+      where: { groupId: group.id, leftAt: null },
+    })
+    const readCount = randomInt(1, Math.min(groupMembers.length, 5))
+    const readers = randomItems(groupMembers, readCount)
+
+    await prisma.messageRead.createMany({
+      data: readers.map((member) => ({
+        messageId: message.id,
+        userId: member.userId,
+      })),
+    })
+  }
+
+  console.log(`✅ Đã tạo ${messages.length} messages với reads`)
+
+  // Tạo Sessions (ít nhất 25 sessions)
+  const sessionsData = []
+  const userAgents = [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
+    "Mozilla/5.0 (Android 11; Mobile; rv:68.0) Gecko/68.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+  ]
+
+  // Tạo 2-3 sessions cho mỗi user
+  for (const user of allUsers) {
+    const sessionCount = randomInt(2, 4)
+    for (let i = 0; i < sessionCount; i++) {
+      const isActive = Math.random() > 0.3 // 70% active
+      const futureDate = new Date()
+      futureDate.setDate(futureDate.getDate() + randomInt(1, 30))
+      const pastDate = new Date()
+      pastDate.setDate(pastDate.getDate() - randomInt(1, 10))
+
+      sessionsData.push({
+        userId: user.id,
+        accessToken: `access_token_${user.id}_${Date.now()}_${i}`,
+        refreshToken: `refresh_token_${user.id}_${Date.now()}_${i}`,
+        userAgent: randomItem(userAgents),
+        ipAddress: `192.168.1.${randomInt(100, 255)}`,
+        isActive,
+        expiresAt: isActive ? futureDate : pastDate,
+      })
+    }
+  }
 
   await prisma.session.createMany({
-    data: [
-      {
-        userId: superAdminUser.id,
-        accessToken: `access_token_${superAdminUser.id}_${Date.now()}`,
-        refreshToken: `refresh_token_${superAdminUser.id}_${Date.now()}`,
-        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-        ipAddress: "192.168.1.100",
-        isActive: true,
-        expiresAt: futureDate,
-      },
-      {
-        userId: adminUser.id,
-        accessToken: `access_token_${adminUser.id}_${Date.now()}`,
-        refreshToken: `refresh_token_${adminUser.id}_${Date.now()}`,
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        ipAddress: "192.168.1.101",
-        isActive: true,
-        expiresAt: futureDate,
-      },
-      {
-        userId: editorUser.id,
-        accessToken: `access_token_${editorUser.id}_${Date.now()}`,
-        refreshToken: `refresh_token_${editorUser.id}_${Date.now()}`,
-        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0)",
-        ipAddress: "192.168.1.102",
-        isActive: false, // Inactive session
-        expiresAt: new Date(Date.now() - 86400000), // Expired yesterday
-      },
-    ],
+    data: sessionsData,
   })
 
-  console.log("✅ Đã tạo sessions")
+  console.log(`✅ Đã tạo ${sessionsData.length} sessions`)
 
   console.log("🎉 Seed database hoàn thành!")
   const publishedPosts = allPosts.filter((p) => p.published).length
@@ -1187,7 +1346,7 @@ async function main() {
     `- Roles: ${roles.length} (${roleConfigs.map((role) => role.displayName).join(", ")})`
   )
   console.log(`- Tổng quyền được gán: ${totalPermissions}`)
-  console.log(`- Users: 6 (Super Admin, Admin, Editor, Author, User, Parent)`)
+  console.log(`- Users: ${allUsers.length} (Super Admin, Admin, Editor, Author, User, Parent)`)
   console.log(`- Categories: ${categories.length}`)
   console.log(`- Tags: ${tags.length}`)
   console.log(`- Posts: ${allPosts.length} (${publishedPosts} published, ${draftPosts} drafts)`)
@@ -1196,9 +1355,9 @@ async function main() {
   console.log(`- Students: ${createdStudents.length}`)
   console.log(`- Contact Requests: ${contactRequests.count} (various statuses and priorities)`)
   console.log(`- Notifications: ${notifications.count} (various types)`)
-  console.log(`- Groups: 2 (with members)`)
-  console.log(`- Messages: 4 (2 personal, 2 group)`)
-  console.log(`- Sessions: 3 (2 active, 1 inactive)`)
+  console.log(`- Groups: ${groups.length} (with members)`)
+  console.log(`- Messages: ${messages.length} (personal and group)`)
+  console.log(`- Sessions: ${sessionsData.length} (active and inactive)`)
 
   console.log("\n🔐 Permission System:")
   roleConfigs.forEach((role) => {
