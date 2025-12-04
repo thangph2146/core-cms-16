@@ -575,69 +575,6 @@ export function AboutClient() {
     return () => window.removeEventListener("resize", updateLeadersPerSlide);
   }, [leaderGenerations]);
 
-  // Tính số slide cho thế hệ lãnh đạo hiện tại
-  const _getTotalLeaderSlides = (generationIndex: number) => {
-    const leaders = leaderGenerations[generationIndex]?.leaders || [];
-    return Math.ceil(leaders.length / leadersPerSlide);
-  };
-
-  // Navigation cho leader carousel - sử dụng scroll
-  const _nextLeaderCarousel = (generationIndex: number) => {
-    const carouselEl = leaderCarouselRefs.current[generationIndex];
-    if (carouselEl) {
-      const slideWidth = carouselEl.clientWidth;
-      const currentScroll = carouselEl.scrollLeft;
-      const nextScroll = currentScroll + slideWidth;
-      carouselEl.scrollTo({
-        left: nextScroll,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const _prevLeaderCarousel = (generationIndex: number) => {
-    const carouselEl = leaderCarouselRefs.current[generationIndex];
-    if (carouselEl) {
-      const slideWidth = carouselEl.clientWidth;
-      const currentScroll = carouselEl.scrollLeft;
-      const prevScroll = currentScroll - slideWidth;
-      carouselEl.scrollTo({
-        left: prevScroll,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const _goToLeaderSlide = (generationIndex: number, slideIndex: number) => {
-    const carouselEl = leaderCarouselRefs.current[generationIndex];
-    if (carouselEl) {
-      const slideWidth = carouselEl.clientWidth;
-      carouselEl.scrollTo({
-        left: slideIndex * slideWidth,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  // Lấy các lãnh đạo hiển thị trong một slide cụ thể
-  const _getLeadersForSlide = (
-    generationIndex: number,
-    slideIndex: number
-  ): ((typeof leaderGenerations)[0]["leaders"][0] | null)[] => {
-    const leaders = leaderGenerations[generationIndex]?.leaders || [];
-    const startIndex = slideIndex * leadersPerSlide;
-    const endIndex = startIndex + leadersPerSlide;
-    const slideLeaders: ((typeof leaderGenerations)[0]["leaders"][0] | null)[] =
-      leaders.slice(startIndex, endIndex);
-
-    // Đảm bảo luôn có đủ số lượng để hiển thị (fill với null nếu thiếu)
-    while (slideLeaders.length < leadersPerSlide) {
-      slideLeaders.push(null);
-    }
-
-    return slideLeaders;
-  };
-
   // Tính số slide: mobile = số hình ảnh, desktop = số hình ảnh / 2
   const totalSlides = isMobile
     ? facilityImages.length
@@ -905,13 +842,14 @@ export function AboutClient() {
 
         {/* Dialog for "Xem thêm" */}
         <Dialog open={showMoreDialog} onOpenChange={setShowMoreDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[90vw] lg:max-w-4xl">
             <DialogHeader>
               <DialogTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground uppercase">
                 Về <span className="text-secondary">HUB</span>
               </DialogTitle>
             </DialogHeader>
             <DialogDescription asChild>
+              <ScrollArea className="max-h-[calc(70dvh)] px-2 overflow-y-auto">
               <div className="prose prose-sm sm:prose-base md:prose-lg text-foreground leading-relaxed dark:prose-invert max-w-none">
                 <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-4">
                   Trường Đại học Ngân hàng TP. Hồ Chí Minh đang đào tạo 16 ngành
@@ -982,6 +920,7 @@ export function AboutClient() {
                   nghiệp và xã hội.
                 </p>
               </div>
+              </ScrollArea>
             </DialogDescription>
           </DialogContent>
         </Dialog>
