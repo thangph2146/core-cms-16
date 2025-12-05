@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ImageIcon, Upload as UploadIcon, Loader2, Trash2 } from "lucide-react"
+import { ImageIcon, Upload, Loader2, Trash2 } from "lucide-react"
 import { logger } from "@/lib/config"
 import { SelectionActionsWrapper } from "@/features/admin/resources/components"
 import type { UploadResponse } from "@/features/admin/uploads/types"
@@ -213,8 +213,8 @@ export function UploadsPageClient() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <UploadIcon className="h-5 w-5" />
-            Upload hình ảnh mới
+            <Upload className="h-5 w-5 shrink-0" />
+            <span>Upload hình ảnh mới</span>
           </CardTitle>
           <CardDescription>
             Kéo thả hoặc chọn nhiều file hình ảnh để upload. Tự động resize và compress nếu cần.

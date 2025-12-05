@@ -22,6 +22,7 @@ import {
   Info,
   Mail,
   HelpCircle,
+  Upload,
 } from "lucide-react"
 import { NavMain } from "./nav-main"
 import { useUnreadCounts } from "@/hooks/use-unread-counts"
@@ -47,6 +48,7 @@ const iconMap: Record<string, LucideIcon> = {
   notifications: Bell,
   contactRequests: BadgeHelp,
   sessions: LogIn,
+  uploads: Upload,
   accounts: UserCircle,
   support: LifeBuoy,
   home: Home,

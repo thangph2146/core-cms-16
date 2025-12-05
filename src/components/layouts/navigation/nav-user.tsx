@@ -24,6 +24,7 @@ import {
   Tag,
   Users,
   UserCircle,
+  Upload,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -41,6 +42,7 @@ const iconMap: Record<string, LucideIcon> = {
   notifications: Bell,
   contactRequests: BadgeHelp,
   sessions: LogIn,
+  uploads: Upload,
   accounts: UserCircle,
   support: LifeBuoy,
 };
