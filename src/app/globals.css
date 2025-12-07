@@ -258,6 +258,7 @@
   .focus-visible\:ring-offset-2:focus-visible {
     --tw-ring-offset-width: 0px !important;
   }
+  
 }
 
 @layer utilities {
