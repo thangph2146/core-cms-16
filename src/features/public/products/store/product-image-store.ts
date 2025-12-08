@@ -1,20 +1,16 @@
 /**
  * Product Image Store (Zustand)
- * Quản lý UI state cho product image gallery để tránh lag và refresh dư thừa
+ * Manages UI state for product image gallery to prevent lag and unnecessary refreshes
+ * Follows Zustand best practices with devtools support
  */
 
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 
 interface ProductImageState {
-  // Selected image index per product
   selectedImageIndex: Record<string, number>
-  
-  // Scroll button visibility per product
   canScrollLeft: Record<string, boolean>
   canScrollRight: Record<string, boolean>
-  
-  // Preloaded images
   preloadedImages: Set<string>
   
   // Actions
@@ -26,6 +22,16 @@ interface ProductImageState {
   resetProductState: (productId: string) => void
 }
 
+// Helper to update nested record state
+const updateRecord = <T>(
+  state: Record<string, T>,
+  key: string,
+  value: T
+): Record<string, T> => ({
+  ...state,
+  [key]: value,
+})
+
 export const useProductImageStore = create<ProductImageState>()(
   devtools(
     (set, get) => ({
@@ -36,32 +42,21 @@ export const useProductImageStore = create<ProductImageState>()(
 
       setSelectedImageIndex: (productId, index) =>
         set((state) => ({
-          selectedImageIndex: {
-            ...state.selectedImageIndex,
-            [productId]: index,
-          },
+          selectedImageIndex: updateRecord(state.selectedImageIndex, productId, index),
         })),
 
       setCanScrollLeft: (productId, canScroll) =>
         set((state) => ({
-          canScrollLeft: {
-            ...state.canScrollLeft,
-            [productId]: canScroll,
-          },
+          canScrollLeft: updateRecord(state.canScrollLeft, productId, canScroll),
         })),
 
       setCanScrollRight: (productId, canScroll) =>
         set((state) => ({
-          canScrollRight: {
-            ...state.canScrollRight,
-            [productId]: canScroll,
-          },
+          canScrollRight: updateRecord(state.canScrollRight, productId, canScroll),
         })),
 
       preloadImage: (url) => {
-        const state = get()
-        if (state.preloadedImages.has(url)) return
-
+        if (get().preloadedImages.has(url)) return
         const img = new Image()
         img.src = url
         set((state) => ({
@@ -69,17 +64,14 @@ export const useProductImageStore = create<ProductImageState>()(
         }))
       },
 
-      isImagePreloaded: (url) => {
-        return get().preloadedImages.has(url)
-      },
+      isImagePreloaded: (url) => get().preloadedImages.has(url),
 
       resetProductState: (productId) =>
         set((state) => {
-          const newState = { ...state }
-          delete newState.selectedImageIndex[productId]
-          delete newState.canScrollLeft[productId]
-          delete newState.canScrollRight[productId]
-          return newState
+          const { [productId]: _, ...selectedImageIndex } = state.selectedImageIndex
+          const { [productId]: __, ...canScrollLeft } = state.canScrollLeft
+          const { [productId]: ___, ...canScrollRight } = state.canScrollRight
+          return { selectedImageIndex, canScrollLeft, canScrollRight }
         }),
     }),
     { name: "ProductImageStore" }

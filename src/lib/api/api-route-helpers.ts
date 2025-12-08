@@ -1,6 +1,7 @@
 /**
- * Helper functions cho API routes
- * Tách logic chung để code ngắn gọn và dễ maintain
+ * API Route Helpers
+ * Shared utilities for Next.js API routes
+ * Follows Next.js 16 best practices
  */
 
 import { NextRequest } from "next/server"
@@ -9,7 +10,7 @@ import type { ApiRouteContext } from "./types"
 import { createErrorResponse } from "@/lib/config"
 
 /**
- * Parse request body với error handling
+ * Parse request body with error handling
  */
 export async function parseRequestBody(req: NextRequest): Promise<Record<string, unknown>> {
   try {
@@ -20,15 +21,13 @@ export async function parseRequestBody(req: NextRequest): Promise<Record<string,
 }
 
 /**
- * Extract params từ dynamic route args
+ * Extract params from dynamic route args
  */
 export async function extractParams<T extends Record<string, string>>(
   args: unknown[]
 ): Promise<T> {
   const { params } = (args[0] as { params: Promise<T> }) || {}
-  if (!params) {
-    throw new ApplicationError("Invalid route parameters", 400)
-  }
+  if (!params) throw new ApplicationError("Invalid route parameters", 400)
   return await params
 }
 
@@ -37,9 +36,7 @@ export async function extractParams<T extends Record<string, string>>(
  */
 export function getUserId(context: ApiRouteContext): string {
   const userId = context.session?.user?.id
-  if (!userId) {
-    throw new ApplicationError("Unauthorized", 401)
-  }
+  if (!userId) throw new ApplicationError("Unauthorized", 401)
   return userId
 }
 
@@ -55,12 +52,12 @@ export function createAuthContext(context: ApiRouteContext, userId: string) {
 }
 
 /**
- * Handle API errors với proper response
+ * Handle API errors with proper response
  */
 export function handleApiError(
   error: unknown,
   defaultMessage: string,
-  defaultStatus: number = 500
+  defaultStatus = 500
 ) {
   if (error instanceof ApplicationError) {
     return createErrorResponse(error.message, { status: error.status || defaultStatus })
@@ -89,7 +86,10 @@ export function validateRequired(
 /**
  * Extract string value from body
  */
-export function getStringValue(body: Record<string, unknown>, key: string): string | undefined {
+export function getStringValue(
+  body: Record<string, unknown>,
+  key: string
+): string | undefined {
   return typeof body[key] === "string" ? body[key] : undefined
 }
 
@@ -102,8 +102,5 @@ export function getArrayValue<T>(
   validator?: (item: unknown) => item is T
 ): T[] {
   if (!Array.isArray(body[key])) return []
-  if (validator) {
-    return body[key].filter(validator)
-  }
-  return body[key] as T[]
+  return validator ? body[key].filter(validator) : (body[key] as T[])
 }

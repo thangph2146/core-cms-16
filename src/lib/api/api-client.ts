@@ -1,7 +1,7 @@
 /**
  * API Client Helper
- * Wrapper cho apiClient với type-safe routes từ apiRoutes
- * Đảm bảo tất cả API calls đều sử dụng routes từ @lib/api/routes
+ * Type-safe API client wrapper using centralized routes
+ * Follows Next.js 16 + TanStack Query best practices
  */
 
 import { apiClient } from "./axios"
@@ -10,57 +10,47 @@ import type { AxiosResponse } from "axios"
 import type { GiftCodeValidation } from "@/features/public/checkout/types"
 
 /**
- * Public API Client - Sử dụng routes từ apiRoutes
+ * Helper to extract data from response
  */
-export const publicApiClient = {
-  // Cart
-  getCart: async () => {
-    const response = await apiClient.get(apiRoutes.publicCart.get)
-    return response.data
-  },
-
-  clearCart: async () => {
-    const response = await apiClient.delete(apiRoutes.publicCart.clear)
-    return response.data
-  },
-
-  addCartItem: async (data: { productId: string; quantity: number }) => {
-    const response = await apiClient.post(apiRoutes.publicCart.addItem, data)
-    return response.data
-  },
-
-  updateCartItem: async (id: string, data: { quantity: number }) => {
-    const response = await apiClient.put(apiRoutes.publicCart.updateItem(id), data)
-    return response.data
-  },
-
-  removeCartItem: async (id: string) => {
-    const response = await apiClient.delete(apiRoutes.publicCart.removeItem(id))
-    return response.data
-  },
-
-  // Checkout
-  createCheckout: async <T = unknown>(data: unknown): Promise<AxiosResponse<T>> => {
-    return await apiClient.post<T>(apiRoutes.publicCheckout.create, data)
-  },
-
-  getUserInfo: async () => {
-    const response = await apiClient.get(apiRoutes.publicCheckout.userInfo)
-    return response.data.data
-  },
-
-  // Gift Code
-  validateGiftCode: async (data: { code: string; subtotal: number }): Promise<{ success: boolean; data?: GiftCodeValidation; message?: string }> => {
-    const response = await apiClient.post<{ success: boolean; data?: GiftCodeValidation; message?: string }>(
-      apiRoutes.publicGiftCode.validate,
-      data
-    )
-    return response.data
-  },
-}
+const getData = <T>(response: AxiosResponse<T>) => response.data
 
 /**
- * Export apiClient để có thể sử dụng trực tiếp nếu cần
+ * Public API Client - Type-safe wrapper using apiRoutes
+ */
+export const publicApiClient = {
+  // Cart operations
+  getCart: () => apiClient.get(apiRoutes.publicCart.get).then(getData),
+  
+  clearCart: () => apiClient.delete(apiRoutes.publicCart.clear).then(getData),
+  
+  addCartItem: (data: { productId: string; quantity: number }) =>
+    apiClient.post(apiRoutes.publicCart.addItem, data).then(getData),
+  
+  updateCartItem: (id: string, data: { quantity: number }) =>
+    apiClient.put(apiRoutes.publicCart.updateItem(id), data).then(getData),
+  
+  removeCartItem: (id: string) =>
+    apiClient.delete(apiRoutes.publicCart.removeItem(id)).then(getData),
+
+  // Checkout operations
+  createCheckout: <T = unknown>(data: unknown): Promise<AxiosResponse<T>> =>
+    apiClient.post<T>(apiRoutes.publicCheckout.create, data),
+  
+  getUserInfo: () =>
+    apiClient.get(apiRoutes.publicCheckout.userInfo).then((res) => res.data.data),
+
+  // Gift Code operations
+  validateGiftCode: (data: { code: string; subtotal: number }) =>
+    apiClient
+      .post<{ success: boolean; data?: GiftCodeValidation; message?: string }>(
+        apiRoutes.publicGiftCode.validate,
+        data
+      )
+      .then(getData),
+} as const
+
+/**
+ * Re-export apiClient for direct usage when needed
  */
 export { apiClient } from "./axios"
 

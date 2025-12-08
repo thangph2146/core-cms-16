@@ -1,8 +1,8 @@
 /**
  * Query Keys Configuration
  * 
- * Tập trung quản lý tất cả query keys cho TanStack Query
- * Theo chuẩn Next.js 16: chỉ invalidate những queries thực sự cần thiết
+ * Centralized query keys for TanStack Query
+ * Follows Next.js 16 + TanStack Query best practices
  */
 
 import type { QueryClient } from "@tanstack/react-query"
@@ -10,9 +10,7 @@ import type { QueryClient } from "@tanstack/react-query"
 type FilterRecord = Record<string, string | undefined>
 
 /**
- * Normalize filters bằng cách loại bỏ undefined/empty values và sắp xếp keys
- * @param filters - Record chứa filters
- * @returns Normalized filters hoặc undefined nếu không có filters hợp lệ
+ * Normalize filters by removing undefined/empty values and sorting keys
  */
 function normalizeFilters(filters?: FilterRecord): Record<string, string> | undefined {
   if (!filters) return undefined
@@ -26,82 +24,61 @@ function normalizeFilters(filters?: FilterRecord): Record<string, string> | unde
   
   if (Object.keys(normalized).length === 0) return undefined
   
-  // Sắp xếp keys để đảm bảo query key consistency
-  const sortedKeys = Object.keys(normalized).sort()
-  return sortedKeys.reduce<Record<string, string>>((acc, key) => {
-    acc[key] = normalized[key]!
-    return acc
-  }, {})
+  // Sort keys for query key consistency
+  return Object.keys(normalized)
+    .sort()
+    .reduce<Record<string, string>>((acc, key) => {
+      acc[key] = normalized[key]!
+      return acc
+    }, {})
 }
 
 /**
- * Base interface cho list params với pagination và search
+ * Base interface for list params with pagination and search
  */
 interface BaseListParams {
   page: number
   limit: number
   search?: string
   filters?: Record<string, string>
-}
-
-export interface AdminCommentsListParams extends BaseListParams {
-  status: "active" | "deleted" | "all"
-}
-
-export interface AdminContactRequestsListParams extends BaseListParams {
   status?: "active" | "deleted" | "all"
 }
 
-export interface AdminStudentsListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminRolesListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminTagsListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminSessionsListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminCategoriesListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminPostsListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminUsersListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminProductsListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
-
-export interface AdminOrdersListParams extends BaseListParams {
-  status?: "active" | "deleted" | "all"
-}
+// Export all list params types (using BaseListParams with optional status)
+export type AdminCommentsListParams = BaseListParams & { status: "active" | "deleted" | "all" }
+export type AdminContactRequestsListParams = BaseListParams
+export type AdminStudentsListParams = BaseListParams
+export type AdminRolesListParams = BaseListParams
+export type AdminTagsListParams = BaseListParams
+export type AdminSessionsListParams = BaseListParams
+export type AdminCategoriesListParams = BaseListParams
+export type AdminPostsListParams = BaseListParams
+export type AdminUsersListParams = BaseListParams
+export type AdminProductsListParams = BaseListParams
+export type AdminOrdersListParams = BaseListParams
 
 /**
- * Helper để tạo query key với optional params
+ * Create query key with optional params
  */
 function createQueryKey(base: readonly string[], ...params: unknown[]): readonly unknown[] {
-  return [...base, ...params.filter(p => p !== undefined)]
+  return [...base, ...params.filter((p) => p !== undefined)]
 }
 
 /**
- * Normalize list params để đảm bảo query key consistency
+ * Normalize list params for query key consistency
  */
 function normalizeListParams<T extends BaseListParams>(params: T): T {
+  return { ...params, filters: normalizeFilters(params.filters) }
+}
+
+/**
+ * Factory to create admin resource query keys
+ */
+function createAdminResourceKeys(resource: string) {
   return {
-    ...params,
-    filters: normalizeFilters(params.filters),
+    all: (): readonly unknown[] => [resource],
+    list: (params: BaseListParams): readonly unknown[] => [resource, normalizeListParams(params)],
+    detail: (id: string): readonly unknown[] => [resource, "detail", id],
   }
 }
 
@@ -209,25 +186,8 @@ export const queryKeys = {
     all: (): readonly unknown[] => ["roles"],
   },
 
-  /**
-   * Admin Roles query keys
-   */
-  adminRoles: {
-    /**
-     * Tất cả admin roles queries
-     */
-    all: (): readonly unknown[] => ["adminRoles"],
-    /**
-     * Admin roles list với normalized params
-     */
-    list: (params: AdminRolesListParams): readonly unknown[] => {
-      return ["adminRoles", normalizeListParams(params)]
-    },
-    /**
-     * Role detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminRoles", "detail", id],
-  },
+  // Admin Roles query keys
+  adminRoles: createAdminResourceKeys("adminRoles"),
 
   /**
    * Unread counts query keys
@@ -246,195 +206,27 @@ export const queryKeys = {
     all: (): readonly unknown[] => ["unreadCounts"],
   },
 
-  /**
-   * Admin Comments query keys
-   */
-  adminComments: {
-    /**
-     * Tất cả admin comments queries
-     */
-    all: (): readonly unknown[] => ["adminComments"],
-    /**
-     * Admin comments list với normalized params
-     */
-    list: (params: AdminCommentsListParams): readonly unknown[] => {
-      return ["adminComments", normalizeListParams(params)]
-    },
-    /**
-     * Comment detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminComments", "detail", id],
-  },
-
-  /**
-   * Admin Contact Requests query keys
-   */
-  adminContactRequests: {
-    /**
-     * Tất cả admin contact requests queries
-     */
-    all: (): readonly unknown[] => ["adminContactRequests"],
-    /**
-     * Admin contact requests list với normalized params
-     */
-    list: (params: AdminContactRequestsListParams): readonly unknown[] => {
-      return ["adminContactRequests", normalizeListParams(params)]
-    },
-    /**
-     * Contact request detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminContactRequests", "detail", id],
-  },
-
-  /**
-   * Admin Students query keys
-   */
-  adminStudents: {
-    /**
-     * Tất cả admin students queries
-     */
-    all: (): readonly unknown[] => ["adminStudents"],
-    /**
-     * Admin students list với normalized params
-     */
-    list: (params: AdminStudentsListParams): readonly unknown[] => {
-      return ["adminStudents", normalizeListParams(params)]
-    },
-    /**
-     * Student detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminStudents", "detail", id],
-  },
-
-  /**
-   * Admin Tags query keys
-   */
-  adminTags: {
-    /**
-     * Tất cả admin tags queries
-     */
-    all: (): readonly unknown[] => ["adminTags"],
-    /**
-     * Admin tags list với normalized params
-     */
-    list: (params: AdminTagsListParams): readonly unknown[] => {
-      return ["adminTags", normalizeListParams(params)]
-    },
-
-    detail: (id: string): readonly unknown[] => ["adminTags", "detail", id],
-  },
-
-  /**
-   * Admin Sessions query keys
-   */
-  adminSessions: {
-    /**
-     * Tất cả admin sessions queries
-     */
-    all: (): readonly unknown[] => ["adminSessions"],
-    /**
-     * Admin sessions list với normalized params
-     */
-    list: (params: AdminSessionsListParams): readonly unknown[] => {
-      return ["adminSessions", normalizeListParams(params)]
-    },
-    /**
-     * Session detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminSessions", "detail", id],
-  },
-
-  /**
-   * Admin Categories query keys
-   */
-  adminCategories: {
-    /**
-     * Tất cả admin categories queries
-     */
-    all: (): readonly unknown[] => ["adminCategories"],
-    /**
-     * Admin categories list với normalized params
-     */
-    list: (params: AdminCategoriesListParams): readonly unknown[] => {
-      return ["adminCategories", normalizeListParams(params)]
-    },
-    /**
-     * Category detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminCategories", "detail", id],
-  },
-
-  /**
-   * Admin Posts query keys
-   */
-  adminPosts: {
-    /**
-     * Tất cả admin posts queries
-     */
-    all: (): readonly unknown[] => ["adminPosts"],
-    /**
-     * Admin posts list với normalized params
-     */
-    list: (params: AdminPostsListParams): readonly unknown[] => {
-      return ["adminPosts", normalizeListParams(params)]
-    },
-    /**
-     * Post detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminPosts", "detail", id],
-  },
-  /**
-   * Admin Products query keys
-   */
-  adminProducts: {
-    /**
-     * Tất cả admin products queries
-     */
-    all: (): readonly unknown[] => ["adminProducts"],
-    /**
-     * Admin products list với normalized params
-     */
-    list: (params: AdminProductsListParams): readonly unknown[] => {
-      return ["adminProducts", normalizeListParams(params)]
-    },
-    /**
-     * Product detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminProducts", "detail", id],
-  },
-  /**
-   * Admin Orders query keys
-   */
-  adminOrders: {
-    /**
-     * Tất cả admin orders queries
-     */
-    all: (): readonly unknown[] => ["adminOrders"],
-    /**
-     * Admin orders list với normalized params
-     */
-    list: (params: AdminOrdersListParams): readonly unknown[] => {
-      return ["adminOrders", normalizeListParams(params)]
-    },
-    /**
-     * Order detail by ID
-     */
-    detail: (id: string): readonly unknown[] => ["adminOrders", "detail", id],
-  },
+  // Admin resource query keys (using factory pattern)
+  adminComments: createAdminResourceKeys("adminComments"),
+  adminContactRequests: createAdminResourceKeys("adminContactRequests"),
+  adminStudents: createAdminResourceKeys("adminStudents"),
+  adminTags: createAdminResourceKeys("adminTags"),
+  adminSessions: createAdminResourceKeys("adminSessions"),
+  adminCategories: createAdminResourceKeys("adminCategories"),
+  adminPosts: createAdminResourceKeys("adminPosts"),
+  adminProducts: createAdminResourceKeys("adminProducts"),
+  adminOrders: createAdminResourceKeys("adminOrders"),
 } as const
 
 /**
- * Helper functions để invalidate queries một cách chính xác
- * Tuân theo nguyên tắc: chỉ invalidate những queries thực sự cần thiết
+ * Query invalidation helpers
+ * Follows TanStack Query best practices: only invalidate necessary queries
  */
 export const invalidateQueries = {
   /**
    * Invalidate user notifications
-   * @param queryClient - TanStack Query client instance
-   * @param userId - User ID cần invalidate
-   * @param options - Options cho việc invalidate
-   * @param options.exact - Nếu true, chỉ invalidate query chính xác (tiết kiệm tài nguyên hơn)
-   *                        Nếu false, invalidate tất cả queries của user (dùng khi không biết params)
+   * @param exact - If true, invalidate exact query (more efficient)
+   *                 If false, invalidate all user queries (use when params unknown)
    */
   userNotifications: (
     queryClient: QueryClient,
@@ -442,19 +234,15 @@ export const invalidateQueries = {
     options?: { exact?: boolean }
   ): void => {
     if (!userId) return
-    
     const { exact = false } = options ?? {}
     const queryKey = exact
       ? queryKeys.notifications.user(userId)
       : queryKeys.notifications.allUser(userId)
-    
     queryClient.invalidateQueries({ queryKey: queryKey as unknown[] })
   },
 
   /**
    * Invalidate admin notifications
-   * Chỉ invalidate admin table queries
-   * @param queryClient - TanStack Query client instance
    */
   adminNotifications: (queryClient: QueryClient): void => {
     queryClient.invalidateQueries({
@@ -463,11 +251,7 @@ export const invalidateQueries = {
   },
 
   /**
-   * Invalidate cả user và admin notifications
-   * Chỉ dùng khi thay đổi ảnh hưởng đến cả 2 (ví dụ: xóa notification)
-   * @param queryClient - TanStack Query client instance
-   * @param userId - User ID cần invalidate
-   * @param options - Options cho việc invalidate
+   * Invalidate both user and admin notifications
    */
   allNotifications: (
     queryClient: QueryClient,
@@ -480,24 +264,16 @@ export const invalidateQueries = {
 
   /**
    * Invalidate unread counts
-   * Dùng khi notifications hoặc messages được đánh dấu đọc/chưa đọc
-   * @param queryClient - TanStack Query client instance
-   * @param userId - User ID cần invalidate
    */
   unreadCounts: (queryClient: QueryClient, userId: string | undefined): void => {
     if (!userId) return
-    
     queryClient.invalidateQueries({
       queryKey: queryKeys.unreadCounts.user(userId) as unknown[],
     })
   },
 
   /**
-   * Invalidate cả notifications và unread counts
-   * Dùng khi mark notification as read/unread để cập nhật cả badge count
-   * @param queryClient - TanStack Query client instance
-   * @param userId - User ID cần invalidate
-   * @param options - Options cho việc invalidate notifications
+   * Invalidate notifications and unread counts
    */
   notificationsAndCounts: (
     queryClient: QueryClient,

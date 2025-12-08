@@ -1,6 +1,7 @@
 /**
  * Uploads Store (Zustand)
- * Quản lý UI state cho uploads feature
+ * Manages UI state for uploads feature
+ * Follows Zustand best practices with devtools and persist support
  */
 
 import { create } from "zustand"
@@ -75,6 +76,20 @@ interface UploadsUIState {
   resetCreateFolderForm: () => void
 }
 
+// Helper to update Set state (supports function or value)
+const updateSet = <T>(
+  current: Set<T>,
+  update: Set<T> | ((prev: Set<T>) => Set<T>)
+): Set<T> => (typeof update === "function" ? update(current) : update)
+
+// Helper to toggle Set item
+const toggleSetItem = <T>(set: Set<T>, item: T): Set<T> => {
+  const newSet = new Set(set)
+  if (newSet.has(item)) newSet.delete(item)
+  else newSet.add(item)
+  return newSet
+}
+
 const initialState = {
   viewMode: "tree" as const,
   currentPage: 1,
@@ -107,53 +122,25 @@ export const useUploadsStore = create<UploadsUIState>()(
         
         // Selection actions
         setSelectedImages: (images) =>
-          set((state) => ({
-            selectedImages: typeof images === "function" ? images(state.selectedImages) : images,
-          })),
+          set((state) => ({ selectedImages: updateSet(state.selectedImages, images) })),
         setSelectedFolder: (folder) => set({ selectedFolder: folder }),
         toggleImageSelection: (fileName) =>
-          set((state) => {
-            const newSet = new Set(state.selectedImages)
-            if (newSet.has(fileName)) {
-              newSet.delete(fileName)
-            } else {
-              newSet.add(fileName)
-            }
-            return { selectedImages: newSet }
-          }),
+          set((state) => ({ selectedImages: toggleSetItem(state.selectedImages, fileName) })),
         selectAllImages: (images) =>
-          set({
-            selectedImages: new Set(images.map((img) => img.fileName)),
-          }),
+          set({ selectedImages: new Set(images.map((img) => img.fileName)) }),
         clearSelection: () => set({ selectedImages: new Set() }),
         
         // Folder tree actions
         setOpenFolders: (folders) =>
-          set((state) => ({
-            openFolders: typeof folders === "function" ? folders(state.openFolders) : folders,
-          })),
+          set((state) => ({ openFolders: updateSet(state.openFolders, folders) })),
         toggleFolder: (path) =>
-          set((state) => {
-            const newSet = new Set(state.openFolders)
-            if (newSet.has(path)) {
-              newSet.delete(path)
-            } else {
-              newSet.add(path)
-            }
-            return { openFolders: newSet }
-          }),
+          set((state) => ({ openFolders: toggleSetItem(state.openFolders, path) })),
         setOpenFolderPaths: (paths) =>
-          set((state) => ({
-            openFolderPaths: typeof paths === "function" ? paths(state.openFolderPaths) : paths,
-          })),
+          set((state) => ({ openFolderPaths: updateSet(state.openFolderPaths, paths) })),
         setOpenFolderPathsUpload: (paths) =>
-          set((state) => ({
-            openFolderPathsUpload: typeof paths === "function" ? paths(state.openFolderPathsUpload) : paths,
-          })),
+          set((state) => ({ openFolderPathsUpload: updateSet(state.openFolderPathsUpload, paths) })),
         setOpenFolderPathsString: (paths) =>
-          set((state) => ({
-            openFolderPathsString: typeof paths === "function" ? paths(state.openFolderPathsString) : paths,
-          })),
+          set((state) => ({ openFolderPathsString: updateSet(state.openFolderPathsString, paths) })),
         
         // Popover actions
         setFolderTreeSelectOpen: (open) => set({ folderTreeSelectOpen: open }),
@@ -178,11 +165,11 @@ export const useUploadsStore = create<UploadsUIState>()(
       }),
       {
         name: "uploads-ui-store",
-        // Chỉ persist một số state quan trọng
+        // Only persist important state
         partialize: (state) => ({
           viewMode: state.viewMode,
           selectedFolder: state.selectedFolder,
-          // Không persist selection và open states vì chúng thay đổi thường xuyên
+          // Don't persist selection and open states as they change frequently
         }),
       }
     ),

@@ -1,5 +1,6 @@
 /**
- * Hook để check permissions của user với NextAuth
+ * Hook to check user permissions with NextAuth
+ * Follows React best practices for memoization and logging
  */
 "use client"
 
@@ -9,35 +10,29 @@ import type { Permission } from "@/lib/permissions"
 import { hasAnyPermission } from "@/lib/permissions"
 import { logger } from "@/lib/config"
 
-// Module-level ref để đảm bảo chỉ log một lần cho toàn bộ app
-const globalLoggedPermissionsRef: Map<string, string> = new Map()
+// Module-level cache to ensure single log per user/permissions change
+const loggedPermissionsCache = new Map<string, string>()
 
 export function usePermissions() {
   const { data: session, status } = useSession()
 
-  // Loại bỏ duplicate permissions và sort
+  // Deduplicate and sort permissions
   const permissions = useMemo(() => {
     const perms = (session?.permissions ?? []) as Permission[]
-    // Loại bỏ duplicates bằng cách convert sang Set rồi quay lại Array
     return Array.from(new Set(perms)).sort()
   }, [session?.permissions])
 
-  // Log permissions khi session được load hoặc permissions thay đổi
+  // Log permissions on session load or change
   useEffect(() => {
-    if (status === "loading" || !session?.user) {
-      return
-    }
+    if (status === "loading" || !session?.user) return
 
     const userId = session.user.id
     const permissionsKey = JSON.stringify(permissions)
-    
-    // Chỉ log một lần cho mỗi user khi permissions thay đổi (sử dụng module-level ref)
-    const lastLoggedKey = globalLoggedPermissionsRef.get(userId)
-    if (lastLoggedKey === permissionsKey) {
-      return
-    }
+    const lastLoggedKey = loggedPermissionsCache.get(userId)
 
-    globalLoggedPermissionsRef.set(userId, permissionsKey)
+    if (lastLoggedKey === permissionsKey) return
+
+    loggedPermissionsCache.set(userId, permissionsKey)
 
     logger.info("[usePermissions] Loaded permissions from session", {
       action: "permissions_loaded",
@@ -45,19 +40,19 @@ export function usePermissions() {
       userId: session.user.id,
       roles: session.roles?.map((r) => r.name) ?? [],
       permissionsCount: permissions.length,
-      permissions: permissions, // Log tất cả permissions (đã loại bỏ duplicates)
+      permissions,
     })
   }, [session, status, permissions])
 
   const hasPermission = useCallback(
     (permission: Permission) => permissions.includes(permission),
-    [permissions],
+    [permissions]
   )
 
   const hasAny = useCallback(
     (requiredPermissions: Permission[]) =>
       hasAnyPermission(permissions, requiredPermissions),
-    [permissions],
+    [permissions]
   )
 
   return useMemo(
@@ -68,7 +63,7 @@ export function usePermissions() {
       hasPermission,
       hasAnyPermission: hasAny,
     }),
-    [permissions, status, hasPermission, hasAny],
+    [permissions, status, hasPermission, hasAny]
   )
 }
 

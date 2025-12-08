@@ -133,25 +133,29 @@ export function generateFilePath(fileName: string, customFolderPath?: string, is
       // Kiểm tra xem có phải folder trong IMAGES_DIR không (có định dạng năm/tháng/ngày)
       if (hasDateStructure(cleanCustomPath)) {
         // Folder trong IMAGES_DIR (theo ngày)
-        fullPath = path.join(IMAGES_DIR, cleanCustomPath, fileName)
+        // Use string concatenation to avoid Turbopack dynamic path analysis
+        fullPath = `${IMAGES_DIR}${path.sep}${cleanCustomPath}${path.sep}${fileName}`
         relativePath = path.join("images", cleanCustomPath, fileName)
         urlPath = `/api/uploads/images/${cleanCustomPath.replace(/\\/g, "/")}/${fileName}`
       } else {
         // Folder tự tạo trong STORAGE_DIR
-        fullPath = path.join(STORAGE_DIR, cleanCustomPath, fileName)
+        // Use string concatenation to avoid Turbopack dynamic path analysis
+        fullPath = `${STORAGE_DIR}${path.sep}${cleanCustomPath}${path.sep}${fileName}`
         relativePath = cleanCustomPath + "/" + fileName
         urlPath = `/api/uploads/${cleanCustomPath.replace(/\\/g, "/")}/${fileName}`
       }
     } else {
       // Folder mới tạo: thêm năm/tháng/ngày vào sau
       const finalPath = path.join(cleanCustomPath, dateDir)
-      fullPath = path.join(STORAGE_DIR, finalPath, fileName)
+      // Use string concatenation to avoid Turbopack dynamic path analysis
+      fullPath = `${STORAGE_DIR}${path.sep}${finalPath}${path.sep}${fileName}`
       relativePath = finalPath + "/" + fileName
       urlPath = `/api/uploads/${finalPath.replace(/\\/g, "/")}/${fileName}`
     }
   } else {
     // Không có folder tùy chỉnh: dùng folder theo ngày mặc định
-    fullPath = path.join(IMAGES_DIR, dateDir, fileName)
+    // Use string concatenation to avoid Turbopack dynamic path analysis
+    fullPath = `${IMAGES_DIR}${path.sep}${dateDir}${path.sep}${fileName}`
     relativePath = path.join("images", dateDir, fileName)
     urlPath = `/api/uploads/images/${dateDir.replace(/\\/g, "/")}/${fileName}`
   }

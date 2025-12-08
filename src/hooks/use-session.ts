@@ -1,5 +1,6 @@
 /**
- * Hook để sử dụng NextAuth session
+ * Hook to use NextAuth session
+ * Provides convenient access to user, permissions, and roles
  */
 "use client"
 
@@ -17,7 +18,7 @@ export function useAuth() {
       isAuthenticated: !!session,
       isLoading: status === "loading",
     }),
-    [session, status],
+    [session, status]
   )
 }
 
