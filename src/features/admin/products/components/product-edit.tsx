@@ -33,11 +33,25 @@ export async function ProductEdit({
     return <NotFoundMessage resourceName="sản phẩm" />
   }
 
+  const serializedProduct = serializeProductDetail(product)
+  
+  // Ensure description is properly parsed for Lexical editor
+  // serializeProductDetail already handles parsing, but we ensure it's an object
+  let parsedDescription: unknown = serializedProduct.description
+  if (typeof parsedDescription === "string" && parsedDescription.trim().startsWith("{")) {
+    try {
+      parsedDescription = JSON.parse(parsedDescription)
+    } catch {
+      // If parsing fails, keep as string (fallback)
+      parsedDescription = parsedDescription
+    }
+  }
+
   const productForEdit: ProductEditClientProps["product"] = {
-    ...serializeProductDetail(product),
+    ...serializedProduct,
     categoryIds: product.categories?.map((c) => c.id) || [],
     status: product.status as "DRAFT" | "ACTIVE" | "INACTIVE" | "ARCHIVED",
-    description: (product.description as string | null | undefined) ?? null,
+    description: parsedDescription as string | null | undefined,
   }
 
   return (

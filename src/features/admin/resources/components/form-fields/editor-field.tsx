@@ -31,6 +31,17 @@ export function EditorField({
         return null
       }
     }
+    // If value is a JSON string, try to parse it
+    if (typeof value === "string" && value.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(value)
+        if (parsed && typeof parsed === "object" && parsed !== null) {
+          return parsed as SerializedEditorState
+        }
+      } catch {
+        // Invalid JSON, return null
+      }
+    }
     return null
   })
 
@@ -52,6 +63,25 @@ export function EditorField({
         }
       } catch {
         // Invalid value, keep current state
+      }
+    } else if (typeof value === "string" && value.trim().startsWith("{")) {
+      // If value is a JSON string, try to parse it
+      try {
+        const parsed = JSON.parse(value)
+        if (parsed && typeof parsed === "object" && parsed !== null) {
+          const newState = parsed as SerializedEditorState
+          const currentStateStr = editorState ? JSON.stringify(editorState) : null
+          const newStateStr = JSON.stringify(newState)
+          if (currentStateStr !== newStateStr) {
+            isSyncingRef.current = true
+            setEditorState(newState)
+            setTimeout(() => {
+              isSyncingRef.current = false
+            }, 0)
+          }
+        }
+      } catch {
+        // Invalid JSON, keep current state
       }
     } else if (value === null || value === undefined) {
       if (editorState !== null) {
