@@ -1,7 +1,6 @@
 /**
  * Database Barrel Export
- * 
- * Export tất cả database related utilities từ một nơi
+ * Centralized exports for database utilities
  */
 
 export { prisma } from "./prisma"

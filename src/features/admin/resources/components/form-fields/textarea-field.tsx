@@ -20,18 +20,21 @@ export function TextareaField<T>({
   isPending = false,
 }: TextareaFieldProps<T>) {
   const fieldValue = value ?? ""
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
 
   return (
     <FieldContent>
       <textarea
-        id={field.name as string}
-        name={field.name as string}
+        id={fieldId}
+        name={fieldId}
         value={String(fieldValue)}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder}
         required={field.required}
         disabled={field.disabled || isPending}
         aria-invalid={error ? "true" : "false"}
+        aria-describedby={errorId || field.description ? `${fieldId}-description` : undefined}
         className={cn(
           "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
           "placeholder:text-muted-foreground",
@@ -40,7 +43,7 @@ export function TextareaField<T>({
           error && "border-destructive"
         )}
       />
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

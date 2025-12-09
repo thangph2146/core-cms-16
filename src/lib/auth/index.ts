@@ -1,23 +1,11 @@
 /**
  * Authentication Barrel Export
- * 
- * Export tất cả authentication related utilities từ một nơi
- * 
- * Sử dụng exports này thay vì import trực tiếp từ "next-auth/react"
- * để đảm bảo consistency và dễ dàng thay đổi implementation trong tương lai
+ * Centralized exports for authentication utilities
+ * Use these instead of direct imports from "next-auth/react" for consistency
  */
 
-// NextAuth configuration (main export)
 export { auth, handlers, signIn, signOut } from "./auth"
-
-// Server-side auth utilities
-export {
-  getSession,
-  requireAuth,
-  getPermissions,
-} from "./auth-server"
-
-// Client-side auth utilities
+export { getSession, requireAuth, getPermissions } from "./auth-server"
 export {
   authApi,
   useSession,

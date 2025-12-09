@@ -132,19 +132,14 @@ export function ResourceForm<T extends Record<string, unknown>>({
       const dataValue = data?.[key]
       
       if (dataValue !== undefined && dataValue !== null) {
-        if (Array.isArray(dataValue)) {
-          initial[key] = dataValue as T[keyof T]
-        } else {
-          initial[key] = dataValue as T[keyof T]
-        }
+        initial[key] = dataValue as T[keyof T]
       } else if (field.defaultValue !== undefined) {
         initial[key] = field.defaultValue as T[keyof T]
       } else if (field.type === "multiple-select") {
         initial[key] = [] as T[keyof T]
       } else if (field.type === "checkbox" || field.type === "switch") {
         initial[key] = false as T[keyof T]
-      } else if (field.type === "number") {
-      } else {
+      } else if (field.type !== "number") {
         initial[key] = "" as T[keyof T]
       }
     })
@@ -448,10 +443,9 @@ export function ResourceForm<T extends Record<string, unknown>>({
     const fieldName = String(field.name)
     const value = formData[field.name as keyof T]
     const error = errors[fieldName]
-    // Get source field value for slug auto-generation
     const sourceValue = field.sourceField ? formData[field.sourceField as keyof T] : undefined
-    const isFullWidth = field.type === "textarea" || field.type === "select" || field.type === "image" || field.type === "editor" || field.type === "slug" || field.render
-    // Editor field should always be full width (like image field), even on mobile
+    const fullWidthTypes = ["textarea", "select", "image", "editor", "slug"]
+    const isFullWidth = fullWidthTypes.includes(field.type || "") || !!field.render
     const isEditorField = field.type === "editor"
 
     if (field.type === "checkbox") {
@@ -528,20 +522,12 @@ export function ResourceForm<T extends Record<string, unknown>>({
   const renderSection = (sectionId: string, sectionFields: ResourceFormField<T>[]) => {
     const sectionInfo = sections?.find((s) => s.id === sectionId)
     const fieldCount = sectionFields.length
-
-    // Determine grid class based on field count
-    let gridClass = ""
-    let gridResponsiveAttr: string = "true"
-    
-    if (fieldCount === 1) {
-      gridClass = "grid-cols-1"
-    } else if (fieldCount === 2) {
-      gridClass = "grid-cols-1 @md:grid-cols-2"
-    } else {
-      // Hơn 2 fields: dùng auto-fit với minmax(400px, 1fr) qua CSS
-      gridClass = "grid-cols-1"
-      gridResponsiveAttr = "auto-fit"
-    }
+    const gridClass = fieldCount === 1 
+      ? "grid-cols-1" 
+      : fieldCount === 2 
+        ? "grid-cols-1 @md:grid-cols-2" 
+        : "grid-cols-1"
+    const gridResponsiveAttr = fieldCount > 2 ? "auto-fit" : "true"
 
     return (
       <div key={sectionId} className="space-y-4">

@@ -26,13 +26,15 @@ export function TextField<T>({
   const fieldValue = value ?? ""
   const isPassword = field.type === "password"
   const [showPassword, setShowPassword] = React.useState(false)
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
 
   return (
     <FieldContent>
       <div className="relative">
         <Input
-          id={field.name as string}
-          name={field.name as string}
+          id={fieldId}
+          name={fieldId}
           type={isPassword && !showPassword ? "password" : "text"}
           value={String(fieldValue)}
           onChange={(e) => onChange(e.target.value)}
@@ -40,8 +42,9 @@ export function TextField<T>({
           required={field.required}
           disabled={field.disabled || isPending}
           aria-invalid={error ? "true" : "false"}
+          aria-describedby={errorId || field.description ? `${fieldId}-description` : undefined}
           className={cn(
-            error ? "border-destructive" : "",
+            error && "border-destructive",
             isPassword && "pr-10"
           )}
         />
@@ -63,7 +66,7 @@ export function TextField<T>({
           </Button>
         )}
       </div>
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

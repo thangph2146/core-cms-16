@@ -21,6 +21,11 @@ export interface AccountFormData {
 export function getAccountFormSections(): ResourceFormSection[] {
   return [
     {
+      id: "avatar",
+      title: "Ảnh đại diện",
+      description: "Cập nhật ảnh đại diện của bạn",
+    },
+    {
       id: "personal",
       title: "Thông tin cá nhân",
       description: "Thông tin cá nhân của bạn",
@@ -46,21 +51,21 @@ export function getAccountFormSections(): ResourceFormSection[] {
 export function getAccountFields(): ResourceFormField<AccountFormData>[] {
   return [
     {
-      name: "name",
-      label: "Tên",
-      type: "text",
-      placeholder: "Nhập tên",
-      required: true,
-      icon: React.createElement(User, { className: "h-4 w-4" }),
-      section: "personal",
-    },
-    {
       name: "avatar",
       label: "Ảnh đại diện",
       type: "image",
       placeholder: "https://example.com/avatar.jpg",
       description: "URL của ảnh đại diện",
       icon: React.createElement(UserCircle, { className: "h-4 w-4" }),
+      section: "avatar",
+    },
+    {
+      name: "name",
+      label: "Tên",
+      type: "text",
+      placeholder: "Nhập tên",
+      required: true,
+      icon: React.createElement(User, { className: "h-4 w-4" }),
       section: "personal",
     },
     {
