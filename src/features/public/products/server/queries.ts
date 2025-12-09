@@ -158,6 +158,12 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail | nu
             },
           },
         },
+        variants: {
+          orderBy: [
+            { type: "asc" },
+            { order: "asc" },
+          ],
+        },
       },
     })
 
@@ -189,6 +195,22 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail | nu
         name: pc.category.name,
         slug: pc.category.slug,
       })),
+      variants: product.variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        value: v.value,
+        type: v.type,
+        price: v.price?.toString() || null,
+        sku: v.sku,
+        stock: v.stock,
+        imageUrl: v.imageUrl,
+        order: v.order,
+        isDefault: v.isDefault,
+      })),
+      shippingInfo: product.shippingInfo as unknown as ProductDetail["shippingInfo"],
+      promotionBanner: product.promotionBanner,
+      branchAvailability: product.branchAvailability as unknown as ProductDetail["branchAvailability"],
+      paymentPromotion: product.paymentPromotion as unknown as ProductDetail["paymentPromotion"],
       relatedProductIds: (product as { relatedProductIds?: string[] }).relatedProductIds || [],
     }
   } catch (error) {

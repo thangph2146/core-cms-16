@@ -395,6 +395,10 @@ model Product {
   specifications    Json? // Thông số kỹ thuật (JSON)
   relatedProductIds String[]          @default([]) // IDs của sản phẩm liên quan
   bundleProductIds  String[]          @default([]) // IDs của sản phẩm mua kèm
+  shippingInfo      Json? // Thông tin vận chuyển (JSON: {freeShipping: boolean, estimatedDays: number, methods: string[]})
+  promotionBanner   String? // Banner ưu đãi (HTML hoặc text)
+  branchAvailability Json? // Chi nhánh có hàng (JSON: {branches: Array<{name: string, address: string, hasStock: boolean}>})
+  paymentPromotion  Json? // Ưu đãi thanh toán (JSON: {methods: Array<{name: string, discount: number, description: string}>})
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   deletedAt         DateTime?
