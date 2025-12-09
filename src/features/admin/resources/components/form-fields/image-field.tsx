@@ -1,11 +1,16 @@
+/**
+ * Image Field Component
+ * Follows Shadcn accessibility patterns
+ */
 "use client"
 
 import { useState } from "react"
 import { Input } from "@/components/ui/input"
-import { FieldContent } from "@/components/ui/field"
+import { FieldContent, FieldError } from "@/components/ui/field"
 import { ImageIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import { cn } from "@/lib/utils"
 
 export interface ImageFieldProps {
   value: unknown
@@ -13,6 +18,7 @@ export interface ImageFieldProps {
   placeholder?: string
   error?: string
   disabled?: boolean
+  fieldId?: string
 }
 
 export function ImageField({
@@ -21,17 +27,19 @@ export function ImageField({
   placeholder = "https://example.com/image.jpg",
   error,
   disabled = false,
+  fieldId = "image",
 }: ImageFieldProps) {
   const imageUrl = typeof value === "string" ? value : ""
   const hasImage = imageUrl && imageUrl.trim() !== ""
   const [imageError, setImageError] = useState(false)
+  const errorId = error ? `${fieldId}-error` : undefined
 
   return (
     <FieldContent>
       <div className="space-y-4">
-        {/* Input field */}
         <div className="flex gap-2">
           <Input
+            id={fieldId}
             type="text"
             value={imageUrl}
             onChange={(e) => {
@@ -39,9 +47,10 @@ export function ImageField({
               setImageError(false)
             }}
             placeholder={placeholder}
-            className={`flex-1 ${error ? "border-destructive" : ""}`}
+            className={cn("flex-1", error && "border-destructive")}
             disabled={disabled}
             aria-invalid={error ? "true" : "false"}
+            aria-describedby={errorId}
           />
           {hasImage && (
             <Button
@@ -54,6 +63,7 @@ export function ImageField({
               }}
               className="shrink-0"
               disabled={disabled}
+              aria-label="Xóa hình ảnh"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -96,10 +106,7 @@ export function ImageField({
           </div>
         )}
 
-        {/* Field error message */}
-        {error && (
-          <p className="text-sm text-destructive mt-1">{error}</p>
-        )}
+        {error && <FieldError id={errorId}>{error}</FieldError>}
       </div>
     </FieldContent>
   )

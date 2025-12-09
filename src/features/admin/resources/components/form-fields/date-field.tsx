@@ -20,21 +20,24 @@ export function DateField<T>({
   isPending = false,
 }: DateFieldProps<T>) {
   const fieldValue = value ?? ""
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
 
   return (
     <FieldContent>
       <Input
-        id={field.name as string}
-        name={field.name as string}
+        id={fieldId}
+        name={fieldId}
         type="date"
         value={fieldValue ? String(fieldValue).split("T")[0] : ""}
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
         disabled={field.disabled || isPending}
         aria-invalid={error ? "true" : "false"}
+        aria-describedby={errorId || field.description ? `${fieldId}-description` : undefined}
         className={error ? "border-destructive" : ""}
       />
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

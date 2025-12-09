@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Star } from "lucide-react"
 import type { ProductDetail, Product } from "../types"
 import { useCart } from "@/features/public/cart/hooks"
 import { Editor } from "@/components/editor/editor-x/editor"
@@ -15,6 +15,11 @@ import { SerializedEditorState } from "lexical"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useProductImageStore } from "../store/product-image-store"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
+import { usePermissions } from "@/hooks/use-permissions"
+import { PERMISSIONS } from "@/lib/permissions"
+import { apiClient } from "@/lib/api/api-client"
+import { apiRoutes } from "@/lib/api/routes"
+import { useToast } from "@/hooks/use-toast"
 
 export interface ProductDetailClientProps {
   product: ProductDetail
@@ -23,40 +28,72 @@ export interface ProductDetailClientProps {
 
 // Memoized thumbnail component to prevent unnecessary re-renders
 const ProductThumbnail = memo<{
-  image: { id: string; url: string; alt?: string | null }
+  image: { id: string; url: string; alt?: string | null; isPrimary?: boolean }
   index: number
   productName: string
   isSelected: boolean
+  isPrimary: boolean
+  canSetPrimary: boolean
   onClick: (index: number) => void
-}>(({ image, index, productName, isSelected, onClick }) => {
+  onSetPrimary?: (imageId: string) => void
+}>(({ image, index, productName, isSelected, isPrimary, canSetPrimary, onClick, onSetPrimary }) => {
   return (
-    <button
-      onClick={() => onClick(index)}
-      className={`relative my-4 mx-1 flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-        isSelected
-          ? "border-primary ring-2 ring-primary/20 scale-105"
-          : "border-transparent hover:border-muted-foreground/50"
-      }`}
-    >
-      <Image
-        src={image.url}
-        alt={image.alt || productName}
-        fill
-        sizes="80px"
-        quality={90}
-        className="object-cover transition-transform duration-200 hover:scale-110"
-        unoptimized={image.url.includes("cellphones.com.vn") || image.url.includes("cdn")}
-      />
-    </button>
+    <div className="relative my-4 mx-1 flex-shrink-0">
+      <button
+        onClick={() => onClick(index)}
+        className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+          isSelected
+            ? "border-primary ring-2 ring-primary/20 scale-105"
+            : "border-transparent hover:border-muted-foreground/50"
+        }`}
+      >
+        <Image
+          src={image.url}
+          alt={image.alt || productName}
+          fill
+          sizes="80px"
+          quality={90}
+          className="object-cover transition-transform duration-200 hover:scale-110"
+          unoptimized={image.url.includes("cellphones.com.vn") || image.url.includes("cdn")}
+        />
+        {isPrimary && (
+          <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
+            <Star className="h-3 w-3 fill-current" />
+          </div>
+        )}
+      </button>
+      {canSetPrimary && !isPrimary && onSetPrimary && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-1 right-1 h-6 w-6 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSetPrimary(image.id)
+          }}
+          aria-label="Đặt làm ảnh chính"
+          title="Đặt làm ảnh chính"
+        >
+          <Star className="h-3 w-3 text-muted-foreground hover:text-primary" />
+        </Button>
+      )}
+    </div>
   )
 })
 ProductThumbnail.displayName = "ProductThumbnail"
 
-export function ProductDetailClient({ product, relatedProducts = [] }: ProductDetailClientProps) {
+export function ProductDetailClient({ product: initialProduct, relatedProducts = [] }: ProductDetailClientProps) {
   const router = useRouter()
   const [quantity, setQuantity] = useState(1)
+  const [product, setProduct] = useState(initialProduct)
+  const [isSettingPrimary, setIsSettingPrimary] = useState(false)
   const { addToCart, isAddingToCart } = useCart()
+  const { toast } = useToast()
+  const { hasPermission } = usePermissions()
   const imageScrollRef = useRef<HTMLDivElement>(null)
+  
+  // Check if user can manage products
+  const canManageProducts = hasPermission(PERMISSIONS.PRODUCTS_MANAGE) || hasPermission(PERMISSIONS.PRODUCTS_UPDATE)
   
   // Zustand store for image state
   const selectedImageIndex = useProductImageStore(
@@ -124,6 +161,32 @@ export function ProductDetailClient({ product, relatedProducts = [] }: ProductDe
     () => product.images[selectedImageIndex] || primaryImage,
     [product.images, selectedImageIndex, primaryImage]
   )
+
+  // Handle set primary image
+  const handleSetPrimary = useCallback(async (imageId: string) => {
+    if (!canManageProducts || isSettingPrimary) return
+
+    setIsSettingPrimary(true)
+    try {
+      const response = await apiClient.post(apiRoutes.products.setPrimaryImage(product.id, imageId))
+      
+      if (response.data?.success && response.data?.data) {
+        setProduct((prev) => ({
+          ...prev,
+          images: response.data.data.images || prev.images,
+        }))
+        toast({ title: "Thành công", description: "Đã đặt làm ảnh chính" })
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: error instanceof Error ? error.message : "Không thể đặt ảnh chính",
+      })
+    } finally {
+      setIsSettingPrimary(false)
+    }
+  }, [canManageProducts, isSettingPrimary, product.id, toast])
 
   // Preload all images on mount
   useEffect(() => {
@@ -379,7 +442,10 @@ export function ProductDetailClient({ product, relatedProducts = [] }: ProductDe
                       index={index}
                       productName={product.name}
                       isSelected={selectedImageIndex === index}
+                      isPrimary={image.isPrimary}
+                      canSetPrimary={canManageProducts && !isSettingPrimary}
                       onClick={handleThumbnailClick}
+                      onSetPrimary={canManageProducts ? handleSetPrimary : undefined}
                     />
                   ))}
                 </div>

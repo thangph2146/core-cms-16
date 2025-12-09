@@ -20,18 +20,21 @@ export function SwitchField<T>({
   isPending = false,
 }: SwitchFieldProps<T>) {
   const fieldValue = value ?? false
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
 
   return (
     <FieldContent>
       <Switch
-        id={field.name as string}
+        id={fieldId}
         checked={Boolean(fieldValue)}
         onCheckedChange={(checked) => onChange(checked)}
         disabled={field.disabled || isPending}
         aria-invalid={error ? "true" : "false"}
         aria-label={field.label}
+        aria-describedby={errorId || field.description ? `${fieldId}-description` : undefined}
       />
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

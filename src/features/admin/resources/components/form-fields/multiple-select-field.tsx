@@ -19,6 +19,9 @@ export function MultipleSelectField<T>({
   onChange,
   isPending = false,
 }: MultipleSelectFieldProps<T>) {
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
+
   return (
     <FieldContent>
       <MultipleSelectCombobox
@@ -27,8 +30,10 @@ export function MultipleSelectField<T>({
         error={error}
         onChange={onChange}
         isPending={isPending}
+        fieldId={fieldId}
+        errorId={errorId}
       />
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

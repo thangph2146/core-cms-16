@@ -18,6 +18,9 @@ export function SelectField<T>({
   onChange,
   isPending = false,
 }: SelectFieldProps<T>) {
+  const fieldId = field.name as string
+  const errorId = error ? `${fieldId}-error` : undefined
+
   return (
     <FieldContent>
       <SelectCombobox
@@ -26,8 +29,10 @@ export function SelectField<T>({
         error={error}
         onChange={onChange}
         isPending={isPending}
+        fieldId={fieldId}
+        errorId={errorId}
       />
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </FieldContent>
   )
 }

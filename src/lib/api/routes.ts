@@ -57,7 +57,11 @@ export const apiRoutes = {
   users: getResourceRoutesOrFallback("users", "users"),
   students: getResourceRoutesOrFallback("students", "students"),
   tags: getResourceRoutesOrFallback("tags", "tags"),
-  products: getResourceRoutesOrFallback("products", "products"),
+  products: {
+    ...getResourceRoutesOrFallback("products", "products"),
+    setPrimaryImage: (productId: string, imageId: string) => 
+      `/admin/products/${productId}/images/${imageId}/set-primary`,
+  },
   orders: getResourceRoutesOrFallback("orders", "orders"),
   
   // Accounts - Personal account management
