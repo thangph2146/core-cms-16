@@ -391,7 +391,7 @@ function SidebarContent({ className, children, ...props }: React.ComponentProps<
       )}
       suppressHydrationWarning
     >
-      <div className="flex flex-col gap-2 pr-4" {...props}>
+      <div className="flex flex-col gap-2 pr-4" suppressHydrationWarning {...props}>
         {children}
       </div>
     </ScrollArea>

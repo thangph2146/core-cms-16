@@ -193,14 +193,8 @@ export function NotificationsTableClient({
       const filterString = filterParams.toString()
       const url = filterString ? `${baseUrl}&${filterString}` : baseUrl
 
-      logger.debug("Loading notifications from API", {
-        url,
-        page,
-        limit,
-        search,
-        filters,
-        status,
-      })
+      // Chỉ log khi có thay đổi quan trọng (search, filters, status) hoặc lỗi
+      // Tránh log quá nhiều khi chỉ pagination thay đổi
 
       const response = await apiClient.get<{
         success: boolean
@@ -228,10 +222,7 @@ export function NotificationsTableClient({
         )
       }
 
-      logger.debug("Notifications loaded successfully (client)", {
-        totalNotifications: payload.data.length,
-        pagination: payload.pagination,
-      })
+      // Không log success để tránh spam - chỉ log errors
 
       return {
         rows: payload.data,

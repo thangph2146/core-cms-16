@@ -79,13 +79,6 @@ export function useNotifications(options?: {
   return useQuery<NotificationsResponse>({
     queryKey: queryKeys.notifications.user(session?.user?.id, { limit, offset, unreadOnly }),
     queryFn: async () => {
-      logger.debug("useNotifications: Fetching notifications", {
-        userId: session?.user?.id,
-        limit,
-        offset,
-        unreadOnly,
-      })
-      
       const response = await apiClient.get<{
         success: boolean
         data?: NotificationsResponse
@@ -102,13 +95,6 @@ export function useNotifications(options?: {
         throw new Error(response.data.error || response.data.message || "Không thể tải thông báo")
       }
 
-      logger.debug("useNotifications: Notifications fetched successfully", {
-        userId: session?.user?.id,
-        total: payload.total,
-        unreadCount: payload.unreadCount,
-        notificationsCount: payload.notifications.length,
-      })
-
       return {
         ...payload,
         notifications: payload.notifications.map((notification) => ({
@@ -122,14 +108,15 @@ export function useNotifications(options?: {
     // Socket sẽ handle real-time updates, polling chỉ là fallback
     refetchInterval: disablePolling ? false : refetchInterval,
     // Tăng staleTime để giảm refetch không cần thiết
-    // staleTime phải >= refetchInterval để tránh refetch liên tục
-    staleTime: disablePolling ? 120000 : refetchInterval, // 120s nếu có socket, bằng refetchInterval nếu không
+    // staleTime phải LỚN HƠN refetchInterval để tránh refetch liên tục
+    // Nếu staleTime <= refetchInterval, React Query sẽ refetch ngay khi data stale
+    staleTime: disablePolling ? 300000 : Math.max(refetchInterval * 2, 60000), // 300s (5 phút) nếu có socket, ít nhất 2x refetchInterval nếu không
     // Tăng gcTime để cache lâu hơn
-    gcTime: 5 * 60 * 1000, // 5 phút
+    gcTime: 10 * 60 * 1000, // 10 phút
     // Tránh refetch khi component remount hoặc window focus
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Chỉ refetch khi data thực sự stale
-    refetchOnReconnect: true, // Chỉ refetch khi reconnect
+    refetchOnMount: false, // Không refetch khi mount - chỉ dựa vào staleTime và refetchInterval
+    refetchOnReconnect: false, // Không refetch khi reconnect - socket sẽ handle
   })
 }
 

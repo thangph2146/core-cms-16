@@ -650,38 +650,23 @@ export const authConfig: NextAuthConfig = {
         const nextAuthBaseUrl = new URL(nextAuthUrl)
         const baseUrlObj = new URL(baseUrl)
         
-        logger.debug("NextAuth redirect callback", {
-          url,
-          baseUrl,
-          nextAuthUrl,
-          baseUrlHost: baseUrlObj.host,
-          nextAuthHost: nextAuthBaseUrl.host,
-          urlStartsWithSlash: url.startsWith("/"),
-        })
-        
         // Nếu url là relative path, tạo absolute URL với NEXTAUTH_URL
         if (url.startsWith("/")) {
           const absoluteUrl = `${nextAuthUrl}${url}`
-          logger.info("NextAuth redirect: relative URL converted", {
-            relativeUrl: url,
-            absoluteUrl,
-            nextAuthUrl,
-          })
+          // Chỉ log khi có error để debug
+          if (url.includes("error=")) {
+            logger.warn("NextAuth redirect: relative URL with error", {
+              relativeUrl: url,
+              absoluteUrl,
+              nextAuthUrl,
+            })
+          }
           return absoluteUrl
         }
         
         // Nếu url là absolute URL, kiểm tra domain
         try {
           const urlObj = new URL(url)
-          
-          logger.debug("NextAuth redirect: absolute URL analysis", {
-            urlHost: urlObj.host,
-            urlProtocol: urlObj.protocol,
-            urlPath: urlObj.pathname,
-            urlSearch: urlObj.search,
-            nextAuthHost: nextAuthBaseUrl.host,
-            hostsMatch: urlObj.host === nextAuthBaseUrl.host,
-          })
           
           // Nếu domain không khớp với NEXTAUTH_URL, fix nó
           // Đặc biệt quan trọng cho error redirects (có thể có ?error=Configuration)
@@ -697,6 +682,16 @@ export const authConfig: NextAuthConfig = {
             })
             return fixedUrl
           }
+          
+          // Chỉ log khi có error parameter để debug
+          if (urlObj.searchParams.has("error")) {
+            logger.warn("NextAuth redirect: error detected", {
+              url,
+              error: urlObj.searchParams.get("error"),
+              host: urlObj.host,
+              nextAuthHost: nextAuthBaseUrl.host,
+            })
+          }
         } catch (urlError) {
           logger.error("NextAuth redirect: failed to parse URL", {
             error: urlError instanceof Error ? urlError.message : String(urlError),
@@ -709,11 +704,7 @@ export const authConfig: NextAuthConfig = {
           }
         }
         
-        // Nếu URL hợp lệ và domain đúng, trả về nguyên bản
-        logger.debug("NextAuth redirect: URL is correct", {
-          url,
-          host: new URL(url).host,
-        })
+        // Nếu URL hợp lệ và domain đúng, trả về nguyên bản (không log)
         return url
       } catch (error) {
         logger.error("NextAuth redirect: error in redirect callback", {

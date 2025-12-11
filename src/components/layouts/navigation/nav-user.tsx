@@ -339,7 +339,7 @@ export function NavUser({ className }: { className?: string }) {
             <Avatar className="h-8 w-8 rounded-lg">
               <AvatarFallback className="rounded-lg">...</AvatarFallback>
             </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
+            <div className="grid flex-1 text-left text-sm leading-tight" suppressHydrationWarning>
               <span className="truncate font-medium">Đang tải...</span>
               <span className="truncate text-xs">Vui lòng chờ</span>
             </div>
@@ -584,7 +584,7 @@ export function NavUser({ className }: { className?: string }) {
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight" suppressHydrationWarning>
                 <span className="truncate font-medium">
                   {user.name || user.email}
                 </span>
