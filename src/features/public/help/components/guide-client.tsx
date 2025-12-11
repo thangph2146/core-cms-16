@@ -8,6 +8,7 @@
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   UserPlus,
   LogIn,
@@ -18,6 +19,10 @@ import {
   FileEdit,
   Eye,
   Bell,
+  User,
+  BellRing,
+  FileText,
+  MessageSquare,
 } from "lucide-react"
 
 const guideImages = [
@@ -89,6 +94,40 @@ const guideImages = [
     icon: Bell,
     category: "Thông báo",
   },
+  {
+    id: "quan-ly-thong-bao",
+    title: "Quản lý Thông báo",
+    description: "Xem danh sách và quản lý tất cả thông báo trong hệ thống",
+    imagePath: "/huong-dan-su-dung/quan-ly-thong-bao.png",
+    icon: BellRing,
+    category: "Thông báo",
+  },
+  {
+    id: "quan-ly-thong-bao-chi-tiet",
+    title: "Chi tiết Thông báo",
+    description: "Xem nội dung chi tiết của một thông báo cụ thể",
+    imagePath: "/huong-dan-su-dung/quan-ly-thong-bao-chi-tiet.png",
+    icon: FileText,
+    category: "Thông báo",
+  },
+  // Quản lý Tài khoản
+  {
+    id: "quan-ly-thong-tin-ca-nhan",
+    title: "Quản lý Thông tin Cá nhân",
+    description: "Cập nhật và quản lý thông tin cá nhân của bạn trong hệ thống",
+    imagePath: "/huong-dan-su-dung/quan-ly-thong-tin-ca-nhan.png",
+    icon: User,
+    category: "Quản lý Tài khoản",
+  },
+  // Tin nhắn
+  {
+    id: "quan-ly-tin-nhan-realtime",
+    title: "Quản lý Tin nhắn Realtime",
+    description: "Gửi và nhận tin nhắn realtime trong hệ thống",
+    imagePath: "/huong-dan-su-dung/quan-ly-tin-nhan-realtime.png",
+    icon: MessageSquare,
+    category: "Tin nhắn",
+  },
 ]
 
 export function GuideClient() {
@@ -112,98 +151,84 @@ export function GuideClient() {
   }, {} as Record<string, typeof guideImages>)
 
   const categories = Object.keys(groupedGuides)
+  const defaultCategory = categories[0] || ""
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="text-center mb-8 md:mb-12">
-        <h1 className="text-2xl md:text-2xl lg:text-3xl font-bold mb-3 md:mb-4">
-          Hướng dẫn Sử dụng Hệ thống
-        </h1>
-        <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
-          Khám phá các tính năng và cách sử dụng hệ thống một cách hiệu quả
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-2">Hướng dẫn Sử dụng Hệ thống</h1>
+        <p className="text-sm text-muted-foreground">
+          Khám phá các tính năng và cách sử dụng hệ thống
         </p>
       </div>
 
-      {/* Guide Cards by Category */}
-      <div className="space-y-12 md:space-y-16 mb-8 md:mb-12">
+      {/* Tabs Navigation */}
+      <Tabs defaultValue={defaultCategory} className="w-full">
+        <TabsList className="sticky top-[60px] z-10 w-full mb-6 overflow-x-auto flex-wrap h-auto backdrop-blur supports-[backdrop-filter]:bg-primary/20">
+          {categories.map((category) => (
+            <TabsTrigger key={category} value={category} className="text-xs sm:text-sm whitespace-nowrap">
+              {category}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* Guide Cards by Category */}
         {categories.map((category) => (
-          <div key={category} className="space-y-6 md:space-y-8">
-            {/* Category Header */}
-            <div className="border-b border-border pb-3">
-              <h2 className="text-xl md:text-2xl font-semibold text-foreground">
-                {category}
-              </h2>
-            </div>
+          <TabsContent key={category} value={category} className="space-y-4">
+            {groupedGuides[category].map((guide) => {
+              const Icon = guide.icon
+              return (
+                <Card key={guide.id} className="border">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div>
+                        <CardTitle className="text-base font-semibold">{guide.title}</CardTitle>
+                        <CardDescription className="text-sm mt-1">
+                          {guide.description}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Image Preview */}
+                    <div className="relative w-full aspect-video rounded border bg-muted overflow-hidden">
+                      <Image
+                        src={guide.imagePath}
+                        alt={guide.title}
+                        fill
+                        className="object-contain p-2"
+                        sizes="100vw"
+                      />
+                    </div>
 
-            {/* Guide Cards Grid */}
-            <div className="grid grid-cols-1 gap-6 md:gap-8">
-              {groupedGuides[category].map((guide) => {
-                const Icon = guide.icon
-                return (
-                  <Card
-                    key={guide.id}
-                    className="group overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 border-2 hover:border-primary/50"
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                          <Icon className="w-6 h-6 md:w-7 md:h-7 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-xl md:text-2xl mb-2">{guide.title}</CardTitle>
-                          <CardDescription className="text-sm md:text-base">
-                            {guide.description}
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Image Preview */}
-                      <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-border group-hover:border-primary/50 transition-colors">
-                        <Image
-                          src={guide.imagePath}
-                          alt={guide.title}
-                          fill
-                          className="object-contain p-2"
-                          sizes="(max-width: 768px) 100vw, 100vw"
-                        />
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex justify-center">
-                        <Button
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => handleDownload(guide.imagePath, guide.title)}
-                        >
-                          <Download className="w-4 h-4" />
-                          Tải xuống
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </div>
+                    {/* Action Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => handleDownload(guide.imagePath, guide.title)}
+                    >
+                      <Download className="w-4 h-4" />
+                      Tải xuống
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </TabsContent>
         ))}
-      </div>
+      </Tabs>
 
       {/* Additional Info */}
-      <Card className="bg-muted/50 border-dashed">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-2">
-            <p className="text-sm md:text-base text-muted-foreground">
-              Cần hỗ trợ thêm? Vui lòng liên hệ với chúng tôi
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
-              <span className="text-muted-foreground">📧 Email: support@hub.edu.vn</span>
-              <span className="text-muted-foreground">📞 Hotline: 1900-xxxx</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center text-sm text-muted-foreground border-t pt-4 mt-6">
+        <p className="mb-2">Cần hỗ trợ thêm? Vui lòng liên hệ với chúng tôi</p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <span>📧 Email: support@hub.edu.vn</span>
+          <span>📞 Hotline: 1900-xxxx</span>
+        </div>
+      </div>
     </div>
   )
 }
