@@ -483,6 +483,7 @@ const resetDatabase = async () => {
       await tx.orderItem.deleteMany()
       await tx.order.deleteMany()
       await tx.inventory.deleteMany()
+      await tx.productVariant.deleteMany()
       await tx.productImage.deleteMany()
       await tx.productCategory.deleteMany()
       await tx.product.deleteMany()
@@ -550,6 +551,109 @@ async function main() {
       ward: randomItem(wards),
       postalCode: `${randomInt(10000, 99999)}`,
     }
+  }
+
+  // Helper functions cho product data
+  const generateShippingInfo = () => ({
+    freeShipping: Math.random() > 0.5,
+    estimatedDays: randomInt(1, 7),
+    methods: randomItems(["Giao hàng nhanh", "Giao hàng tiêu chuẩn", "Giao hàng tiết kiệm"], randomInt(1, 3)),
+  })
+
+  const generatePromotionBanner = () => {
+    const banners = [
+      "🎉 Giảm giá lên đến 30%",
+      "🚚 Miễn phí vận chuyển cho đơn hàng trên 500,000đ",
+      "⚡ Flash sale - Chỉ hôm nay!",
+      "🎁 Mua 2 tặng 1 - Áp dụng cho sản phẩm được chọn",
+      "💳 Giảm thêm 5% khi thanh toán online",
+    ]
+    return Math.random() > 0.4 ? randomItem(banners) : null
+  }
+
+  const generateBranchAvailability = () => {
+    const branches = [
+      { name: "Chi nhánh Hà Nội", address: "123 Đường Láng, Đống Đa, Hà Nội" },
+      { name: "Chi nhánh Hồ Chí Minh", address: "456 Nguyễn Huệ, Quận 1, TP.HCM" },
+      { name: "Chi nhánh Đà Nẵng", address: "789 Lê Duẩn, Hải Châu, Đà Nẵng" },
+      { name: "Chi nhánh Hải Phòng", address: "321 Lạch Tray, Ngô Quyền, Hải Phòng" },
+    ]
+    return {
+      branches: randomItems(branches, randomInt(2, 4)).map((branch) => ({
+        name: branch.name,
+        address: branch.address,
+        hasStock: Math.random() > 0.3,
+      })),
+    }
+  }
+
+  const generatePaymentPromotion = () => {
+    const methods = [
+      { name: "Ví điện tử", discount: 5, description: "Giảm 5% khi thanh toán bằng ví điện tử" },
+      { name: "Thẻ tín dụng", discount: 3, description: "Giảm 3% khi thanh toán bằng thẻ tín dụng" },
+      { name: "Chuyển khoản", discount: 2, description: "Giảm 2% khi chuyển khoản ngân hàng" },
+      { name: "Trả góp 0%", discount: 0, description: "Trả góp 0% lãi suất trong 6 tháng" },
+    ]
+    return Math.random() > 0.3 ? { methods: randomItems(methods, randomInt(1, 3)) } : null
+  }
+
+  const generateProductVariants = (basePrice: number) => {
+    const variants: Array<{
+      name: string
+      value: string | null
+      type: string
+      price: number | null
+      sku: string | null
+      stock: number | null
+      imageUrl: string | null
+      order: number
+      isDefault: boolean
+    }> = []
+
+    // Version variants (30% products)
+    if (Math.random() > 0.7) {
+      randomItems(["2024", "2025", "Pro", "Max", "Plus"], randomInt(2, 4)).forEach((version, index) => {
+        variants.push({
+          name: version,
+          value: version.toLowerCase(),
+          type: "version",
+          price: index === 0 ? null : basePrice * (1 + index * 0.1),
+          sku: null,
+          stock: randomInt(5, 50),
+          imageUrl: null,
+          order: index,
+          isDefault: index === 0,
+        })
+      })
+    }
+
+    // Color variants (40% products)
+    if (Math.random() > 0.6) {
+      const colors = [
+        { name: "Đen", value: "#000000" },
+        { name: "Trắng", value: "#FFFFFF" },
+        { name: "Xám", value: "#808080" },
+        { name: "Xanh dương", value: "#0066CC" },
+        { name: "Đỏ", value: "#CC0000" },
+        { name: "Vàng", value: "#FFD700" },
+      ]
+      const versionCount = variants.filter((v) => v.type === "version").length
+      randomItems(colors, randomInt(2, 5)).forEach((color, index) => {
+        variants.push({
+          name: color.name,
+          value: color.value,
+          type: "color",
+          price: null,
+          sku: null,
+          stock: randomInt(10, 100),
+          imageUrl: null,
+          order: versionCount + index,
+          isDefault: index === 0 && versionCount === 0,
+        })
+      })
+    }
+
+    return variants
   }
 
   // Tạo main users (6 users) với đầy đủ thông tin cho checkout
@@ -1529,6 +1633,12 @@ async function main() {
     const shortDescription = description.substring(0, 150) + "..."
     const categoryIds = randomItems(categories, randomInt(1, 3)).map((c) => c.id)
 
+    // Generate product metadata
+    const shippingInfo = generateShippingInfo()
+    const promotionBanner = generatePromotionBanner()
+    const branchAvailability = generateBranchAvailability()
+    const paymentPromotion = generatePaymentPromotion()
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -1541,6 +1651,10 @@ async function main() {
         stock,
         status,
         featured,
+        shippingInfo: shippingInfo as Prisma.InputJsonValue,
+        promotionBanner,
+        branchAvailability: branchAvailability as Prisma.InputJsonValue,
+        paymentPromotion: paymentPromotion as Prisma.InputJsonValue,
       },
     })
 
@@ -1569,6 +1683,25 @@ async function main() {
       })
     }
 
+    // Tạo product variants (version, color)
+    const variants = generateProductVariants(price)
+    if (variants.length > 0) {
+      await prisma.productVariant.createMany({
+        data: variants.map((variant) => ({
+          productId: product.id,
+          name: variant.name,
+          value: variant.value,
+          type: variant.type,
+          price: variant.price ? new Prisma.Decimal(variant.price) : null,
+          sku: variant.sku,
+          stock: variant.stock,
+          imageUrl: variant.imageUrl,
+          order: variant.order,
+          isDefault: variant.isDefault,
+        })),
+      })
+    }
+
     // Tạo inventory record
     await prisma.inventory.create({
       data: {
@@ -1581,7 +1714,7 @@ async function main() {
     products.push(product)
   }
 
-  console.log(`✅ Đã tạo ${products.length} products với images và categories`)
+  console.log(`✅ Đã tạo ${products.length} products với images, categories, variants, và metadata`)
 
   // Tạo Orders (ít nhất 20 orders)
   const orderStatuses: Array<"PENDING" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED"> = [

@@ -7,12 +7,11 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { ChevronLeft, ChevronRight, Loader2, Star, Truck, MapPin, CreditCard, Tag } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Star } from "lucide-react"
 import type { ProductDetail, Product } from "../types"
 import { useCart } from "@/features/public/cart/hooks"
 import { Editor } from "@/components/editor/editor-x/editor"
 import { SerializedEditorState } from "lexical"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useProductImageStore } from "../store/product-image-store"
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -20,6 +19,9 @@ import { PERMISSIONS } from "@/lib/permissions"
 import { apiClient } from "@/lib/api/api-client"
 import { apiRoutes } from "@/lib/api/routes"
 import { useToast } from "@/hooks/use-toast"
+import { ProductVariantsSection } from "./product-variants-section"
+import { ProductInfoSections } from "./product-info-sections"
+import { RelatedProductsSection } from "./related-products-section"
 
 export interface ProductDetailClientProps {
   product: ProductDetail
@@ -92,9 +94,6 @@ export function ProductDetailClient({ product: initialProduct, relatedProducts =
   const { toast } = useToast()
   const { hasPermission } = usePermissions()
   const imageScrollRef = useRef<HTMLDivElement>(null)
-  const relatedProductsScrollRef = useRef<HTMLDivElement>(null)
-  const [canScrollRelatedLeft, setCanScrollRelatedLeft] = useState(false)
-  const [canScrollRelatedRight, setCanScrollRelatedRight] = useState(false)
   
   // Check if user can manage products
   const canManageProducts = hasPermission(PERMISSIONS.PRODUCTS_MANAGE) || hasPermission(PERMISSIONS.PRODUCTS_UPDATE)
@@ -379,51 +378,6 @@ export function ProductDetailClient({ product: initialProduct, relatedProducts =
     }, 500)
   }, [product.stock, product.id, quantity, addToCart, router, isAddingToCart])
 
-  // Related products scroll handlers
-  const getRelatedProductsScrollElement = useCallback(() => {
-    return relatedProductsScrollRef.current?.querySelector('[data-slot="scroll-area-viewport"]') as HTMLElement | null
-  }, [])
-
-  const updateRelatedProductsScrollButtons = useCallback(() => {
-    const scrollElement = getRelatedProductsScrollElement()
-    if (!scrollElement) return
-    
-    const { scrollLeft, scrollWidth, clientWidth } = scrollElement
-    setCanScrollRelatedLeft(scrollLeft > 0)
-    setCanScrollRelatedRight(scrollLeft < scrollWidth - clientWidth - 10)
-  }, [getRelatedProductsScrollElement])
-
-  const scrollRelatedProducts = useCallback((direction: "left" | "right") => {
-    const scrollElement = getRelatedProductsScrollElement()
-    if (!scrollElement) return
-
-    const container = scrollElement.querySelector('.flex.gap-4') as HTMLElement
-    if (!container) return
-
-    const firstChild = container.firstElementChild as HTMLElement
-    const scrollAmount = firstChild ? firstChild.offsetWidth + 16 : 220
-    
-    scrollElement.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
-      behavior: "smooth",
-    })
-  }, [getRelatedProductsScrollElement])
-
-  useEffect(() => {
-    if (relatedProducts.length === 0) return
-    updateRelatedProductsScrollButtons()
-    const scrollElement = getRelatedProductsScrollElement()
-    if (!scrollElement) return
-
-    scrollElement.addEventListener("scroll", updateRelatedProductsScrollButtons)
-    const resizeObserver = new ResizeObserver(updateRelatedProductsScrollButtons)
-    resizeObserver.observe(scrollElement)
-
-    return () => {
-      scrollElement.removeEventListener("scroll", updateRelatedProductsScrollButtons)
-      resizeObserver.disconnect()
-    }
-  }, [relatedProducts.length, updateRelatedProductsScrollButtons, getRelatedProductsScrollElement])
 
   const scrollImages = useCallback((direction: "left" | "right") => {
     const scrollElement = getScrollElement()
@@ -676,123 +630,14 @@ export function ProductDetailClient({ product: initialProduct, relatedProducts =
           <Separator />
 
           {/* Product Variants */}
-          {Object.keys(variantsByType).length > 0 && (
-            <div className="space-y-4">
-              {Object.entries(variantsByType).map(([type, variants]) => (
-                <div key={type}>
-                  <label className="text-sm font-medium mb-2 block capitalize">
-                    {type === "version" ? "Phiên bản" : type === "color" ? "Màu sắc" : type}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {variants.map((variant) => {
-                      const isSelected = selectedVariants[type] === variant.id
-                      return (
-                        <Button
-                          key={variant.id}
-                          variant={isSelected ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedVariants((prev) => ({ ...prev, [type]: variant.id }))}
-                          className={type === "color" && variant.value ? "relative" : ""}
-                        >
-                          {type === "color" && variant.value && (
-                            <span
-                              className="absolute left-1 top-1 h-4 w-4 rounded-full border border-background"
-                              style={{ backgroundColor: variant.value }}
-                            />
-                          )}
-                          <span className={type === "color" && variant.value ? "ml-6" : ""}>
-                            {variant.name}
-                            {variant.price && ` (+${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(parseFloat(variant.price))})`}
-                          </span>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <ProductVariantsSection
+            variantsByType={variantsByType}
+            selectedVariants={selectedVariants}
+            onVariantSelect={(type, variantId) => setSelectedVariants((prev) => ({ ...prev, [type]: variantId }))}
+          />
 
-          {/* Promotion Banner */}
-          {product.promotionBanner && (
-            <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
-              <div className="flex items-start gap-2">
-                <Tag className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-primary mb-1">Ưu đãi đặc biệt</div>
-                  <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: product.promotionBanner }} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Shipping Info */}
-          {product.shippingInfo && (
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Thông tin vận chuyển</span>
-              </div>
-              {product.shippingInfo.freeShipping && (
-                <p className="text-sm text-green-600">✓ Miễn phí vận chuyển</p>
-              )}
-              {product.shippingInfo.estimatedDays && (
-                <p className="text-sm text-muted-foreground">
-                  Giao hàng dự kiến: {product.shippingInfo.estimatedDays} ngày
-                </p>
-              )}
-              {product.shippingInfo.methods && product.shippingInfo.methods.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Phương thức: {product.shippingInfo.methods.join(", ")}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Branch Availability */}
-          {product.branchAvailability?.branches && product.branchAvailability.branches.length > 0 && (
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Chi nhánh có hàng</span>
-              </div>
-              <div className="space-y-1">
-                {product.branchAvailability.branches.map((branch, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <span className={branch.hasStock ? "text-green-600" : "text-muted-foreground"}>
-                      {branch.name}
-                    </span>
-                    <span className={branch.hasStock ? "text-green-600 font-medium" : "text-muted-foreground"}>
-                      {branch.hasStock ? "✓ Có hàng" : "Hết hàng"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Payment Promotion */}
-          {product.paymentPromotion?.methods && product.paymentPromotion.methods.length > 0 && (
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Ưu đãi thanh toán</span>
-              </div>
-              <div className="space-y-2">
-                {product.paymentPromotion.methods.map((method, idx) => (
-                  <div key={idx} className="text-sm">
-                    <div className="font-medium">{method.name}</div>
-                    {method.discount > 0 && (
-                      <div className="text-green-600">Giảm {method.discount}%</div>
-                    )}
-                    {method.description && (
-                      <div className="text-muted-foreground text-xs">{method.description}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Product Info Sections */}
+          <ProductInfoSections product={product} />
 
           <Separator />
 
@@ -876,93 +721,7 @@ export function ProductDetailClient({ product: initialProduct, relatedProducts =
         <div className="mt-12 md:mt-16">
           <Separator className="mb-6 md:mb-8" />
           <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-8">Sản phẩm liên quan</h2>
-          <div className="relative">
-            {/* Navigation Buttons */}
-            {canScrollRelatedLeft && (
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 backdrop-blur-sm shadow-lg"
-                onClick={() => scrollRelatedProducts("left")}
-                aria-label="Cuộn trái"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-            )}
-            {canScrollRelatedRight && (
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 backdrop-blur-sm shadow-lg"
-                onClick={() => scrollRelatedProducts("right")}
-                aria-label="Cuộn phải"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            )}
-            <ScrollArea ref={relatedProductsScrollRef} className="w-full">
-              <div className="flex gap-4 md:gap-6 pb-4">
-                {relatedProducts.map((relatedProduct) => {
-                  const primaryImage = relatedProduct.images?.find((img) => img.isPrimary) || relatedProduct.images?.[0]
-                  const price = parseFloat(relatedProduct.price)
-                  const comparePrice = relatedProduct.compareAtPrice ? parseFloat(relatedProduct.compareAtPrice) : null
-
-                  return (
-                    <Card key={relatedProduct.id} className="flex flex-col hover:shadow-lg transition-shadow min-w-[200px] sm:min-w-[220px]">
-                      <Link href={`/san-pham/${relatedProduct.slug}`} className="flex flex-col flex-1">
-                        <CardHeader className="p-0">
-                          {primaryImage ? (
-                            <div className="relative w-full aspect-square overflow-hidden">
-                              <Image
-                                src={primaryImage.url}
-                                alt={primaryImage.alt || relatedProduct.name}
-                                fill
-                                sizes="200px"
-                                className="object-cover rounded-t-lg transition-transform hover:scale-105"
-                                quality={85}
-                                unoptimized={primaryImage.url.includes("cellphones.com.vn") || primaryImage.url.includes("cdn")}
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-full aspect-square bg-muted rounded-t-lg flex items-center justify-center">
-                              <span className="text-muted-foreground text-xs">No Image</span>
-                            </div>
-                          )}
-                        </CardHeader>
-                        <CardContent className="flex-1 p-3">
-                          <CardTitle className="text-sm mb-2 line-clamp-2 min-h-[2.5rem]">
-                            {relatedProduct.name}
-                          </CardTitle>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-bold">
-                              {new Intl.NumberFormat("vi-VN", {
-                                style: "currency",
-                                currency: "VND",
-                              }).format(price)}
-                            </span>
-                            {comparePrice && comparePrice > price && (
-                              <span className="text-xs text-muted-foreground line-through">
-                                {new Intl.NumberFormat("vi-VN", {
-                                  style: "currency",
-                                  currency: "VND",
-                                }).format(comparePrice)}
-                              </span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Link>
-                      <CardFooter className="p-3 pt-0">
-                        <Button asChild variant="outline" size="sm" className="w-full text-xs">
-                          <Link href={`/san-pham/${relatedProduct.slug}`}>Xem chi tiết</Link>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  )
-                })}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </div>
+          <RelatedProductsSection products={relatedProducts} />
         </div>
       )}
     </div>
