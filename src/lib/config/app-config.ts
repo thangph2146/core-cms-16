@@ -17,7 +17,7 @@ export const appConfig = {
   // Application info
   name: "CMS",
   namePublic: "Trường Đại học Ngân hàng TP.Hồ Chí Minh",
-  company: "PHGroup",
+  company: "P.QLCNTT",
   url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   
   // Social media

@@ -85,30 +85,30 @@ export function PublicFooter() {
             {/* Contact Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Locations */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+              <div className="space-y-2">
+                <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                   <Building2 className="h-5 w-5 text-blue-400" />
                   Cơ sở đào tạo
                 </h4>
                 <div className="space-y-4">
-                  <div className="group">
-                    <h5 className="text-sm font-medium text-blue-200 mb-2">Trụ sở chính</h5>
+                  <div className="group mb-1">
+                    <h5 className="text-sm font-medium text-blue-200 mb-1">Trụ sở chính</h5>
                     <div className="flex items-start gap-3 text-white/80 group-hover:text-white transition-colors">
                       <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" />
                       <span className="text-sm leading-relaxed">36 Tôn Thất Đạm, Phường Sài Gòn, TP.Hồ Chí Minh</span>
                     </div>
                   </div>
                   
-                  <div className="group">
-                    <h5 className="text-sm font-medium text-blue-200 mb-2">Cơ sở Hàm Nghi</h5>
+                  <div className="group mb-1">
+                    <h5 className="text-sm font-medium text-blue-200 mb-1">Cơ sở Hàm Nghi</h5>
                     <div className="flex items-start gap-3 text-white/80 group-hover:text-white transition-colors">
                       <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" />
                       <span className="text-sm leading-relaxed">39 Hàm Nghi, Phường Sài Gòn, TP. Hồ Chí Minh</span>
                     </div>
                   </div>
                   
-                  <div className="group">
-                    <h5 className="text-sm font-medium text-blue-200 mb-2">Cơ sở Hoàng Diệu</h5>
+                  <div className="group mb-1">
+                    <h5 className="text-sm font-medium text-blue-200 mb-1">Cơ sở Hoàng Diệu</h5>
                     <div className="flex items-start gap-3 text-white/80 group-hover:text-white transition-colors">
                       <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" />
                       <span className="text-sm leading-relaxed">56 Hoàng Diệu 2, Phường Thủ Đức, TP. Hồ Chí Minh</span>
@@ -118,15 +118,15 @@ export function PublicFooter() {
               </div>
 
               {/* Contact Details */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+              <div className="space-y-2 mb-2">
+                <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                   <GraduationCap className="h-5 w-5 text-blue-400" />
                   Liên hệ
                 </h4>
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <a
                     href="mailto:dhnhtphcm@hub.edu.vn"
-                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group"
+                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                   >
                     <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                       <Mail className="h-4 w-4 text-blue-400" />
@@ -139,7 +139,7 @@ export function PublicFooter() {
                   
                   <a
                     href="tel:0888353488"
-                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group"
+                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                   >
                     <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                       <Phone className="h-4 w-4 text-blue-400" />
@@ -152,7 +152,7 @@ export function PublicFooter() {
                   
                   <a
                     href="tel:02838212430"
-                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group"
+                    className="flex items-center gap-3 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                   >
                     <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                       <Phone className="h-4 w-4 text-blue-400" />
@@ -168,31 +168,31 @@ export function PublicFooter() {
           </div>
 
           {/* Quick Links & Social */}
-          <div className="space-y-8">
+          <div className="space-y-2 mb-2">
             {/* Quick Links */}
             <div className="space-y-6">
-              <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+              <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                 <div className="h-1 w-8 rounded-full bg-white" />
                 Liên kết nhanh
               </h4>
               <nav className="space-y-3">
                 <Link
                   href={FOOTER_ROUTES.home}
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Trang chủ</span>
                 </Link>
                 <Link
                   href={FOOTER_ROUTES.blog}
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Blog</span>
                 </Link>
                 <Link
                   href={FOOTER_ROUTES.categories}
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Danh mục</span>
@@ -201,36 +201,36 @@ export function PublicFooter() {
             </div>
 
             {/* Resources */}
-            <div className="space-y-6">
-              <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className="space-y-2 mb-2">
+              <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                 <div className="h-1 w-8 rounded-full bg-white" />
                 Tài nguyên
               </h4>
               <nav className="space-y-3">
                 <Link
                   href={FOOTER_ROUTES.admin}
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Quản trị</span>
                 </Link>
                 <a
                   href="#"
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Hướng dẫn sử dụng</span>
                 </a>
                 <a
                   href="#"
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Điều khoản dịch vụ</span>
                 </a>
                 <a
                   href="#"
-                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group"
+                  className="flex items-center gap-2 text-white/80 hover:text-white transition-all duration-200 group mb-1"
                 >
                   <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   <span>Chính sách bảo mật</span>
@@ -239,8 +239,8 @@ export function PublicFooter() {
             </div>
 
             {/* Social Media */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+            <div className="space-y-2 mb-2">
+              <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                 <div className="h-1 w-8 rounded-full bg-white" />
                 Kết nối
               </h4>
