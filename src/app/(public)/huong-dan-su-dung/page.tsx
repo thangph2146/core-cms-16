@@ -1,31 +1,31 @@
 import type { Metadata } from "next"
 import { appConfig } from "@/lib/config"
-import { Help } from "@/features/public/help/components"
+import { GuideClient } from "@/features/public/help/components/guide-client"
 
 /**
- * Help Page Metadata
+ * Guide Page Metadata
  * 
  * Theo Next.js 16 best practices:
  * - Metadata được merge với public layout và root layout
- * - Title sử dụng template từ root: "Trợ giúp | CMS"
+ * - Title sử dụng template từ root: "Hướng dẫn sử dụng | CMS"
  * - Open Graph và Twitter Card cho social sharing
  */
 export const metadata: Metadata = {
-  title: "Trợ giúp",
-  description: "Hướng dẫn sử dụng hệ thống và câu trả lời cho các câu hỏi thường gặp",
+  title: "Hướng dẫn sử dụng",
+  description: "Hướng dẫn chi tiết cách đăng ký và đăng nhập vào hệ thống",
   openGraph: {
     ...appConfig.openGraph,
-    title: "Trợ giúp - CMS",
-    description: "Hướng dẫn sử dụng hệ thống và câu trả lời cho các câu hỏi thường gặp",
+    title: "Hướng dẫn sử dụng - CMS",
+    description: "Hướng dẫn chi tiết cách đăng ký và đăng nhập vào hệ thống",
   },
   twitter: {
     ...appConfig.twitter,
-    title: "Trợ giúp - CMS",
-    description: "Hướng dẫn sử dụng hệ thống và câu trả lời cho các câu hỏi thường gặp",
+    title: "Hướng dẫn sử dụng - CMS",
+    description: "Hướng dẫn chi tiết cách đăng ký và đăng nhập vào hệ thống",
   },
 }
 
-export default async function HelpPage() {
-  return <Help />
+export default async function GuidePage() {
+  return <GuideClient />
 }
 
